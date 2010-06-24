@@ -1,0 +1,203 @@
+Working name, GoIRCD, but I want to change this at some point.
+
+Goals:
+
+- To create a flexible, yet elegant, modular IRCD through a tiny core only tracking users, channels, and their metadata and associations, with subsystems implementing real functionality, including all client and s2s communication.
+
+- To avoid the need for over complex module APIs by delegating large blocks of functionality divided at natural lines to subsystems.
+
+- To start by implementing current features such as CAP, SASL, CHANACL, and similar, and go on to implement functionality previously lacking in IRC, such as multiple or no clients attached to a user, storage of messages for offline users, never permitting the use of registered nicknames or channels, and with alternative linking protocols, reliable message delivery and connection recovery.
+
+- Permit introduction of clients by and communication with arcane and unusual protocols via adding additional subsystems to the servers doing said communication, as naturally to the core as with IRC clients.
+
+- To provide a very high level of reliability.
+
+
+Intended Uses:
+
+- A capable and hopefully decently designed IRCD for users wishing for a high level of flexibility.
+
+- More generic Services framework than Atheme for implementation of centralised network Services such as stats and network-specific functions.
+
+- Interface to an IRC network from another protocol; this would simply require a subsystem communicating with that protocol and adding and removing and modifying and sending messages to users and channels as necessary.
+
+- IRCD interlinking; similar to Janus, but possibly with the ability to translate more information.
+
+
+Design guidelines:
+- Doing anything is bad. Doing a single, self-contained task without assumptions about what that task will be used within is ideal.
+
+- Flexibility is best achieved through simplicity.
+
+- Metadata is powerful.
+
+
+PACKAGES:
+
+To build GoIRCD, a file containing a list of packages to build in will be created. These packages are conceptually split into subsystems and modules.
+
+Subsystems implement part of GoIRCD itself, including client or other server communication, or an important service to other packages such as permission checks or message filtering, parts which would generally be considered part of the "core" of an IRCD. They must not include assumptions about other loaded subsystems and cannot import modules. They are included as top-level directories.
+
+Modules implement a small block of functionality via hooks. They can import other modules, and may provide functionality, including protocol-specific functionality, to other modules. They generally shouldn't be central to the understanding of the system.
+
+Subsystems are included as top-level directories and generally contain subpackages. Modules are in subdirectories of modules, such as modules/irc/msg/, and will rarely contain subpackages.
+
+
+SUBSYSTEMS:
+
+Main:
+
+Imports core, config, and every other included package, loads configuration and sets it in core. It then calls a "start" function for each other package, which may create a goroutine to handle that subsystem/module's affairs and return a channel for communication with that package's goroutine and a channel which it will send a value down when it is ready to quit. If it does not, it will return two nils. The main function then waits for each goroutine created to send a quit message before returning.
+
+
+Configuration:
+
+Exports Config type, with public methods to get config values.
+
+Exports function to parse configuration and get a type satisfying the Config interface.
+
+
+Core:
+
+The "core" of the IRCD. Implements users, channels, user-channel association, metadata on them, operations on them, and module interfaces.
+
+Imports config.
+
+Exports config setting and getting functions.
+
+Exports three types:
+
+-- User type
+-- Channel type
+-- Membership type
+
+What the first three represent is largely self-explanatory. The last will solely define a send/receive messages interface used for subsystem communication and core-to-subsystem messages such as "shut down".
+
+Users and channels are much more minimal here than would be expected. They possess a name, and a map of metadata. Modes are metadata, and modes on users are metadata on Membership. Additionally, channels have a type; as well as the normal type, there will be a log type, on which SNOTICEs and the log file storage system listen. Thus, the # of a channel name is not part of its name internally.
+
+Defines private global maps containing users by name, channels by name for each type, and memberships by user name and channel name for each channel type.
+
+Defines a private global map containing hooks by module name for each hook type.
+
+Defines a private global map containing package goroutine channels by package name.
+
+All types have exported methods on their interface to perform user and channel operations, and to push messages to channels or users from a specified user source, or nil for a server message. Messages have a "type" associated. These call hooks as appropriate.
+
+Global operations such as creating a new user, creating a new channel, getting another package's channel for communication, and terminating the server have exported functions. Exported functions also exist to check the validity of a nickname or channel name.
+
+Adding a hook for each hook type has an exported function.
+
+All functions should be threadsafe; this can be readily done by making them send a message to a goroutine to have the job done, and waiting until it completes, aside the problem of which goroutines to make do what.
+
+Hooks on events are as follows for each event:
+- before (runs prior to display)
+- display (used to display/propagate the event)
+- after (runs after display)
+
+
+Permissions:
+
+Provides permission hooks to determine whether a user should be able to do an action. This subsystem is comprised of a number of entirely separate packages, for different sets of actions. Permissions specific to the implementation of a specific subsystem can have their permission package defined there.
+
+Each package defines, for each action, a private list of permission check functions and exports functions to add functions to the list, and check whether a user should be able to perform a given action, based on the list. If the list is empty or all handlers return 0, the permission checking function should return a default value.
+
+The signature of a permission check function should be defined to suit the action, but should return an int, with 0 indicating the hook does not wish to alter permissions, a negative value denying permission, a positive value granting permission, with the highest magnitude returned being the accepted result. Convention for return value magnitude should be as follows:
+
+(-)1: Restrictive mode/permissive mode
+-2: Ban
+3: Exempt
+20: Non-oper user override, such as being invited or channel access
+-100: Admin-added blocks (ex. Q-Lines)
+101: Admin power (ex. overridding Q-Lines, speaking through SILENCE)
+
+Things should go below -99 only if they expressly want to limit opers, and over 99 only if they want to grant oper-level permissions. Similarly, going outside of -19 to 19 risks affecting users with channel access.
+
+Admin power in permission checks is intended as a means to override restrictions set by operators such as Q-Lines, and continuously override restrictions not meant to affect opers, such as channel visibility in /list and ability to speak through ignore or caller-id modes.
+
+It is not meant to be used to implement automatic oper override and this would work poorly; use of separate commands which do not perform permission checks is generally preferred. As the design works out, this can be done readily enough elsewhere by hooking on command failure.
+
+
+Filter:
+
+Provides filtering hooks to modify messages prior to sending them. This subsystem is comprised of a number of entirely separate packages, one for each set of mesage types. Filters specific to the implementation of a specific subsystem can have their filter package defined in there. QUIT, PART, CHANMSG, USERMSG, are examples of included filter types, which will be included twice; once for input, and once for output to a specific target.
+
+Each package defines, for each message type, a private list of filter functions and exports functions to add functions to the list, and run a message through the list to be modified.
+
+
+IRCCommon:
+
+This subsystem contains subpackages implementing common IRC functionality such as command parsing, mode parsing, ban parsing, *line management in a manner suitable for use by both client, ts6, and other linking protocols in future.
+
+
+Client:
+
+Imports the core.
+
+Stores a private global map of users to output goroutines.
+Stores a private global map of command names to command.
+Stores a private global list of hook functions for each hook type.
+
+On start, runs a goroutine for each port to listen on, a client listener goroutine.
+
+This, for each client connection, attaches two goroutines to its connection; one to listen to its input, parse it, and run its stuff, a client input goroutine, and another to wait on a channel, receive strings to send and other instructions for that client, including socket closing instructions, a client output goroutine.
+
+The main goroutine then selects on a slice of channels to receive messages from each started goroutine and another channel, which the module's messages will be sent on.
+
+Exports functions to add commands and hooks on those commands.
+
+Hook API:
+
+- before (always runs prior to a command, cannot block - ex. logging, antidrone modules)
+- after (always runs after the command, cannot block or modify - ex. chanalias, logging)
+- failed (run only for failed commands, with the reason why; failed to parse, not found, permission denied are the obvious options - ex. repeat oper attempt banning, logging/noticing on attempts to perform oper commands, helpful advice for stupid errors)
+
+Additionally, commands may define their own types of hook possible on them and provide functions in their own module to access them.
+
+
+TS6:
+
+Imports the core.
+
+This subsystem does something similar to client listener, client input, and client output goroutines, but with server listeners, server input, and server output goroutines.
+
+It is not modular, but will export large amounts of its internal workings such that another protocol module can import it, and pass calls on into it easily.
+
+
+Logfile:
+
+This subsystem has a global list of log files and log channels, which are normal channels which wish to receive log messages. It writes messages to channels with the log type to these as appropriate.
+
+
+MODULES:
+
+Additional packages can be added to the build aside the main subsystems. These are where "the real functionality" should be implemented, and correspond roughly to the modules of other IRCDs, including core modules. Unlike subsystems, these are permitted to import other packages other than core.
+
+Modules may import whatever they wish so long as it does not become cyclic.
+
+A module that is used by a large number of other modules, or talks to clients or other message-passing servers of some kind, or provide a significant service used across subsystems, should be considered to be moved to top level as a subsystem.
+
+There is no distinction between "core" or RFC1459 functionality, such as PRIVMSG and MODE, and modules that do more unusual things. Being packages, these can comfortably be quite large and define sets of related functionality. The user is trusted not to remove something important from the build like modules/client/msg- or perhaps such modules can be automatically added to the build list if client is built.
+
+
+
+CURRENT DESIGN ISSUES:
+
+- NOT ELEGANT ENOUGH- Specifically, the module API in various places has a certain level of complexity to it.
+
+- Linking protocol modularity? Being able to implement extensions to the linking protocol via a small module rather than composing a new protocol module entire would make it simpler.
+
+- Janus-like link filtering. This would require a Janus-foo linking module for each protocol at present, which is bad.
+
+- Exact message passing API between modules.
+
+- How to define which subsystems are to be compiled in? This will probably require main to be generated using some kind of build script, or at least modified.
+
+- A restartable IRCD would be cool, and with Go's own TLS implementation rather than OpenSSL or GnuTLS, could be practical without disrupting TLS connections- but would need some means to do this in Go. The structure is probably largely compatible with this, as it sends a shutdown message recursively to cause a shutdown, and this could simply do whatever is necessary to "pause" that subsystem, with another set on resume if necessary. There would need to be a way to inform modules of the need to pause, but this should not be greatly difficult. On the other hand, it could actually be very hard because I have no idea how this would be done.
+
+- Dynamic loading. Being restartable could make this redundant, if the restarting mechanism was very reliable.
+
+- Configuration format, approach to making threadsafe. Likely, there will be a config goroutine handling configuration setting and getting for a given type satisfying Config.
+
+- Remote IRCD privilege separation.
+
+- The conversion of modes to metadata and back internally could be slow. Optimisable if a single mode list can be assumed, but then ability to link with differing IRCDs is lost.
