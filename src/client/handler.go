@@ -118,6 +118,8 @@ func input(c *Client) {
 				for i := range b {
 					if b[i] == '\r' || b[i] == '\n' {
 						eol = i
+					} else if b[i] == 0 {
+						eol = i
 					} else if eol != -1 {
 						break
 					}
@@ -148,7 +150,7 @@ func input(c *Client) {
 			// than 512 bytes long, clip the line there.
 			eol := -1
 			for i := range b {
-				if b[i] == '\r' || b[i] == '\n' {
+				if b[i] == '\r' || b[i] == '\n' || b[i] == 0 {
 					eol = i
 				} else if eol != -1 {
 					break
