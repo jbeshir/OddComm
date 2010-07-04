@@ -94,13 +94,7 @@ func clientMain(msg chan string, exit chan int) {
 			if r.c != nil {
 				alive, ok := climap[r.c]
 				if ok && alive {
-					var r2 clientRequest
-					r2.c = r.c
-					r2.f = r.f
-					r2.done = make(chan bool)
-					r.c.cchan <- r2
-					<-r2.done
-					r.done <- true
+					r.c.cchan <- r
 				} else {
 					r.done <- false
 				}

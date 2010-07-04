@@ -11,10 +11,11 @@ import "oddircd/core"
 // u != nil - The client is registered.
 // unreg != nil - The client is unregistered.
 // u == nil && unreg == nil - The client is disconnecting.
+// May be used as a User regardless of registration status safely.
 type Client struct {
 	cchan     chan clientRequest
 	conn      net.Conn
-	u         *core.User
+	u         *core.CoreUser
 	unreg     *unregUser
 	inputDone bool
 	outbuf    []byte
@@ -23,13 +24,97 @@ type Client struct {
 // Stores information for an unregistered user.
 type unregUser struct {
 	nick string
-	meta map[string]string
+	data map[string]string
+}
+
+
+func (c *Client) ID() (id string) {
+	makeRequest(c, func() {
+		if c.u != nil {
+			id = c.u.ID()
+		} else {
+			id = "*"
+		}
+	})
+
+	return
+}
+
+func (c *Client) Nick() (nick string) {
+	makeRequest(c, func() {
+		if c.u != nil {
+			nick = c.u.Nick()
+		} else if c.unreg != nil {
+			nick = c.unreg.nick
+		} 
+	})
+
+	return
+}
+
+func (c *Client) SetNick(nick string) (err os.Error) {
+	makeRequest(c, func() {
+		if c.u != nil {
+			err = c.u.SetNick(nick)
+		} else if c.unreg != nil {
+			c.unreg.nick = nick
+		}
+	})
+
+	return
+}
+
+func (c *Client) SetData(name, value string) {
+	makeRequest(c, func() {
+		if c.u != nil {
+			c.u.SetData(name, value)
+		} else if c.unreg != nil {
+			if value != "" {
+				c.unreg.data[name] = value
+			} else {
+				c.unreg.data[name] = "", false
+			}
+		}
+	})
+}
+
+func (c *Client) GetData(name string) (value string) {
+	makeRequest(c, func() {
+		if (c.u != nil) {
+			value = c.u.GetData(name)
+		} else if c.unreg != nil {
+			value = c.unreg.data[name]
+		}
+	})
+	
+	return
+}
+
+func (c *Client) Remove(message []byte) {
+	makeRequest(c, func() {
+
+		if c.u != nil {
+			c.u.Remove(message)
+		}
+
+		if message != nil {
+			c.write(message)
+			c.write([]byte("\r\n"))
+		}
+		c.u = nil
+		c.unreg = nil
+	})
 }
 
 
 // Write a raw line to the client. This internal method assumes it is being
 // called from the client goroutine.
 func (c *Client) write(line []byte) {
+	
+	// If the client is disconnecting, drop all writes to it.
+	if (c.u == nil && c.unreg == nil) {
+		return
+	}
 
 	// Define function to append to the output buffer.
 	var appendfunc = func(line []byte) bool {
@@ -82,7 +167,6 @@ func (c *Client) write(line []byte) {
 
 // Write a raw line to the client.
 func (c *Client) Write(line []byte) (int, os.Error) {
-
 	written := makeRequest(c, func() {
 		c.write(line)
 	})
@@ -96,17 +180,6 @@ func (c *Client) Write(line []byte) (int, os.Error) {
 
 // Quit the client.
 // Message is written to them on a line of its own first, if non-null.
-func (c *Client) Quit(message []byte) {
-	makeRequest(c, func() {
-		c.u = nil
-		c.unreg = nil
-		if message != nil {
-			c.write(message)
-			c.write([]byte("\r\n"))
-		}
-	})
-}
-
 // Privmsg sends a PRIVMSG to the client.
 func (c *Client) Privmsg(source string, message []byte) {
 	fmt.Fprintf(c, "%s PRIVMSG Namegduf :%s", source, message)
