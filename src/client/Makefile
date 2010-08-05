@@ -5,7 +5,9 @@ GOFILES=\
 	main.go\
 	client.go\
 	climap.go\
+	commands.go\
 	handler.go\
-	request.go
+	request.go\
+	usercmds.go
 
 include $(GOROOT)/src/Make.pkg

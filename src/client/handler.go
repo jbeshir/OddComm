@@ -1,10 +1,7 @@
 package client
 
-import "bytes"
-import "fmt"
 import "os"
 
-import "oddircd/core"
 import "oddircd/irc"
 
 
@@ -15,9 +12,9 @@ import "oddircd/irc"
 func clientHandler(c *Client) {
 
 	// Stop panics here, so they only disconnect the client they affect.
-	defer func() {
-		recover()
-	}()
+	//defer func() {
+	//	recover()
+	//}()
 
 	// Declare shutdown variables.
 	// Shutdown is gradual; we wait for I/O to complete first.
@@ -78,9 +75,9 @@ func clientHandler(c *Client) {
 func input(c *Client) {
 
 	// Stop panics here, so they only disconnect the client they affect.
-	defer func() {
-		recover()
-	}()
+	//defer func() {
+	//	recover()
+	//}()
 
 	// Defer marking ourselves as done, so the client goroutine can
 	// terminate. We also disconnect the client if input fails early.
@@ -193,18 +190,12 @@ func input(c *Client) {
 			}
 
 			// Parse the line, ignoring any specified origin.
-			_, command, params := irc.Parse(line)
+			_, command, params := irc.Parse(Commands, line)
 
-			// Command dispatch!
-			// Kinda.
-			// Well, no, not really. Not yet.
-			if bytes.Equal(command, []byte("NICK")) &&
-				len(params) > 0 {
-				fmt.Fprintf(c, "Hi %s!\r\n", params[0])
-			} else if bytes.Equal(command, []byte("QUIT")) {
-				// A perfectly valid implementation.
-				// It DOES disconnect the user.
-				core.Shutdown()
+			// If command isn't nil, run it.
+			// Otherwise, echo.
+			if command != nil {
+				command.Handler(c, params)
 			} else {
 				// Polly wants a cracker.
 				c.Write(line)

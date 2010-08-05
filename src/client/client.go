@@ -14,7 +14,7 @@ import "oddircd/core"
 // May be used as a User regardless of registration status safely.
 type Client struct {
 	cchan     chan clientRequest
-	conn      net.Conn
+	conn      *net.TCPConn
 	u         *core.CoreUser
 	unreg     *unregUser
 	inputDone bool
@@ -42,70 +42,94 @@ func (c *Client) ID() (id string) {
 
 func (c *Client) Nick() (nick string) {
 	makeRequest(c, func() {
-		if c.u != nil {
-			nick = c.u.Nick()
-		} else if c.unreg != nil {
-			nick = c.unreg.nick
-		} 
+		nick = c.getnick()
 	})
 
+	return
+}
+
+func (c *Client) getnick() (nick string) {
+	if c.u != nil {
+		nick = c.u.Nick()
+	} else if c.unreg != nil {
+		nick = c.unreg.nick
+	}
 	return
 }
 
 func (c *Client) SetNick(nick string) (err os.Error) {
 	makeRequest(c, func() {
-		if c.u != nil {
-			err = c.u.SetNick(nick)
-		} else if c.unreg != nil {
-			c.unreg.nick = nick
-		}
+		err = c.setnick(nick)
 	})
 
+	return
+}
+
+func (c *Client) setnick(nick string) (err os.Error) {
+	if c.u != nil {
+		err = c.u.SetNick(nick)
+	} else if c.unreg != nil {
+		c.unreg.nick = nick
+	}
 	return
 }
 
 func (c *Client) SetData(name, value string) {
 	makeRequest(c, func() {
-		if c.u != nil {
-			c.u.SetData(name, value)
-		} else if c.unreg != nil {
-			if value != "" {
-				c.unreg.data[name] = value
-			} else {
-				c.unreg.data[name] = "", false
-			}
-		}
+		c.setdata(name, value)
 	})
+}
+
+// Assumes it is being called from the client's owning goroutine.
+func (c *Client) setdata(name, value string) {
+	if c.u != nil {
+		c.u.SetData(name, value)
+	} else if c.unreg != nil {
+		if value != "" {
+			c.unreg.data[name] = value
+		} else {
+			c.unreg.data[name] = "", false
+		}
+	}
 }
 
 func (c *Client) GetData(name string) (value string) {
 	makeRequest(c, func() {
-		if (c.u != nil) {
-			value = c.u.GetData(name)
-		} else if c.unreg != nil {
-			value = c.unreg.data[name]
-		}
+		value = c.getdata(name)
 	})
 	
 	return
 }
 
-func (c *Client) Remove(message []byte) {
+func (c *Client) getdata(name string) (value string) {
+		if (c.u != nil) {
+			value = c.u.GetData(name)
+		} else if c.unreg != nil {
+			value = c.unreg.data[name]
+		}
+		return
+}
+
+func (c *Client) Remove(message string) {
 	makeRequest(c, func() {
-
-		if c.u != nil {
-			c.u.Remove(message)
-		}
-
-		if message != nil {
-			c.write(message)
-			c.write([]byte("\r\n"))
-		}
-		c.u = nil
-		c.unreg = nil
+		c.remove(message)
 	})
 }
 
+func (c *Client) remove(message string) {
+	if c.u != nil {
+		c.u.Remove(message)
+	}
+
+	username := c.getdata("username")
+	if username == "" {
+		username = "unknown"
+	}
+	c.write([]byte(fmt.Sprintf("ERROR :Closing link: (%s@%s) [%s]\r\n", username, c.getdata("hostname"), message)))
+
+	c.u = nil
+	c.unreg = nil
+}
 
 // Write a raw line to the client. This internal method assumes it is being
 // called from the client goroutine.
@@ -121,6 +145,9 @@ func (c *Client) write(line []byte) {
 
 		// If we've overflowed our output buffer, kill the client.
 		if cap(c.outbuf)-len(c.outbuf) < len(line) {
+			if (c.u != nil) {
+				c.u.Remove("SendQ exceeded.")
+			}
 			c.u = nil
 			c.unreg = nil
 			return false

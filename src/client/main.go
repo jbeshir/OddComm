@@ -125,10 +125,10 @@ func clientMain(msg chan string, exit chan int) {
 
 // Listen goroutine function, handling listening for one socket.
 // Owns its socket.
-func listen(l net.Listener) {
+func listen(l *net.TCPListener) {
 
 	for {
-		c, err := l.Accept()
+		c, err := l.AcceptTCP()
 		if err != nil {
 			core.Shutdown()
 			return
@@ -139,6 +139,11 @@ func listen(l net.Listener) {
 		client.conn = c
 		client.conn.SetWriteTimeout(1)
 		client.unreg = new(unregUser)
+		client.unreg.data = make(map[string]string)
+
+		ip := client.conn.RemoteAddr().(*net.TCPAddr).IP.String()
+		client.unreg.data["ip"] = ip
+		client.unreg.data["hostname"] = client.unreg.data["ip"]
 
 		go clientHandler(client)
 	}

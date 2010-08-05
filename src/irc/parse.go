@@ -2,7 +2,7 @@ package irc
 
 import "bytes"
 
-func Parse(line []byte) (origin []byte, command []byte, params [][]byte) {
+func Parse(d CommandDispatcher, line []byte) (origin []byte, command *Command, params [][]byte) {
 
 	// We can handle up to 20 parameters. This is plenty.
 	var param_array [20][]byte
@@ -41,10 +41,16 @@ func Parse(line []byte) (origin []byte, command []byte, params [][]byte) {
 	}
 
 	// The word we have now is the command.
-	if (len(word) == 0) {
+	// Look it up. If it doesn't exist, return early.
+	command = d.Lookup(string(word))
+	if command == nil {
 		return
 	}
-	command = word
+
+	// If the command doesn't support parameters, skip them all.
+	if command.Maxargs == 0 {
+		return
+	}
 
 	// Everything else is a sequence of parameters.
 	for len(params) < 20 {
@@ -64,7 +70,7 @@ func Parse(line []byte) (origin []byte, command []byte, params [][]byte) {
 
 		// If we've hit the limit for parameters, the whole rest of the
 		// line is one large final parameter.
-		if (len(params) == 19) {
+		if len(params) == command.Maxargs - 1 || len(params) == 19 {
 			param_array[len(params)] = line
 			params = params[0:len(params)+1]
 			break
@@ -74,6 +80,12 @@ func Parse(line []byte) (origin []byte, command []byte, params [][]byte) {
 		nextword()
 		param_array[len(params)] = word
 		params = params[0:len(params)+1]
+	}
+
+	// If we don't have enough parameters, treat it as a failed dispatch.
+	if len(params) < command.Minargs {
+		command = nil
+		params = param_array[0:0]
 	}
 
 	return

@@ -2,9 +2,11 @@ package core
 
 import "os"
 
+
 type User interface {
 	// ID returns the user's ID.
 	ID() (id string)
+
 	// Nick returns the user's nick.
 	Nick() (nick string)
 
@@ -22,7 +24,7 @@ type User interface {
 
 	// Remove kills the user.
 	// The given message is recorded as the reason why.
-	Remove(message []byte)
+	Remove(message string)
 }
 
 type CoreUser struct {
@@ -91,7 +93,7 @@ func (u *CoreUser) GetData(name string) (value string) {
 	return
 }
 
-func (u *CoreUser) Remove(_ []byte) {
+func (u *CoreUser) Remove(_ string) {
 	wait := make(chan bool)
 	corechan <- func() {
 		if users[u.id] == u {
