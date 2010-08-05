@@ -8,106 +8,13 @@ import "oddircd/core"
 
 
 // Handle a client connection.
-// u != nil - The client is registered.
-// unreg != nil - The client is unregistered.
-// u == nil && unreg == nil - The client is disconnecting.
-// May be used as a User regardless of registration status safely.
 type Client struct {
 	cchan     chan clientRequest
 	conn      *net.TCPConn
-	u         *core.CoreUser
-	unreg     *unregUser
+	u         *core.User
+	disconnecting bool
 	inputDone bool
 	outbuf    []byte
-}
-
-// Stores information for an unregistered user.
-type unregUser struct {
-	nick string
-	data map[string]string
-}
-
-
-func (c *Client) ID() (id string) {
-	makeRequest(c, func() {
-		if c.u != nil {
-			id = c.u.ID()
-		} else {
-			id = "*"
-		}
-	})
-
-	return
-}
-
-func (c *Client) Nick() (nick string) {
-	makeRequest(c, func() {
-		nick = c.getnick()
-	})
-
-	return
-}
-
-func (c *Client) getnick() (nick string) {
-	if c.u != nil {
-		nick = c.u.Nick()
-	} else if c.unreg != nil {
-		nick = c.unreg.nick
-	}
-	return
-}
-
-func (c *Client) SetNick(nick string) (err os.Error) {
-	makeRequest(c, func() {
-		err = c.setnick(nick)
-	})
-
-	return
-}
-
-func (c *Client) setnick(nick string) (err os.Error) {
-	if c.u != nil {
-		err = c.u.SetNick(nick)
-	} else if c.unreg != nil {
-		c.unreg.nick = nick
-	}
-	return
-}
-
-func (c *Client) SetData(name, value string) {
-	makeRequest(c, func() {
-		c.setdata(name, value)
-	})
-}
-
-// Assumes it is being called from the client's owning goroutine.
-func (c *Client) setdata(name, value string) {
-	if c.u != nil {
-		c.u.SetData(name, value)
-	} else if c.unreg != nil {
-		if value != "" {
-			c.unreg.data[name] = value
-		} else {
-			c.unreg.data[name] = "", false
-		}
-	}
-}
-
-func (c *Client) GetData(name string) (value string) {
-	makeRequest(c, func() {
-		value = c.getdata(name)
-	})
-	
-	return
-}
-
-func (c *Client) getdata(name string) (value string) {
-		if (c.u != nil) {
-			value = c.u.GetData(name)
-		} else if c.unreg != nil {
-			value = c.unreg.data[name]
-		}
-		return
 }
 
 func (c *Client) Remove(message string) {
@@ -121,14 +28,13 @@ func (c *Client) remove(message string) {
 		c.u.Remove(message)
 	}
 
-	username := c.getdata("username")
+	username := c.u.Data("ircident")
 	if username == "" {
 		username = "unknown"
 	}
-	c.write([]byte(fmt.Sprintf("ERROR :Closing link: (%s@%s) [%s]\r\n", username, c.getdata("hostname"), message)))
+	c.write([]byte(fmt.Sprintf("ERROR :Closing link: (%s@%s) [%s]\r\n", username, c.u.Data("hostname"), message)))
 
-	c.u = nil
-	c.unreg = nil
+	c.disconnecting = true
 }
 
 // Write a raw line to the client. This internal method assumes it is being
@@ -136,7 +42,7 @@ func (c *Client) remove(message string) {
 func (c *Client) write(line []byte) {
 	
 	// If the client is disconnecting, drop all writes to it.
-	if (c.u == nil && c.unreg == nil) {
+	if (c.disconnecting) {
 		return
 	}
 
@@ -148,8 +54,7 @@ func (c *Client) write(line []byte) {
 			if (c.u != nil) {
 				c.u.Remove("SendQ exceeded.")
 			}
-			c.u = nil
-			c.unreg = nil
+			c.disconnecting = true
 			return false
 		}
 
@@ -168,8 +73,7 @@ func (c *Client) write(line []byte) {
 		// Try to write.
 		n, err := c.conn.Write(line)
 		if err != nil && err.(net.Error).Timeout() == false {
-			c.u = nil
-			c.unreg = nil
+			c.disconnecting = true
 			return
 		}
 

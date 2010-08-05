@@ -6,14 +6,12 @@
 */
 package core
 
-import "os"
-
 
 // The main users by ID map to look up users.
-var users map[string]*CoreUser
+var users map[string]*User
 
 // The users by nick map for indexed look up of users by name.
-var usersByNick map[string]*CoreUser
+var usersByNick map[string]*User
 
 // The package message channel by package name map.
 // For sending messages to package goroutines.
@@ -34,8 +32,8 @@ func init() {
 // to do cleanup before shutdown because it is always ready to stop whenever
 // everything else is done calling into it.
 func init() {
-	users = make(map[string]*CoreUser)
-	usersByNick = make(map[string]*CoreUser)
+	users = make(map[string]*User)
+	usersByNick = make(map[string]*User)
 	packages = make(map[string]chan string)
 
 	corechan = make(chan func())
@@ -70,22 +68,13 @@ func Shutdown() {
 }
 
 
-// AddUser adds a user with the given name, returning a pointer to its User
-// structure.
-func AddUser(nick string) (u *CoreUser, err os.Error) {
+// NewUser creates a new user.
+func NewUser() (u *User) {
 	wait := make(chan bool)
 	corechan <- func() {
-		if usersByNick[nick] != nil {
-			err = os.NewError("already in use")
-			wait <- true
-			return
-		}
-
-		u = new(CoreUser)
+		u = new(User)
 		u.id = "1"
-		u.nick = nick
 		users[u.id] = u
-		usersByNick[u.nick] = u
 		wait <- true
 	}
 	<-wait
@@ -95,8 +84,8 @@ func AddUser(nick string) (u *CoreUser, err os.Error) {
 
 // GetUser gets a user with the given ID, returning a pointer to their User
 // structure.
-func GetUser(id string) *CoreUser {
-	c := make(chan *CoreUser)
+func GetUser(id string) *User {
+	c := make(chan *User)
 	corechan <- func() {
 		c <- users[id]
 	}
@@ -105,8 +94,8 @@ func GetUser(id string) *CoreUser {
 
 // GetUserByNick gets a user with the given nick, returning a pointer to their
 // User structure.
-func GetUserByNick(nick string) *CoreUser {
-	c := make(chan *CoreUser)
+func GetUserByNick(nick string) *User {
+	c := make(chan *User)
 	corechan <- func() {
 		c <- users[nick]
 	}

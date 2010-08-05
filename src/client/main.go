@@ -69,8 +69,7 @@ func clientMain(msg chan string, exit chan int) {
 				var r clientRequest
 				var c *Client
 				r.f = func() {
-					c.u = nil
-					c.unreg = nil
+					c.disconnecting = true
 					c.write([]byte("Server terminating.\r\n"))
 				}
 				r.done = make(chan bool)
@@ -138,12 +137,11 @@ func listen(l *net.TCPListener) {
 		client.cchan = make(chan clientRequest)
 		client.conn = c
 		client.conn.SetWriteTimeout(1)
-		client.unreg = new(unregUser)
-		client.unreg.data = make(map[string]string)
+		client.u = core.NewUser()
 
 		ip := client.conn.RemoteAddr().(*net.TCPAddr).IP.String()
-		client.unreg.data["ip"] = ip
-		client.unreg.data["hostname"] = client.unreg.data["ip"]
+		client.u.SetData("ip", ip)
+		client.u.SetData("hostname", ip)
 
 		go clientHandler(client)
 	}

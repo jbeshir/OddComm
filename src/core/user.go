@@ -3,46 +3,16 @@ package core
 import "os"
 
 
-type User interface {
-	// ID returns the user's ID.
-	ID() (id string)
-
-	// Nick returns the user's nick.
-	Nick() (nick string)
-
-	// SetNick sets the user's nick.
-	// If successful, err is nil. If not, err is a message why.
-	SetNick(nick string) (err os.Error)
-
-	// SetData sets the given piece of metadata on the user.
-	// Setting it to "" unsets it.
-	SetData(name string, value string)
-
-	// GetData gets the given piece of metadata.
-	// If it is not set, it will be "".
-	GetData(name string) (value string)
-
-	// Remove kills the user.
-	// The given message is recorded as the reason why.
-	Remove(message string)
-}
-
-type CoreUser struct {
+type User struct {
 	id   string
 	nick string
+	regcount int
 	data map[string]string
 }
 
 
-func (u *CoreUser) Nick() string {
-	c := make(chan string)
-	corechan <- func() {
-		c <- u.nick
-	}
-	return <-c
-}
-
-func (u *CoreUser) ID() string {
+// ID returns the user's ID.
+func (u *User) ID() string {
 	c := make(chan string)
 	corechan <- func() {
 		c <- u.id
@@ -50,7 +20,9 @@ func (u *CoreUser) ID() string {
 	return <-c
 }
 
-func (u *CoreUser) SetNick(nick string) (err os.Error) {
+// SetNick sets the user's nick.
+// If successful, err is nil. If not, err is a message why.
+func (u *User) SetNick(nick string) (err os.Error) {
 	wait := make(chan bool)
 	corechan <- func() {
 		if usersByNick[nick] == u {
@@ -71,7 +43,18 @@ func (u *CoreUser) SetNick(nick string) (err os.Error) {
 	return
 }
 
-func (u *CoreUser) SetData(name string, value string) {
+// Nick returns the user's nick.
+func (u *User) Nick() string {
+	c := make(chan string)
+	corechan <- func() {
+		c <- u.nick
+	}
+	return <-c
+}
+
+// SetData sets the given piece of metadata on the user.
+// Setting it to "" unsets it.
+func (u *User) SetData(name string, value string) {
 	wait := make(chan bool)
 	corechan <- func() {
 		if value != "" {
@@ -83,7 +66,9 @@ func (u *CoreUser) SetData(name string, value string) {
 	<-wait
 }
 
-func (u *CoreUser) GetData(name string) (value string) {
+// Data gets the given piece of metadata.
+// If it is not set, it will be "".
+func (u *User) Data(name string) (value string) {
 	wait := make(chan bool)
 	corechan <- func() {
 		value = u.data[name]
@@ -93,7 +78,9 @@ func (u *CoreUser) GetData(name string) (value string) {
 	return
 }
 
-func (u *CoreUser) Remove(_ string) {
+// Remove kills the user.
+// The given message is recorded as the reason why.
+func (u *User) Remove(_ string) {
 	wait := make(chan bool)
 	corechan <- func() {
 		if users[u.id] == u {

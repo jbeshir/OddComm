@@ -9,7 +9,7 @@ import "oddircd/core"
 type Command struct {
 
 	// The command handler.
-	Handler func(u core.User, params [][]byte)
+	Handler func(u *core.User, params [][]byte)
 
 	// The minimum arguments the command expects.
 	Minargs int

@@ -45,7 +45,7 @@ func clientHandler(c *Client) {
 		// and note that the client is being disconnected. This means
 		// new requests will only be arriving from the input and
 		// output goroutines.
-		if !closing && c.u == nil && c.unreg == nil {
+		if !closing && c.disconnecting {
 			killClient(c)
 			closing = true
 		}
@@ -83,8 +83,7 @@ func input(c *Client) {
 	// terminate. We also disconnect the client if input fails early.
 	defer func() {
 		makeDirectRequest(c, func() {
-			c.u = nil
-			c.unreg = nil
+			c.disconnecting = true
 			c.inputDone = true
 		})
 	}()
@@ -96,8 +95,7 @@ func input(c *Client) {
 		n, err := c.conn.Read(b[count:1024])
 		if err != nil {
 			makeDirectRequest(c, func() {
-				c.u = nil
-				c.unreg = nil
+				c.disconnecting = true
 			})
 			break
 		}
@@ -195,7 +193,7 @@ func input(c *Client) {
 			// If command isn't nil, run it.
 			// Otherwise, echo.
 			if command != nil {
-				command.Handler(c, params)
+				command.Handler(c.u, params)
 			} else {
 				// Polly wants a cracker.
 				c.Write(line)
