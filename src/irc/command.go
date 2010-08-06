@@ -1,5 +1,6 @@
 package irc
 
+import "io"
 import "strings"
 
 import "oddircd/core"
@@ -9,7 +10,8 @@ import "oddircd/core"
 type Command struct {
 
 	// The command handler.
-	Handler func(u *core.User, params [][]byte)
+	// w may be nil.
+	Handler func(u *core.User, w io.Writer, params [][]byte)
 
 	// The minimum arguments the command expects.
 	Minargs int
@@ -20,7 +22,10 @@ type Command struct {
 	Maxargs int
 
 	// Whether this command can be called for unregistered users.
-	Unregged bool
+	// 0: Registered users only.
+	// 1: Both registered users and unregistered users.
+	// 2: Unregistered users only.
+	Unregged int
 }
 
 

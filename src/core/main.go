@@ -73,11 +73,15 @@ func NewUser() (u *User) {
 	wait := make(chan bool)
 	corechan <- func() {
 		u = new(User)
+		u.data = make(map[string]string)
 		u.id = "1"
+		u.regcount = initialRegcount
 		users[u.id] = u
 		wait <- true
 	}
 	<-wait
+
+	runNewUserHooks(u)
 
 	return
 }

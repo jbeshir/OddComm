@@ -190,10 +190,20 @@ func input(c *Client) {
 			// Parse the line, ignoring any specified origin.
 			_, command, params := irc.Parse(Commands, line)
 
+			// If command is for the wrong kind of user, drop it.
+			if command != nil {
+				registered := c.u.Registered()
+				if registered && command.Unregged == 2 {
+					command = nil
+				} else if !registered && command.Unregged == 0 {
+					command = nil
+				}
+			}
+
 			// If command isn't nil, run it.
 			// Otherwise, echo.
 			if command != nil {
-				command.Handler(c.u, params)
+				command.Handler(c.u, c, params)
 			} else {
 				// Polly wants a cracker.
 				c.Write(line)

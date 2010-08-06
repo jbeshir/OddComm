@@ -17,18 +17,9 @@ type Client struct {
 	outbuf    []byte
 }
 
-func (c *Client) Remove(message string) {
-	makeRequest(c, func() {
-		c.remove(message)
-	})
-}
-
 func (c *Client) remove(message string) {
-	if c.u != nil {
-		c.u.Remove(message)
-	}
 
-	username := c.u.Data("ircident")
+	username := c.u.Data("ident")
 	if username == "" {
 		username = "unknown"
 	}
