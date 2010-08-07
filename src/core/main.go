@@ -73,14 +73,22 @@ func Shutdown() {
 // NewUser creates a new user, with creator the name of its creating package.
 // If checked is true, DNS lookup, bans, and similar are presumed to be already
 // checked.
+// If forceid is not nil, the function will create the user with that ID if it
+// is not in use. if it is, the function will return nil. The caller should be
+// prepared for this if it uses forceid, and ensure forceid is a valid UID.
 // A new user is not essentially yet "registered"; until they are, they cannot
 // communicate or join channels. A user will be considered registered once all
 // packages which are holding registration back have permitted it. If checked
 // is true, the creator may assume that it is the only package which may be
 // holding registration back.
-func NewUser(creator string, checked bool) (u *User) {
+func NewUser(creator string, checked bool, forceid string) (u *User) {
 	wait := make(chan bool)
 	corechan <- func() {
+		if forceid != "" && users[forceid] != nil {
+			wait <- true
+			return
+		}
+
 		u = new(User)
 		u.data = make(map[string]string)
 		u.checked = checked
@@ -88,9 +96,18 @@ func NewUser(creator string, checked bool) (u *User) {
 		if (!checked) {
 			u.regcount += holdRegistration[""]
 		}
-		u.id = "1"
-		u.nick = u.id
 
+		if forceid != "" {
+			u.id = forceid
+		} else {
+			for users[getUIDString()] != nil {
+				incrementUID()
+			}
+			u.id = getUIDString()
+			incrementUID()
+		}
+
+		u.nick = u.id
 		users[u.id] = u
 		usersByNick[strings.ToUpper(u.nick)] = u
 		wait <- true

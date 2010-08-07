@@ -1,6 +1,7 @@
 package client
 
 import "io"
+import "runtime"
 
 import "oddircd/src/core"
 import "oddircd/src/perm"
@@ -10,6 +11,13 @@ import "oddircd/src/irc"
 // Add core user commands.
 func init() {
 	var c *irc.Command
+
+	c = new(irc.Command)
+	c.Handler = cmdGC
+	c.Minargs = 0
+	c.Maxargs = 0
+	c.Unregged = 1
+	Commands.Add("GC", c)
 
 	c = new(irc.Command)
 	c.Handler = cmdNick
@@ -62,6 +70,10 @@ func cmdNick(u *core.User, w io.Writer, params [][]byte) {
 			c.WriteFrom(nil, "433", "%s :%s", nick, err)
 		}
 	}
+}
+
+func cmdGC(u *core.User, w io.Writer, params [][]byte) {
+	runtime.GC()
 }
 
 func cmdUser(u *core.User, w io.Writer, params [][]byte) {
