@@ -34,7 +34,7 @@ func init() {
 		}
 	})
 
-	core.HookUserPM("", func(source, target *core.User, message string) {
+	core.HookUserPM("", func(source, target *core.User, message []byte) {
 		if c := GetClient(target); c != nil {
 			if source != nil {
 				fmt.Fprintf(c, ":%s!%s@%s PRIVMSG %s :%s\r\n",
@@ -44,6 +44,24 @@ func init() {
 			} else {
 				fmt.Fprintf(c,
 				            ":Server.name PRIVMSG %s :%s\r\n",
+				            source.Nick(), source.Data("ident"),
+				            source.Data("hostname"),
+				            target.Nick(), message)
+			}
+		}
+	})
+
+	core.HookUserPM("reply",
+	                func(source, target *core.User, message []byte) {
+		if c := GetClient(target); c != nil {
+			if source != nil {
+				fmt.Fprintf(c, ":%s!%s@%s NOTICE %s :%s\r\n",
+				            source.Nick(), source.Data("ident"),
+				            source.Data("hostname"),
+				            target.Nick(), message)
+			} else {
+				fmt.Fprintf(c,
+				            ":Server.name NOTICE %s :%s\r\n",
 				            source.Nick(), source.Data("ident"),
 				            source.Data("hostname"),
 				            target.Nick(), message)

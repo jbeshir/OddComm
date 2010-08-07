@@ -65,7 +65,7 @@ func HookUserDataChange(name string, f func(*User, string, string),
 // hook the default type.
 // The hook receives the source, target, and message as parameters, and must be
 // prepared for the source to be nil.
-func HookUserPM(t string, f func(*User, *User, string)) {
+func HookUserPM(t string, f func(*User, *User, []byte)) {
 	if hookUserPM[t] == nil {
 		hookUserPM[t] = new(hooklist)
 	}
@@ -121,10 +121,10 @@ func runUserDataChangeHooks(u *User, name string, oldvalue, newvalue string) {
 	}, u.Registered())
 }
 
-func runUserPMHooks(source, target *User, message, t string) {
+func runUserPMHooks(source, target *User, message []byte, t string) {
 	if hookUserPM[t] == nil { return }
 	hookUserPM[t].run(func(f interface{}) {
-		if h, ok := f.(func(*User, *User, string)); ok && h != nil {
+		if h, ok := f.(func(*User, *User, []byte)); ok && h != nil {
 			h(source, target, message)
 		}
 	}, true)
