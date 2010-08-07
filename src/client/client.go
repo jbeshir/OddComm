@@ -117,3 +117,9 @@ func (c *Client) WriteFrom(u *core.User, cmd string, format string,
 		            c.u.Nick(), fmt.Sprintf(format, args))
 	}
 }
+
+// Write the given line, only prefixed by the server name.
+// Useful for some numerics. A line ending will be automatically appended.
+func (c *Client) WriteServer(format string, args ...interface{}) {
+	fmt.Fprintf(c, ":%s %s\r\n", "Server.name", fmt.Sprintf(format, args))
+}

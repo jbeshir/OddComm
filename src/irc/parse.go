@@ -2,7 +2,7 @@ package irc
 
 import "bytes"
 
-func Parse(d CommandDispatcher, line []byte) (origin []byte, command *Command, params [][]byte) {
+func Parse(d CommandDispatcher, line []byte, regged bool) (origin []byte, command *Command, params [][]byte, err *ParseError) {
 
 	// We can handle up to 20 parameters. This is plenty.
 	var param_array [20][]byte
@@ -42,8 +42,22 @@ func Parse(d CommandDispatcher, line []byte) (origin []byte, command *Command, p
 
 	// The word we have now is the command.
 	// Look it up. If it doesn't exist, return early.
-	command = d.Lookup(string(word))
+	cmdName := string(word)
+	command = d.Lookup(cmdName)
 	if command == nil {
+		err = newParseError(CmdNotFound, cmdName)
+		return
+	}
+
+	// Check the command is for our registration status.
+	if command.Unregged == 0 && !regged {
+		command = nil
+		err = newParseError(CmdForRegistered, cmdName)
+		return
+	}
+	if command.Unregged == 2 && regged {
+		command = nil
+		err = newParseError(CmdForUnregistered, cmdName)
 		return
 	}
 
@@ -84,9 +98,46 @@ func Parse(d CommandDispatcher, line []byte) (origin []byte, command *Command, p
 
 	// If we don't have enough parameters, treat it as a failed dispatch.
 	if len(params) < command.Minargs {
+		err = newParseError(CmdTooFewParams, cmdName)
 		command = nil
 		params = param_array[0:0]
 	}
 
+	return
+}
+
+
+// Represents an error parsing a line.
+type ParseError struct {
+	Num int
+	CmdName string
+}
+
+// Represents specific parser errors.
+const (
+	CmdNotFound = iota
+	CmdForRegistered
+	CmdForUnregistered
+	CmdTooFewParams
+)
+
+// String returns an error message for the parse error.
+// It also makes ParseError meet the os.Error interface.
+func (err *ParseError) String() string {
+	switch err.Num {
+		case CmdNotFound: return "Unknown command."
+		case CmdForRegistered: return "You have not registered."
+		case CmdForUnregistered: return "You may not reregister."
+		case CmdTooFewParams: return "Not enough parameters."
+	}
+
+	// We don't really know what happened, so bullshit them.
+	return "Invalid command."
+}
+
+func newParseError(num int, cmdName string) (err *ParseError) {
+	err = new(ParseError)
+	err.Num = num
+	err.CmdName = cmdName
 	return
 }

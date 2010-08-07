@@ -187,26 +187,31 @@ func input(c *Client) {
 			}
 
 			// Parse the line, ignoring any specified origin.
-			_, command, params := irc.Parse(Commands, line)
+			_, command, params, perr := irc.Parse(Commands, line,
+			                                     c.u.Registered())
 
-			// If command is for the wrong kind of user, drop it.
-			if command != nil {
-				registered := c.u.Registered()
-				if registered && command.Unregged == 2 {
-					command = nil
-				} else if !registered && command.Unregged == 0 {
-					command = nil
-				}
-			}
-
-			// If command isn't nil, run it.
-			// Otherwise, echo.
+			// If we successfully got a command, run it.
 			if command != nil {
 				command.Handler(c.u, c, params)
-			} else {
-				// Polly wants a cracker.
-				c.Write(line)
-				c.Write([]byte("\r\n"))
+			} else if perr != nil {
+
+				// The IRC protocol is stupid.
+				switch perr.Num {
+				case irc.CmdNotFound:
+					if c.u.Registered() {
+						c.WriteFrom(nil, "421", "%s :%s", perr.CmdName, perr)
+					}
+				case irc.CmdForRegistered:
+					c.WriteServer("451 %s :%s",
+					              perr.CmdName, perr)
+				case irc.CmdForUnregistered:
+					c.WriteServer("462 %s :%s",
+					              c.u.Nick(), perr)
+				default:
+					c.WriteServer("461 %s %s :%s",
+					              c.u.Nick(), perr.CmdName,
+					              perr)
+				}
 			}
 
 			// If we have remaining input for the next line, move
