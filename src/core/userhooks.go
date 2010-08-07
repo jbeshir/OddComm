@@ -8,11 +8,13 @@ var hookUserNickChange hooklist
 var hookUserRemoved hooklist
 
 var hookUserDataChange map[string]*hooklist
+var hookUserPM map[string]*hooklist
 
 
 func init() {
 	holdRegistration = make(map[string]int)
 	hookUserDataChange = make(map[string]*hooklist)
+	hookUserPM = make(map[string]*hooklist)
 }
 
 // RegistrationHold causes user registration for new users to be held until the
@@ -44,12 +46,6 @@ func HookUserNickChange(f func(*User, string, string), unregged bool) {
 	hookUserNickChange.add(f, unregged)
 }
 
-// HookUserRemoved adds a hook called whenever a user is removed.
-// If unregged is false, it is not called for unregistered users.
-func HookUserRemoved(f func(*User, string), unregged bool) {
-	hookUserRemoved.add(f, unregged)
-}
-
 // HookUserDataChange adds a hook called whenever a user's metadata changes.
 // The name is the metadata whose changes the hook wishes to receive.
 // If unregged is false, it is not called for unregistered users.
@@ -62,6 +58,25 @@ func HookUserDataChange(name string, f func(*User, string, string),
 	}
 
 	hookUserDataChange[name].add(f, unregged)		
+}
+
+// HookUserPM adds a hook called whenever a user sends/receives a PM.
+// t indicates the type of PM the hook is interested in, and may be "", to
+// hook the default type.
+// The hook receives the source, target, and message as parameters, and must be
+// prepared for the source to be nil.
+func HookUserPM(t string, f func(*User, *User, string)) {
+	if hookUserPM[t] == nil {
+		hookUserPM[t] = new(hooklist)
+	}
+
+	hookUserPM[t].add(f, false)
+}
+
+// HookUserRemoved adds a hook called whenever a user is removed.
+// If unregged is false, it is not called for unregistered users.
+func HookUserRemoved(f func(*User, string), unregged bool) {
+	hookUserRemoved.add(f, unregged)
 }
 
 
@@ -104,4 +119,13 @@ func runUserDataChangeHooks(u *User, name string, oldvalue, newvalue string) {
 			h(u, oldvalue, newvalue)
 		}
 	}, u.Registered())
+}
+
+func runUserPMHooks(source, target *User, message, t string) {
+	if hookUserPM[t] == nil { return }
+	hookUserPM[t].run(func(f interface{}) {
+		if h, ok := f.(func(*User, *User, string)); ok && h != nil {
+			h(source, target, message)
+		}
+	}, true)
 }

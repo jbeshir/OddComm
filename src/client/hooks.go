@@ -28,6 +28,29 @@ func init() {
 		}
 	}, true)
 
+	core.HookUserRegister(func(u *core.User) {
+		if c := GetClient(u); c != nil {
+			fmt.Fprintf(c, ":%s 001 %s :Welcome to IRC\r\n", "Server.name", u.Nick())
+		}
+	})
+
+	core.HookUserPM("", func(source, target *core.User, message string) {
+		if c := GetClient(target); c != nil {
+			if source != nil {
+				fmt.Fprintf(c, ":%s!%s@%s PRIVMSG %s :%s\r\n",
+				            source.Nick(), source.Data("ident"),
+				            source.Data("hostname"),
+				            target.Nick(), message)
+			} else {
+				fmt.Fprintf(c,
+				            ":Server.name PRIVMSG %s :%s\r\n",
+				            source.Nick(), source.Data("ident"),
+				            source.Data("hostname"),
+				            target.Nick(), message)
+			}
+		}
+	})
+
 	core.HookUserRemoved(func(u *core.User, message string) {
 		if c := GetClient(u); c != nil {
 			makeRequest(c, func() {
@@ -35,10 +58,4 @@ func init() {
 			})		
 		}
 	}, true)
-
-	core.HookUserRegister(func(u *core.User) {
-		if c := GetClient(u); c != nil {
-			fmt.Fprintf(c, ":%s 001 %s :Welcome to IRC\r\n", "Server.name", u.Nick())
-		}
-	})
 }

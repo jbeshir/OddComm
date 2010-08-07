@@ -26,6 +26,13 @@ func init() {
 	Commands.Add("USER", c)
 
 	c = new(irc.Command)
+	c.Handler = cmdPrivmsg
+	c.Minargs = 2
+	c.Maxargs = 2
+	c.Unregged = 0
+	Commands.Add("PRIVMSG", c)
+
+	c = new(irc.Command)
 	c.Handler = irc.CmdQuit
 	c.Maxargs = 1
 	c.Unregged = 1
@@ -50,4 +57,11 @@ func cmdUser(u *core.User, w io.Writer, params [][]byte) {
 	
 	u.SetData("ident", string(params[0]))
 	u.SetData("realname", string(params[3]))
+}
+
+func cmdPrivmsg(u *core.User, w io.Writer, params [][]byte) {
+	target := core.GetUserByNick(string(params[0]))
+	if target != nil {
+		target.PM(u, string(params[1]), "")
+	}
 }

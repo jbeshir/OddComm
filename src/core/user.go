@@ -151,6 +151,20 @@ func (u *User) Data(name string) (value string) {
 	return
 }
 
+// PM sends a message directly to the user.
+// source may be nil, indicating a message from the server.
+// t may be "" (for default), and indicates the type of message.
+func (u *User) PM(source *User, message, t string) {
+
+	// Unregistered users may neither send nor receive messages.
+	if !u.Registered() || !source.Registered() {
+		return
+	}
+
+	// We actually just call hooks, and let the subsystems handle it.
+	runUserPMHooks(source, u, message, t)
+}
+
 // Remove kills the user.
 // The given message is recorded as the reason why.
 func (u *User) Remove(message string) {
