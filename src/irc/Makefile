@@ -5,6 +5,7 @@ GOFILES=\
 	main.go\
 	command.go\
 	parse.go\
+	getdata.go\
 	usercmds.go
 
 include $(GOROOT)/src/Make.pkg

@@ -5,6 +5,7 @@ import "net"
 import "os"
 
 import "oddircd/src/core"
+import "oddircd/src/irc"
 
 
 // Handle a client connection.
@@ -100,4 +101,19 @@ func (c *Client) Write(line []byte) (int, os.Error) {
 	}
 
 	return len(line), nil
+}
+
+// Write a formatted line from the given user.
+// u may be nil, in which case, the line will be from the server.
+// A line ending will be automatically appended.
+func (c *Client) WriteFrom(u *core.User, cmd string, format string,
+                           args ...interface{}) {
+	if u != nil {
+		fmt.Fprintf(c, ":%s!%s@%s %s %s %s\r\n", u.Nick(),
+		            irc.GetIdent(u), irc.GetHostname(u), cmd,
+		            c.u.Nick(), fmt.Sprintf(format, args))
+	} else {
+		fmt.Fprintf(c, ":%s %s %s %s\r\n", "Server.name", cmd,
+		            c.u.Nick(), fmt.Sprintf(format, args))
+	}
 }

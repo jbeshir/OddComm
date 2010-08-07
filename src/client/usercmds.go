@@ -1,6 +1,5 @@
 package client
 
-import "fmt"
 import "io"
 
 import "oddircd/src/core"
@@ -59,8 +58,9 @@ func cmdNick(u *core.User, w io.Writer, params [][]byte) {
 	}
 
 	if err := u.SetNick(nick); err != nil {
-		fmt.Fprintf(w, ":Server.name 433 %s %s :%s\r\n", u.Nick(),
-		            nick, err)
+		if c, ok := w.(*Client); ok {
+			c.WriteFrom(nil, "433", "%s :%s", nick, err)
+		}
 	}
 }
 
@@ -70,8 +70,11 @@ func cmdUser(u *core.User, w io.Writer, params [][]byte) {
 	ident := string(params[0])
 	realname := string(params[3])
 
-	if !perm.ValidateIdent(u, ident) ||
-			!perm.ValidateRealname(u, realname) {
+	if !perm.ValidateIdent(u, ident) {
+		return
+	}
+
+	if !perm.ValidateRealname(u, realname) {
 		return
 	}
 	

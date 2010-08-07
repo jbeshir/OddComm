@@ -30,42 +30,20 @@ func init() {
 
 	core.HookUserRegister(func(u *core.User) {
 		if c := GetClient(u); c != nil {
-			fmt.Fprintf(c, ":%s 001 %s :Welcome to IRC\r\n", "Server.name", u.Nick())
+			c.WriteFrom(nil, "001", ":Welcome to IRC")
 		}
 	})
 
 	core.HookUserPM("", func(source, target *core.User, message []byte) {
 		if c := GetClient(target); c != nil {
-			if source != nil {
-				fmt.Fprintf(c, ":%s!%s@%s PRIVMSG %s :%s\r\n",
-				            source.Nick(), source.Data("ident"),
-				            source.Data("hostname"),
-				            target.Nick(), message)
-			} else {
-				fmt.Fprintf(c,
-				            ":Server.name PRIVMSG %s :%s\r\n",
-				            source.Nick(), source.Data("ident"),
-				            source.Data("hostname"),
-				            target.Nick(), message)
-			}
+			c.WriteFrom(source, "PRIVMSG", ":%s", message)
 		}
 	})
 
 	core.HookUserPM("reply",
 	                func(source, target *core.User, message []byte) {
 		if c := GetClient(target); c != nil {
-			if source != nil {
-				fmt.Fprintf(c, ":%s!%s@%s NOTICE %s :%s\r\n",
-				            source.Nick(), source.Data("ident"),
-				            source.Data("hostname"),
-				            target.Nick(), message)
-			} else {
-				fmt.Fprintf(c,
-				            ":Server.name NOTICE %s :%s\r\n",
-				            source.Nick(), source.Data("ident"),
-				            source.Data("hostname"),
-				            target.Nick(), message)
-			}
+			c.WriteFrom(source, "NOTICE", ":%s", message)
 		}
 	})
 
