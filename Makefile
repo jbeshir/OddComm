@@ -10,16 +10,19 @@ build:
 	cd src/perm && make install
 	cd src/irc && make install
 	cd src/client && make install
-	cd src/main && make clean && make
+	cd modules/catserv && make install
+	cd src/main && make install 
 
 clean:
 	cd src/core && make clean
 	cd src/irc && make clean
 	cd src/client && make clean
+	cd modules/catserv && make clean
 	cd src/main && make clean
 
 nuke:
 	cd src/core && make nuke
 	cd src/irc && make nuke
 	cd src/client && make nuke
+	cd modules/catserv && make nuke
 	cd src/main && make nuke

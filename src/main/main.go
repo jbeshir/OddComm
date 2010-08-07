@@ -9,8 +9,12 @@ package main
 import "oddircd/src/core"
 import "oddircd/src/client"
 
+import modules_catserv "oddircd/modules/catserv"
 
 func main() {
+	// Makes modules be permitted to link in.
+	_ = modules_catserv.MODULENAME
+
 	var exitList [1]chan int
 	var msg chan string
 	var exit chan int
