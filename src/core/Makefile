@@ -4,7 +4,7 @@ TARG=oddircd/src/core
 GOFILES=\
 	main.go\
 	user.go\
-	hooklist.go\
+	hooks.go\
 	userhooks.go
 
 include $(GOROOT)/src/Make.pkg

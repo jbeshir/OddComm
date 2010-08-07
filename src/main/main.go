@@ -9,6 +9,7 @@ package main
 import "oddircd/src/core"
 import "oddircd/src/client"
 
+
 func main() {
 	var exitList [1]chan int
 	var msg chan string
@@ -20,6 +21,9 @@ func main() {
 		core.AddPackage("oddircd/src/client", msg)
 	}
 	exitList[0] = exit
+
+	// Run start hooks.
+	core.RunStartHooks()
 
 	// Wait until every package goroutine returns.
 	for i := range exitList {

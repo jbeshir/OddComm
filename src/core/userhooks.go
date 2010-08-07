@@ -2,20 +2,28 @@ package core
 
 var holdRegistration map[string]int
 
-var hookUserAdd hooklist
-var hookUserRegister hooklist
-var hookUserNickChange hooklist
-var hookUserRemoved hooklist
+// Hook list for user hooks.
+// Contains sublists for all users and just regged users.
+type userHooklist struct {
+	all *hook
+	regged *hook
+}
 
-var hookUserDataChange map[string]*hooklist
-var hookUserPM map[string]*hooklist
+var hookUserAdd userHooklist
+var hookUserRegister userHooklist
+var hookUserNickChange userHooklist
+var hookUserRemoved userHooklist
+
+var hookUserDataChange map[string]*userHooklist
+var hookUserPM map[string]*userHooklist
 
 
 func init() {
 	holdRegistration = make(map[string]int)
-	hookUserDataChange = make(map[string]*hooklist)
-	hookUserPM = make(map[string]*hooklist)
+	hookUserDataChange = make(map[string]*userHooklist)
+	hookUserPM = make(map[string]*userHooklist)
 }
+
 
 // RegistrationHold causes user registration for new users to be held until the
 // package which called it calls PermitRegistration on the user.
@@ -27,6 +35,39 @@ func init() {
 func RegistrationHold(creator string) {
 	holdRegistration[creator]++
 }
+
+
+// Add a hook to a user hook list.
+func (l *userHooklist) add(f interface{}, unregged bool) {
+	h := new(hook)
+	h.f = f
+
+	var list **hook
+	if unregged {
+		list = &l.all
+	} else {
+		list = &l.regged
+	}
+
+	for *list != nil {
+		list = &((*list).next)
+	}
+	*list = h
+}
+
+// Run all the hooks on a user hook list.
+func (l *userHooklist) run(f func(interface{}), registered bool) {
+	for h := l.all; h != nil; h = h.next {
+		f(h.f)
+	}
+
+	if !registered { return }
+	
+	for h := l.regged; h != nil; h = h.next {
+		f(h.f)
+	}
+}
+
 
 // HookUserAdd adds a hook called whenever a new user is added.
 // The hook receives the name of the creating module as a parameter.
@@ -54,7 +95,7 @@ func HookUserNickChange(f func(*User, string, string), unregged bool) {
 func HookUserDataChange(name string, f func(*User, string, string),
                         unregged bool) {
 	if hookUserDataChange[name] == nil {
-		hookUserDataChange[name] = new(hooklist)
+		hookUserDataChange[name] = new(userHooklist)
 	}
 
 	hookUserDataChange[name].add(f, unregged)		
@@ -67,7 +108,7 @@ func HookUserDataChange(name string, f func(*User, string, string),
 // prepared for the source to be nil.
 func HookUserPM(t string, f func(*User, *User, []byte)) {
 	if hookUserPM[t] == nil {
-		hookUserPM[t] = new(hooklist)
+		hookUserPM[t] = new(userHooklist)
 	}
 
 	hookUserPM[t].add(f, false)
