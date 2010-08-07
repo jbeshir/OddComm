@@ -35,4 +35,15 @@ func init() {
 
 		return 0, nil
 	})
+
+	// Impose the IRC client restriction on idents.
+	perm.HookValidateIdent(func(u *core.User,
+	                       ident string) (int, os.Error) {
+		// Do not permit @ or space in an ident.
+		if strings.IndexAny(ident, "@ ") != -1 {
+			return -1e9, os.NewError("Ident contains @ or space characters.")
+		}
+		
+		return 0, nil
+	})	
 }
