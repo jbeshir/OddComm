@@ -85,13 +85,17 @@ func cmdUser(u *core.User, w io.Writer, params [][]byte) {
 func cmdNotice(u *core.User, w io.Writer, params [][]byte) {
 	target := core.GetUserByNick(string(params[0]))
 	if target != nil {
-		target.PM(u, params[1], "reply")
+		if perm.CheckPM(u, target, params[1], "reply") {
+			target.PM(u, params[1], "reply")
+		}
 	}
 }
 
 func cmdPrivmsg(u *core.User, w io.Writer, params [][]byte) {
 	target := core.GetUserByNick(string(params[0]))
 	if target != nil {
-		target.PM(u, params[1], "")
+		if perm.CheckPM(u, target, params[1], "") {
+			target.PM(u, params[1], "")
+		}
 	}
 }

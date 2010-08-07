@@ -4,6 +4,7 @@ TARG=oddircd/src/perm
 GOFILES=\
 	main.go\
 	hooklist.go\
-	validate.go
+	validate.go\
+	message.go
 
 include $(GOROOT)/src/Make.pkg

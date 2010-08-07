@@ -17,11 +17,12 @@ func hookAdd(l **hook, f interface{}) {
 // Run a permission hook list.
 // Returns whether the action is to be permitted or denied. def specifies the
 // default value.
-func (l *hook) run(f func(interface{}) int, def bool) int {
-	var perm int = -1
+func (l *hook) run(f func(interface{}) int, def bool) (perm int) {
 	var absperm int = 1
 	if def {
 		perm = 1
+	} else {
+		perm = -1
 	}
 	
 	for h := l; h != nil; h = h.next {
@@ -47,5 +48,33 @@ func (l *hook) run(f func(interface{}) int, def bool) int {
 		}
 	}
 
-	return perm
+	return
+}
+
+// Run a slice of permission hook lists, and combine results.
+func runPermHookLists(lists []*hook, f func(interface{}) int,
+                      def bool) (perm int) {
+	var absPerm int
+	for i := range lists {
+		thisPerm := lists[i].run(f, def)
+		if thisPerm <= -1e9 {
+			return -1e9
+		}
+
+		absThisPerm := thisPerm
+		if thisPerm < 0 {
+			absThisPerm = -thisPerm
+		}
+
+		if absThisPerm > absPerm {
+			perm = thisPerm
+			absPerm = absThisPerm
+		} else if absThisPerm == absPerm && thisPerm > 0 {
+			perm = thisPerm
+			absPerm = absThisPerm
+		}
+	}
+
+
+	return
 }
