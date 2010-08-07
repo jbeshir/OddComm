@@ -12,7 +12,7 @@ func init() {
 		}
 
 		if c := GetClient(u); c != nil {
-			fmt.Fprintf(c, "NICK %s!%s@%s %s\r\n", oldnick,
+			fmt.Fprintf(c, ":%s!%s@%s NICK %s\r\n", oldnick,
 					u.Data("ident"), u.Data("hostname"),
 					u.Nick())
 		}
