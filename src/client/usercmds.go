@@ -12,13 +12,6 @@ func init() {
 	var c *irc.Command
 
 	c = new(irc.Command)
-	c.Handler = cmdNick
-	c.Minargs = 1
-	c.Maxargs = 1
-	c.Unregged = 1
-	Commands.Add("NICK", c)
-
-	c = new(irc.Command)
 	c.Handler = cmdUser
 	c.Minargs = 4
 	c.Maxargs = 4
@@ -26,24 +19,35 @@ func init() {
 	Commands.Add("USER", c)
 
 	c = new(irc.Command)
-	c.Handler = cmdPrivmsg
-	c.Minargs = 2
-	c.Maxargs = 2
-	c.Unregged = 0
-	Commands.Add("PRIVMSG", c)
-
-	c = new(irc.Command)
-	c.Handler = cmdNotice
-	c.Minargs = 2
-	c.Maxargs = 2
-	c.Unregged = 0
-	Commands.Add("NOTICE", c)
+	c.Handler = cmdNick
+	c.Minargs = 1
+	c.Maxargs = 1
+	c.Unregged = 1
+	Commands.Add("NICK", c)
 
 	c = new(irc.Command)
 	c.Handler = irc.CmdQuit
 	c.Maxargs = 1
 	c.Unregged = 1
 	Commands.Add("QUIT", c)
+
+	c = new(irc.Command)
+	c.Handler = cmdPing
+	c.Minargs = 1
+	c.Maxargs = 1
+	Commands.Add("PING", c)
+
+	c = new(irc.Command)
+	c.Handler = cmdPrivmsg
+	c.Minargs = 2
+	c.Maxargs = 2
+	Commands.Add("PRIVMSG", c)
+
+	c = new(irc.Command)
+	c.Handler = cmdNotice
+	c.Minargs = 2
+	c.Maxargs = 2
+	Commands.Add("NOTICE", c)
 }
 
 func cmdNick(u *core.User, w io.Writer, params [][]byte) {
@@ -91,9 +95,15 @@ func cmdUser(u *core.User, w io.Writer, params [][]byte) {
 	u.SetData("realname", string(params[3]))
 }
 
+func cmdPing(u *core.User, w io.Writer, params [][]byte) {
+	if c, ok := w.(*Client); ok {
+		c.WriteServer("PONG %s :%s", "Server.name", params[0])
+	}
+	
+}
+
 func cmdPrivmsg(u *core.User, w io.Writer, params [][]byte) {
-	target := core.GetUserByNick(string(params[0]))
-	if target != nil {
+	if target := core.GetUserByNick(string(params[0])); target != nil {
 		if ok, err := perm.CheckPM(u, target, params[1], ""); ok {
 			target.PM(u, params[1], "")
 		} else {
@@ -101,12 +111,12 @@ func cmdPrivmsg(u *core.User, w io.Writer, params [][]byte) {
 				c.WriteFrom(nil, "404", "%s %s :%s", u.Nick(), target.Nick(), err)
 			}
 		}
+		return
 	}
 }
 
 func cmdNotice(u *core.User, w io.Writer, params [][]byte) {
-	target := core.GetUserByNick(string(params[0]))
-	if target != nil {
+	if target := core.GetUserByNick(string(params[0])); target != nil {
 		if ok, err := perm.CheckPM(u, target, params[1], "reply"); ok {
 			target.PM(u, params[1], "reply")
 		} else {
@@ -114,5 +124,6 @@ func cmdNotice(u *core.User, w io.Writer, params [][]byte) {
 				c.WriteFrom(nil, "404", "%s %s :%s", u.Nick(), target.Nick(), err)
 			}
 		}
+		return
 	}
 }
