@@ -1,7 +1,6 @@
 package client
 
 import "io"
-import "runtime"
 
 import "oddircd/src/core"
 import "oddircd/src/perm"
@@ -11,13 +10,6 @@ import "oddircd/src/irc"
 // Add core user commands.
 func init() {
 	var c *irc.Command
-
-	c = new(irc.Command)
-	c.Handler = cmdGC
-	c.Minargs = 0
-	c.Maxargs = 0
-	c.Unregged = 1
-	Commands.Add("GC", c)
 
 	c = new(irc.Command)
 	c.Handler = cmdNick
@@ -61,7 +53,10 @@ func cmdNick(u *core.User, w io.Writer, params [][]byte) {
 		nick = u.ID()		
 	}
 
-	if !perm.ValidateNick(u, nick) {
+	if ok, err := perm.ValidateNick(u, nick); !ok {
+		if c, ok := w.(*Client); ok {
+			c.WriteFrom(nil, "432", "%s :%s", nick, err)
+		}
 		return
 	}
 
@@ -72,21 +67,23 @@ func cmdNick(u *core.User, w io.Writer, params [][]byte) {
 	}
 }
 
-func cmdGC(u *core.User, w io.Writer, params [][]byte) {
-	runtime.GC()
-}
-
 func cmdUser(u *core.User, w io.Writer, params [][]byte) {
 	if (u.Data("ident") != "") { return }
 
 	ident := string(params[0])
 	realname := string(params[3])
 
-	if !perm.ValidateIdent(u, ident) {
+	if ok, err := perm.ValidateIdent(u, ident); !ok {
+		if c, ok := w.(*Client); ok {
+			c.WriteFrom(nil, "461", "USER :%s", err)
+		}
 		return
 	}
 
-	if !perm.ValidateRealname(u, realname) {
+	if ok, err := perm.ValidateRealname(u, realname); !ok {
+		if c, ok := w.(*Client); ok {
+			c.WriteFrom(nil, "461", "USER :%s", err)
+		}
 		return
 	}
 	
@@ -94,20 +91,28 @@ func cmdUser(u *core.User, w io.Writer, params [][]byte) {
 	u.SetData("realname", string(params[3]))
 }
 
-func cmdNotice(u *core.User, w io.Writer, params [][]byte) {
+func cmdPrivmsg(u *core.User, w io.Writer, params [][]byte) {
 	target := core.GetUserByNick(string(params[0]))
 	if target != nil {
-		if perm.CheckPM(u, target, params[1], "reply") {
-			target.PM(u, params[1], "reply")
+		if ok, err := perm.CheckPM(u, target, params[1], ""); ok {
+			target.PM(u, params[1], "")
+		} else {
+			if c, ok := w.(*Client); ok {
+				c.WriteFrom(nil, "404", "%s %s :%s", u.Nick(), target.Nick(), err)
+			}
 		}
 	}
 }
 
-func cmdPrivmsg(u *core.User, w io.Writer, params [][]byte) {
+func cmdNotice(u *core.User, w io.Writer, params [][]byte) {
 	target := core.GetUserByNick(string(params[0]))
 	if target != nil {
-		if perm.CheckPM(u, target, params[1], "") {
-			target.PM(u, params[1], "")
+		if ok, err := perm.CheckPM(u, target, params[1], "reply"); ok {
+			target.PM(u, params[1], "reply")
+		} else {
+			if c, ok := w.(*Client); ok {
+				c.WriteFrom(nil, "404", "%s %s :%s", u.Nick(), target.Nick(), err)
+			}
 		}
 	}
 }

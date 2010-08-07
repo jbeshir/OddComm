@@ -12,7 +12,6 @@ func incrementUID() {
 }
 
 func getUIDString() string {
-	println(currentUID)
 	var buf [6]byte
 	id := currentUID
 	for i := 5; i >= 0; i-- {

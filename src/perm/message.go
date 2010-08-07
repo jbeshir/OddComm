@@ -1,5 +1,7 @@
 package perm
 
+import "os"
+
 import "oddircd/src/core"
 
 
@@ -14,11 +16,12 @@ func init() {
 // HookPermPM adds the given hook to PermPM checks.
 // The hook receives the source, the target, and the message.
 // It should return a number indicating granted or denied permission, and the
-// level of it. See package comment for permission levels.
+// level of it. If the number is negative, err should be non-nil and indicate
+// why. See package comment for permission levels.
 // If all is true, the hook is called for all types of message. Otherwise, t is
 // the type of message it wants to affect.
 func HookPermPM(all bool, t string,
-                h func(*core.User, *core.User, []byte) int) {
+                h func(*core.User, *core.User, []byte) (int, os.Error)) {
 	
 	if all {
 		hookAdd(&checkPMAll, h)
@@ -32,18 +35,21 @@ func HookPermPM(all bool, t string,
 
 // CheckPM tests whether the given user can PM the given target, with the given
 // message and message type.
-func CheckPM(source, target *core.User, message []byte, t string) bool {
-	return CheckPMPerm(source, target, message, t) > 0
+func CheckPM(source, target *core.User, message []byte,
+             t string) (bool, os.Error) {
+	perm, err := CheckPMPerm(source, target, message, t)
+	return perm > 0, err
 }
 
 // ChckPMPerm returns the full permissions value for CheckPM.
-func CheckPMPerm(source, target *core.User, message []byte, t string) int {
-	f := func(f interface{}) int {
-		if h, ok := f.(func(*core.User, *core.User, []byte) int); ok &&
+func CheckPMPerm(source, target *core.User, message []byte,
+                 t string) (int, os.Error) {
+	f := func(f interface{}) (int, os.Error) {
+		if h, ok := f.(func(*core.User, *core.User, []byte) (int, os.Error)); ok &&
 				h != nil {
 			return h(source, target, message)
 		}
-		return 0
+		return 0, nil
 	}
 
 	if checkPM[t] == nil {
