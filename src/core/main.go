@@ -6,6 +6,8 @@
 */
 package core
 
+import "strings"
+
 
 // The main users by ID map to look up users.
 var users map[string]*User
@@ -68,20 +70,37 @@ func Shutdown() {
 }
 
 
-// NewUser creates a new user.
-func NewUser() (u *User) {
+// NewUser creates a new user, with creator the name of its creating package.
+// If checked is true, DNS lookup, bans, and similar are presumed to be already
+// checked.
+// A new user is not essentially yet "registered"; until they are, they cannot
+// communicate or join channels. A user will be considered registered once all
+// packages which are holding registration back have permitted it. If checked
+// is true, the creator may assume that it is the only package which may be
+// holding registration back.
+func NewUser(creator string, checked bool) (u *User) {
 	wait := make(chan bool)
 	corechan <- func() {
 		u = new(User)
 		u.data = make(map[string]string)
+		u.checked = checked
+		u.regcount = holdRegistration[creator]
+		if (!checked) {
+			u.regcount += holdRegistration[""]
+		}
 		u.id = "1"
-		u.regcount = initialRegcount
+		u.nick = u.id
+
 		users[u.id] = u
+		usersByNick[strings.ToUpper(u.nick)] = u
 		wait <- true
 	}
 	<-wait
 
-	runNewUserHooks(u)
+	runUserAddHooks(u, creator)
+	if (u.Registered()) {
+		runUserRegisterHooks(u)
+	}
 
 	return
 }
@@ -101,7 +120,7 @@ func GetUser(id string) *User {
 func GetUserByNick(nick string) *User {
 	c := make(chan *User)
 	corechan <- func() {
-		c <- users[nick]
+		c <- usersByNick[strings.ToUpper(nick)]
 	}
 	return <-c
 }

@@ -3,14 +3,16 @@ package irc
 import "io"
 import "strings"
 
-import "oddircd/core"
+import "oddircd/src/core"
 
 
 // Command structure; contains the handler and information for a command.
 type Command struct {
 
 	// The command handler.
-	// w may be nil.
+	// w may be nil.  If non-nil, it writes to the client's connection.
+	// This handler may assume the contraints set in the rest of the
+	// structure have been met when it is called.
 	Handler func(u *core.User, w io.Writer, params [][]byte)
 
 	// The minimum arguments the command expects.

@@ -2,7 +2,7 @@ package client
 
 import "os"
 
-import "oddircd/irc"
+import "oddircd/src/irc"
 
 
 // Primary goroutine function for a client.
@@ -24,8 +24,7 @@ func clientHandler(c *Client) {
 		chanclosed bool
 	)
 
-	// Add us to the client goroutine list, and remove us on returning.
-	addClient(c)
+	// Remove us from the client goroutine list on returning.
 	defer func() { delClient(c) }()
 
 	// Close the connection on unclean shutdown.

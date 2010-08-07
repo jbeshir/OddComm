@@ -1,6 +1,6 @@
 package client
 
-import "oddircd/core"
+import "oddircd/src/core"
 
 
 // Contains the current client objects. When empty, we don't have any anymore.
@@ -14,6 +14,15 @@ func init() {
 	clients_by_user = make(map[*core.User]*Client)
 }
 
+
+// GetClient looks up a Client corresponding to a given User.
+// If no such Client exists, or the Client is disconnecting, returns nil.
+func GetClient(u *core.User) (c *Client) {
+	makeRequest(nil, func() {
+		c = clients_by_user[u]
+	})
+	return
+}
 
 // Add a client to the client map.
 func addClient(c *Client) {

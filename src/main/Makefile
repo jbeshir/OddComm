@@ -1,5 +1,4 @@
 include $(GOROOT)/src/Make.$(GOARCH)
-SUBDIRS=core
 
 TARG=oddircd
 GOFILES=\

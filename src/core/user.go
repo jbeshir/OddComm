@@ -1,15 +1,25 @@
 package core
 
 import "os"
+import "strings"
 
 
 type User struct {
 	id   string
 	nick string
+	checked bool
 	regcount int
 	data map[string]string
 }
 
+
+// Checked returns whether the user is pre-checked for ban purposes, and all
+// relevant information added to their data by their creator, and will have no
+// holds on registration but setting a nick outside their creating module.
+// This can be used to bypass DNS resolution, ban and DNSBL checks, and such.
+func (u *User) Checked() bool {
+	return u.checked
+}
 
 // ID returns the user's ID.
 func (u *User) ID() (id string) {
@@ -23,7 +33,7 @@ func (u *User) ID() (id string) {
 	return
 }
 
-// SetNick sets the user's nick.
+// SetNick sets the user's nick. This may fail if the nickname is in use.
 // If successful, err is nil. If not, err is a message why.
 func (u *User) SetNick(nick string) (err os.Error) {
 	var oldnick string
@@ -31,26 +41,30 @@ func (u *User) SetNick(nick string) (err os.Error) {
 	wait := make(chan bool)
 	corechan <- func() {
 		oldnick = u.nick
+		NICK := strings.ToUpper(nick)
 
-		if usersByNick[nick] == u {
-			wait <- true
-			return
-		} else 	if usersByNick[nick] != nil {
-			err = os.NewError("already in use")
+		if nick == oldnick {
 			wait <- true
 			return
 		}
 
-		usersByNick[u.nick] = nil, false
+		conflict := usersByNick[NICK]
+		if conflict != nil && conflict != u {
+			err = os.NewError("Nickname is already in use.")
+			wait <- true
+			return
+		}
+
+		usersByNick[strings.ToUpper(u.nick)] = nil, false
 		u.nick = nick
-		usersByNick[u.nick] = u
+		usersByNick[NICK] = u
 		
 		wait <- true
 	}
 	<-wait
 
 	if err == nil && oldnick != nick {
-		runNickChangeHooks(u, oldnick)
+		runUserNickChangeHooks(u, oldnick, nick)
 	}
 
 	return
@@ -68,9 +82,10 @@ func (u *User) Nick() (nick string) {
 	return
 }
 
-// Decrements the number of modules who still need to sign off before this
-// user is registered.
-func (u *User) DecrementRegcount() {
+// PermitRegistration marks the user as permitted to register.
+// For a user to register, this method must be called a number of times equal
+// to that which applicable HoldRegistration() calls were made during init.
+func (u *User) PermitRegistration() {
 	c := make(chan bool)
 	corechan <- func() {
 		if u.regcount <= 0 {
@@ -89,11 +104,11 @@ func (u *User) DecrementRegcount() {
 	registered := <-c
 
 	if registered {
-		runRegisteredHooks(u)
+		runUserRegisterHooks(u)
 	}
 }
 
-// Registered returns whether the user is registered yet or not.
+// Registered returns whether the user is registered or not.
 func (u *User) Registered() bool {
 	c := make(chan bool)
 	corechan <- func() {
@@ -120,11 +135,11 @@ func (u *User) SetData(name string, value string) {
 	}
 	<-wait
 
-	runDataChangeHooks(u, name, oldvalue)
+	runUserDataChangeHooks(u, name, oldvalue, value)
 }
 
 // Data gets the given piece of metadata.
-// If it is not set, it will be "".
+// If it is not set, this method returns "".
 func (u *User) Data(name string) (value string) {
 	wait := make(chan bool)
 	corechan <- func() {
@@ -152,5 +167,5 @@ func (u *User) Remove(message string) {
 	}
 	<-wait
 
-	runRemovedHooks(u, message)
+	runUserRemovedHooks(u, message)
 }

@@ -9,9 +9,10 @@ type clientRequest struct {
 
 // Requests that f be run from the goroutine belonging to the c.
 // If c == nil, requests that f be run from the client main goroutine instead.
-// f will not be called if c is disconnecting or has already disconnected.
-// This function waits until the function has either been called, or discarded,
-// and returns whether it was called successfully or not.
+// If c != nil, f will not be called if c is disconnecting or has already
+// disconnected.
+// This function waits until the function has been called or discarded, and
+// returns whether the function was called successfully or not.
 func makeRequest(c *Client, f func()) (run bool) {
 	var r clientRequest
 	r.c = c

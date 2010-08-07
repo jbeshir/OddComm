@@ -4,7 +4,7 @@ import "fmt"
 import "net"
 import "os"
 
-import "oddircd/core"
+import "oddircd/src/core"
 
 
 // Handle a client connection.
@@ -17,6 +17,8 @@ type Client struct {
 	outbuf    []byte
 }
 
+// Disconnects the client with the given message. This internal method assumes
+// it is being called from the client goroutine.
 func (c *Client) remove(message string) {
 
 	username := c.u.Data("ident")
@@ -98,11 +100,4 @@ func (c *Client) Write(line []byte) (int, os.Error) {
 	}
 
 	return len(line), nil
-}
-
-// Quit the client.
-// Message is written to them on a line of its own first, if non-null.
-// Privmsg sends a PRIVMSG to the client.
-func (c *Client) Privmsg(source string, message []byte) {
-	fmt.Fprintf(c, "%s PRIVMSG Namegduf :%s", source, message)
 }

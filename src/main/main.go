@@ -6,8 +6,8 @@
 */
 package main
 
-import "oddircd/core"
-import "oddircd/client"
+import "oddircd/src/core"
+import "oddircd/src/client"
 
 func main() {
 	var exitList [1]chan int
@@ -17,7 +17,7 @@ func main() {
 	// Start client subsystem.
 	msg, exit = client.Start()
 	if msg != nil {
-		core.AddPackage("client", msg)
+		core.AddPackage("oddircd/src/client", msg)
 	}
 	exitList[0] = exit
 

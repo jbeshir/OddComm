@@ -1,13 +1,15 @@
 DESTDIR=.
 
-all:	install
+all:	clean install
 
-install:
+install: build
+	install src/main/oddircd $(DESTDIR)
+
+build: 
 	cd src/core && make install
 	cd src/irc && make install
 	cd src/client && make install
 	cd src/main && make clean && make
-	install src/main/oddircd $(DESTDIR)
 
 clean:
 	cd src/core && make clean

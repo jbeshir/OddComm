@@ -10,7 +10,7 @@ package client
 import "fmt"
 import "net"
 
-import "oddircd/core"
+import "oddircd/src/core"
 
 
 // Channel to send requests to run something from a client's goroutine to.
@@ -137,7 +137,8 @@ func listen(l *net.TCPListener) {
 		client.cchan = make(chan clientRequest)
 		client.conn = c
 		client.conn.SetWriteTimeout(1)
-		client.u = core.NewUser()
+		client.u = core.NewUser("oddircd/src/client", false)
+		addClient(client)
 
 		ip := client.conn.RemoteAddr().(*net.TCPAddr).IP.String()
 		client.u.SetData("ip", ip)

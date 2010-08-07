@@ -1,9 +1,9 @@
 package client
 
-import "oddircd/irc"
+import "oddircd/src/irc"
 
 
-// The client command dispatcher.
+// Commands is the client command dispatcher.
 // Commands can be added to this during init() only, to add commands to the
 // client subsystem.
 var Commands irc.CommandDispatcher

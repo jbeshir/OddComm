@@ -1,6 +1,6 @@
 include $(GOROOT)/src/Make.$(GOARCH)
 
-TARG=oddircd/client
+TARG=oddircd/src/client
 GOFILES=\
 	main.go\
 	client.go\
