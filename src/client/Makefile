@@ -9,6 +9,7 @@ GOFILES=\
 	handler.go\
 	request.go\
 	usercmds.go\
+	validate.go\
 	hooks.go
 
 include $(GOROOT)/src/Make.pkg

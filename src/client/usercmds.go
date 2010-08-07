@@ -4,6 +4,7 @@ import "fmt"
 import "io"
 
 import "oddircd/src/core"
+import "oddircd/src/perm"
 import "oddircd/src/irc"
 
 
@@ -53,6 +54,10 @@ func cmdNick(u *core.User, w io.Writer, params [][]byte) {
 		nick = u.ID()		
 	}
 
+	if !perm.ValidateNick(u, nick) {
+		return
+	}
+
 	if err := u.SetNick(nick); err != nil {
 		fmt.Fprintf(w, ":Server.name 433 %s %s :%s\r\n", u.Nick(),
 		            nick, err)
@@ -61,6 +66,14 @@ func cmdNick(u *core.User, w io.Writer, params [][]byte) {
 
 func cmdUser(u *core.User, w io.Writer, params [][]byte) {
 	if (u.Data("ident") != "") { return }
+
+	ident := string(params[0])
+	realname := string(params[3])
+
+	if !perm.ValidateIdent(u, ident) ||
+			!perm.ValidateRealname(u, realname) {
+		return
+	}
 	
 	u.SetData("ident", string(params[0]))
 	u.SetData("realname", string(params[3]))

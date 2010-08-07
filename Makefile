@@ -7,6 +7,7 @@ install: build
 
 build: 
 	cd src/core && make install
+	cd src/perm && make install
 	cd src/irc && make install
 	cd src/client && make install
 	cd src/main && make clean && make
