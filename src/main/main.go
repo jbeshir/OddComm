@@ -10,10 +10,12 @@ import "oddircd/src/core"
 import "oddircd/src/client"
 
 import modules_catserv "oddircd/modules/catserv"
+import modules_irc_botmode "oddircd/modules/irc/botmode"
 
 func main() {
 	// Makes modules be permitted to link in.
 	_ = modules_catserv.MODULENAME
+	_ = modules_irc_botmode.MODULENAME
 
 	var exitList [1]chan int
 	var msg chan string

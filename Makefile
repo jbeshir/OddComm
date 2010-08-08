@@ -11,18 +11,23 @@ build:
 	cd src/irc && make install
 	cd src/client && make install
 	cd modules/catserv && make install
+	cd modules/irc/botmode && make install
 	cd src/main && make
 
 clean:
 	cd src/core && make clean
+	cd src/perm && make clean
 	cd src/irc && make clean
 	cd src/client && make clean
 	cd modules/catserv && make clean
+	cd modules/irc/botmode && make clean
 	cd src/main && make clean
 
 nuke:
 	cd src/core && make nuke
+	cd src/perm && make nuke
 	cd src/irc && make nuke
 	cd src/client && make nuke
 	cd modules/catserv && make nuke
+	cd modules/irc/botmode && make nuke
 	cd src/main && make nuke

@@ -21,12 +21,19 @@ func init() {
 	core.RegistrationHold("oddircd/src/client")
 	core.HookUserDataChange("ident",
 	                        func(u *core.User, oldvalue, newvalue string) {
-		if c := clients_by_user[u]; c != nil {
+		if c := GetClient(u); c != nil {
 			if oldvalue == "" {
 				u.PermitRegistration()
 			}
 		}
 	}, true)
+
+	core.HookUserDataChanges(func(u *core.User, c *core.UserDataChange) {
+		if cli := GetClient(u); c != nil {
+			modeline := UserModes.ParseChanges(c)
+			cli.WriteFrom(u, "MODE", modeline)
+		}
+	}, false)
 
 	core.HookUserRegister(func(u *core.User) {
 		if c := GetClient(u); c != nil {

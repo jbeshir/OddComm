@@ -8,6 +8,11 @@ import "oddircd/src/irc"
 // client subsystem.
 var Commands irc.CommandDispatcher
 
+// UserModes is the mode parser for user modes.
+// Modes can be added to this during init() only.
+var UserModes *irc.ModeParser
+
 func init() {
 	Commands = irc.NewCommandDispatcher()
+	UserModes = irc.NewModeParser()
 }

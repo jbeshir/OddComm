@@ -5,6 +5,7 @@ GOFILES=\
 	main.go\
 	command.go\
 	parse.go\
+	modes.go\
 	getdata.go\
 	usercmds.go
 

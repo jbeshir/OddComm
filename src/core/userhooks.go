@@ -12,6 +12,7 @@ type userHooklist struct {
 var hookUserAdd userHooklist
 var hookUserRegister userHooklist
 var hookUserNickChange userHooklist
+var hookUserDataChanges userHooklist
 var hookUserRemoved userHooklist
 
 var hookUserDataChange map[string]*userHooklist
@@ -101,6 +102,16 @@ func HookUserDataChange(name string, f func(*User, string, string),
 	hookUserDataChange[name].add(f, unregged)		
 }
 
+// HookUserDataChanges adds a hook called for all user metadata changes.
+// If unregged is false, it is not called for unregistered users.
+// The hook receives a list of UserDataChanges as a parameter, so multiple
+// changes at once result in a single call. It does not have access to the
+// previous values of those metadata entries.
+func HookUserDataChanges(f func(*User, *UserDataChange), unregged bool) {
+	hookUserDataChanges.add(f, unregged)
+}
+
+
 // HookUserPM adds a hook called whenever a user sends/receives a PM.
 // t indicates the type of PM the hook is interested in, and may be "", to
 // hook the default type.
@@ -141,6 +152,14 @@ func runUserNickChangeHooks(u *User, oldnick, newnick string) {
 	hookUserNickChange.run(func(f interface{}) {
 		if h, ok := f.(func(*User, string, string)); ok && h != nil {
 			h(u, oldnick, newnick)
+		}
+	}, u.Registered())
+}
+
+func runUserDataChangesHooks(u *User, changes *UserDataChange) {
+	hookUserDataChanges.run(func(f interface{}) {
+		if h, ok := f.(func(*User, *UserDataChange)); ok && h != nil {
+			h(u, changes)
 		}
 	}, u.Registered())
 }

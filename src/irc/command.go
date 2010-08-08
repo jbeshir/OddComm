@@ -20,7 +20,7 @@ type Command struct {
 
 	// The maximum arguments the command expects.
 	// Excess arguments are merged into the last.
-	// This has a fixed maximum value of 20.
+	// This has a fixed maximum value of 50.
 	Maxargs int
 
 	// Whether this command can be called for unregistered users.

@@ -4,8 +4,8 @@ import "bytes"
 
 func Parse(d CommandDispatcher, line []byte, regged bool) (origin []byte, command *Command, params [][]byte, err *ParseError) {
 
-	// We can handle up to 20 parameters. This is plenty.
-	var param_array [20][]byte
+	// We can handle up to 50 parameters. This is plenty.
+	var param_array [50][]byte
 	params = param_array[0:0]
 	var word []byte
 
@@ -67,7 +67,7 @@ func Parse(d CommandDispatcher, line []byte, regged bool) (origin []byte, comman
 	}
 
 	// Everything else is a sequence of parameters.
-	for len(params) < 20 {
+	for len(params) < 50 {
 
 		// If the line is empty, break.
 		if (len(line) == 0) {
@@ -84,7 +84,7 @@ func Parse(d CommandDispatcher, line []byte, regged bool) (origin []byte, comman
 
 		// If we've hit the limit for parameters, the whole rest of the
 		// line is one large final parameter.
-		if len(params) == command.Maxargs - 1 || len(params) == 19 {
+		if len(params) == command.Maxargs - 1 || len(params) == 49 {
 			param_array[len(params)] = line
 			params = params[0:len(params)+1]
 			break

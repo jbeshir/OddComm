@@ -4,12 +4,21 @@ import "os"
 import "strings"
 
 
+// Represents a user.
 type User struct {
 	id   string
 	nick string
 	checked bool
 	regcount int
 	data map[string]string
+}
+
+// Represents a metadata change.
+// The name is the name of the metadata changed, and the data is what it is
+// set to.
+type UserDataChange struct {
+	Name, Data string
+	Next *UserDataChange
 }
 
 
@@ -117,7 +126,7 @@ func (u *User) Registered() bool {
 	return <-c
 }
 
-// SetData sets the given piece of metadata on the user.
+// SetData sets the given single piece of metadata on the user.
 // Setting it to "" unsets it.
 func (u *User) SetData(name string, value string) {
 	var oldvalue string
@@ -136,6 +145,39 @@ func (u *User) SetData(name string, value string) {
 	<-wait
 
 	runUserDataChangeHooks(u, name, oldvalue, value)
+
+	c := new(UserDataChange)
+	c.Name = name
+	c.Data = value
+	runUserDataChangesHooks(u, c)
+}
+
+// SetDataList performs the given list of metadata changes on the user.
+// This is equivalent to lots of SetData calls, except hooks for all data
+// changes will receive it as a single list, and it is cheaper.
+// There must not be duplicates (changes to the same value) in this list.
+func (u *User) SetDataList(c *UserDataChange) {
+	oldvalues := make(map[string]string)
+	wait := make(chan bool)
+	corechan <- func() {
+		for it := c; it != nil; it = c.Next {
+			oldvalues[c.Name] = u.data[c.Name]
+
+			if c.Data != "" {
+				u.data[c.Name] = c.Data
+			} else {
+				u.data[c.Name] = "", false
+			}
+		}
+
+		wait <- true
+	}
+	<-wait
+
+	for it := c; it != nil; it = c.Next {
+		runUserDataChangeHooks(u, c.Name, oldvalues[c.Name], c.Data)
+	}
+	runUserDataChangesHooks(u, c)
 }
 
 // Data gets the given piece of metadata.
