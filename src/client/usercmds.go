@@ -110,7 +110,7 @@ func cmdMode(u *core.User, w io.Writer, params [][]byte) {
 	if strings.ToUpper(c.u.Nick()) == strings.ToUpper(string(params[0])) {
 		changes, err := UserModes.ParseModeLine(params[1], params[2:])
 		if err != nil {
-			c.WriteFrom(nil, "501", "%s %s", err)
+			c.WriteFrom(nil, "501", "%s", err)
 		}
 		if changes != nil {
 			c.u.SetDataList(changes)

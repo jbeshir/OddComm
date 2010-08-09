@@ -9,6 +9,7 @@ import "oddircd/src/core"
 // Stores a mapping of codepoint character modes to metadata strings they
 // correspond to.
 type ModeParser struct {
+	channel bool
 	simple map[int]string
 	parametered map[int]string
 	list map[int]string
@@ -18,8 +19,11 @@ type ModeParser struct {
 }
 
 // NewModeParser returns a new mode parser, ready to add modes to.
-func NewModeParser() (p *ModeParser) {
+// channel sets whether this is a channel mode parser, or user mode parser.
+// This determines which modes to fake the existence of for compatibility.
+func NewModeParser(channel bool) (p *ModeParser) {
 	p = new(ModeParser)
+	p.channel = channel
 	p.simple = make(map[int]string)
 	p.parametered = make(map[int]string)
 	p.list = make(map[int]string)
@@ -117,6 +121,20 @@ func (p *ModeParser) ParseModeLine(modeline []byte, params [][]byte) (*core.User
 
 			changes[v] = change
 			continue
+		}
+
+		if p.channel {
+			if char == 'n' {
+				// Silently ignore +n, if it isn't a mode.
+				// Compatibility fudge.
+				continue
+			}
+		} else {
+			if char == 'i' {
+				// Silently ignore +i, if it isn't a mode.
+				// Compatibility fudge.
+				continue
+			}
 		}
 
 		unknown += string(char)

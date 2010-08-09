@@ -14,5 +14,5 @@ var UserModes *irc.ModeParser
 
 func init() {
 	Commands = irc.NewCommandDispatcher()
-	UserModes = irc.NewModeParser()
+	UserModes = irc.NewModeParser(false)
 }
