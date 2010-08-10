@@ -13,12 +13,77 @@ type User struct {
 	data map[string]string
 }
 
-// Represents a metadata change.
-// The name is the name of the metadata changed, and the data is what it is
-// set to.
-type UserDataChange struct {
-	Name, Data string
-	Next *UserDataChange
+
+// NewUser creates a new user, with creator the name of its creating package.
+// If checked is true, DNS lookup, bans, and similar are presumed to be already
+// checked.
+// If forceid is not nil, the function will create the user with that ID if it
+// is not in use. if it is, the function will return nil. The caller should be
+// prepared for this if it uses forceid, and ensure forceid is a valid UID.
+// A new user is not essentially yet "registered"; until they are, they cannot
+// communicate or join channels. A user will be considered registered once all
+// packages which are holding registration back have permitted it. If checked
+// is true, the creator may assume that it is the only package which may be
+// holding registration back.
+func NewUser(creator string, checked bool, forceid string) (u *User) {
+	wait := make(chan bool)
+	corechan <- func() {
+		if forceid != "" && users[forceid] != nil {
+			wait <- true
+			return
+		}
+
+		u = new(User)
+		u.data = make(map[string]string)
+		u.checked = checked
+		u.regcount = holdRegistration[creator]
+		if (!checked) {
+			u.regcount += holdRegistration[""]
+		}
+
+		if forceid != "" {
+			u.id = forceid
+		} else {
+			for users[getUIDString()] != nil {
+				incrementUID()
+			}
+			u.id = getUIDString()
+			incrementUID()
+		}
+
+		u.nick = u.id
+		users[u.id] = u
+		usersByNick[strings.ToUpper(u.nick)] = u
+		wait <- true
+	}
+	<-wait
+
+	runUserAddHooks(u, creator)
+	if (u.Registered()) {
+		runUserRegisterHooks(u)
+	}
+
+	return
+}
+
+// GetUser gets a user with the given ID, returning a pointer to their User
+// structure.
+func GetUser(id string) *User {
+	c := make(chan *User)
+	corechan <- func() {
+		c <- users[id]
+	}
+	return <-c
+}
+
+// GetUserByNick gets a user with the given nick, returning a pointer to their
+// User structure.
+func GetUserByNick(nick string) *User {
+	c := make(chan *User)
+	corechan <- func() {
+		c <- usersByNick[strings.ToUpper(nick)]
+	}
+	return <-c
 }
 
 
@@ -146,7 +211,7 @@ func (u *User) SetData(name string, value string) {
 
 	runUserDataChangeHooks(u, name, oldvalue, value)
 
-	c := new(UserDataChange)
+	c := new(DataChange)
 	c.Name = name
 	c.Data = value
 	runUserDataChangesHooks(u, c)
@@ -156,7 +221,7 @@ func (u *User) SetData(name string, value string) {
 // This is equivalent to lots of SetData calls, except hooks for all data
 // changes will receive it as a single list, and it is cheaper.
 // There must not be duplicates (changes to the same value) in this list.
-func (u *User) SetDataList(c *UserDataChange) {
+func (u *User) SetDataList(c *DataChange) {
 	oldvalues := make(map[string]string)
 	wait := make(chan bool)
 	corechan <- func() {

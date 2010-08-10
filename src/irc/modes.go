@@ -54,17 +54,17 @@ func (p *ModeParser) AddList(mode int, metadata string) {
 	p.nameToList[metadata] = mode
 }
 
-// ParseModeLine parses a line of mode changes into core.UserDataChange structs.
+// ParseModeLine parses a line of mode changes into core.DataChange structs.
 // Redundant changes are compressed down into one.
 // An error is returned if unknown modes are encountered, or modes are dropped
 // due to missing parameters. The remainder of the modes are still parsed.
-func (p *ModeParser) ParseModeLine(modeline []byte, params [][]byte) (*core.UserDataChange, os.Error) {
+func (p *ModeParser) ParseModeLine(modeline []byte, params [][]byte) (*core.DataChange, os.Error) {
 	var adding bool = true
 	var unknown string
 	var missing string
 	var param int
 	modes := string(modeline)
-	changes := make (map[string]*core.UserDataChange)
+	changes := make (map[string]*core.DataChange)
 
 	for _, char := range modes {
 		if char == '+' {
@@ -76,7 +76,7 @@ func (p *ModeParser) ParseModeLine(modeline []byte, params [][]byte) (*core.User
 		}
 		
 		if v, ok := p.simple[char]; ok {
-			change := new(core.UserDataChange)
+			change := new(core.DataChange)
 			change.Name = v
 			if adding {
 				change.Data = "on"
@@ -87,18 +87,18 @@ func (p *ModeParser) ParseModeLine(modeline []byte, params [][]byte) (*core.User
 		}
 
 		if v, ok := p.parametered[char]; ok {
-			var change *core.UserDataChange
+			var change *core.DataChange
 			if adding {
 				if param >= len(params) {
 					missing += string(char)
 					continue
 				}
-				change = new(core.UserDataChange)
+				change = new(core.DataChange)
 				change.Name = v
 				change.Data = string(params[param])
 				param++
 			} else {
-				change = new(core.UserDataChange)
+				change = new(core.DataChange)
 				change.Name = v
 			}
 
@@ -111,7 +111,7 @@ func (p *ModeParser) ParseModeLine(modeline []byte, params [][]byte) (*core.User
 				missing += string(char)
 				continue
 			}
-			change := new(core.UserDataChange)
+			change := new(core.DataChange)
 			change.Name = v + " " + string(params[param])
 			param++
 
@@ -141,7 +141,7 @@ func (p *ModeParser) ParseModeLine(modeline []byte, params [][]byte) (*core.User
 	}
 
 	// Turn the modes into a list.
-	var c *core.UserDataChange
+	var c *core.DataChange
 	for change := range changes {
 		changes[change].Next = c
 		c = changes[change]
@@ -168,7 +168,7 @@ func (p *ModeParser) ParseModeLine(modeline []byte, params [][]byte) (*core.User
 
 // ParseChanges parses a list of mode changes into a line of mode changes and
 // parameters. Changes which do not correspond to a mode are dropped.
-func (p *ModeParser) ParseChanges(c *core.UserDataChange) (modeline string) {
+func (p *ModeParser) ParseChanges(c *core.DataChange) (modeline string) {
 	var addmodes string
 	var remmodes string
 	var addparams string

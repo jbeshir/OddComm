@@ -5,6 +5,7 @@ GOFILES=\
 	main.go\
 	id.go\
 	user.go\
+	channel.go\
 	hooks.go\
 	userhooks.go
 

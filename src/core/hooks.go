@@ -1,6 +1,15 @@
 package core
 
 
+// Represents a metadata change.
+// The name is the name of the metadata changed, and the data is what it is
+// set to.
+type DataChange struct {
+	Name, Data string
+	Next *DataChange
+}
+
+// Represents a hook.
 type hook struct {
 	next *hook
 	f interface{}
