@@ -108,7 +108,7 @@ func cmdPing(u *core.User, w io.Writer, params [][]byte) {
 func cmdMode(u *core.User, w io.Writer, params [][]byte) {
 	c := w.(*Client)
 	if strings.ToUpper(c.u.Nick()) == strings.ToUpper(string(params[0])) {
-		changes, err := UserModes.ParseModeLine(params[1], params[2:])
+		changes, err := UserModes.ParseModeLine(u, params[1], params[2:])
 		if err != nil {
 			c.WriteFrom(nil, "501", "%s", err)
 		}

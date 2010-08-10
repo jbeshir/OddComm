@@ -1,5 +1,10 @@
 package core
 
+// Represents anything which has Data and SetData methods for metadata.
+type Extensible interface {
+	Data(name string) string
+	SetData(name string, value string)
+}
 
 // Represents a metadata change.
 // The name is the name of the metadata changed, and the data is what it is
@@ -7,6 +12,14 @@ package core
 type DataChange struct {
 	Name, Data string
 	Next *DataChange
+}
+
+// Represents a previous metadata value.
+// In conjunction with a DataChange list, permits viewing the previous value
+// of a changed metadata item.
+type OldData struct {
+	Data string
+	Next *OldData
 }
 
 // Represents a hook.

@@ -104,10 +104,9 @@ func HookUserDataChange(name string, f func(*User, string, string),
 
 // HookUserDataChanges adds a hook called for all user metadata changes.
 // If unregged is false, it is not called for unregistered users.
-// The hook receives a list of DataChanges as a parameter, so multiple
-// changes at once result in a single call. It does not have access to the
-// previous values of those metadata entries.
-func HookUserDataChanges(f func(*User, *DataChange), unregged bool) {
+// The hook receives list of DataChanges and OldData as parameters, so multiple
+// changes at once result in a single call.
+func HookUserDataChanges(f func(*User, *DataChange, *OldData), unregged bool) {
 	hookDataChanges.add(f, unregged)
 }
 
@@ -156,10 +155,10 @@ func runUserNickChangeHooks(u *User, oldnick, newnick string) {
 	}, u.Registered())
 }
 
-func runUserDataChangesHooks(u *User, changes *DataChange) {
+func runUserDataChangesHooks(u *User, changes *DataChange, olddata *OldData) {
 	hookDataChanges.run(func(f interface{}) {
-		if h, ok := f.(func(*User, *DataChange)); ok && h != nil {
-			h(u, changes)
+		if h, ok := f.(func(*User, *DataChange, *OldData)); ok && h != nil {
+			h(u, changes, olddata)
 		}
 	}, u.Registered())
 }

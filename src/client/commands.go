@@ -1,5 +1,6 @@
 package client
 
+import "oddircd/src/core"
 import "oddircd/src/irc"
 
 
@@ -14,5 +15,11 @@ var UserModes *irc.ModeParser
 
 func init() {
 	Commands = irc.NewCommandDispatcher()
-	UserModes = irc.NewModeParser(false)
+	UserModes = irc.NewModeParser()
+
+	UserModes.AddSimple('i', "__placeholder__")
+	UserModes.AddExtMode('i', "", func(_ bool, _ core.Extensible,
+	                                   _ string) *core.DataChange {
+		return nil
+	}, nil)
 }

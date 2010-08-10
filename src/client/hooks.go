@@ -28,9 +28,9 @@ func init() {
 		}
 	}, true)
 
-	core.HookUserDataChanges(func(u *core.User, c *core.DataChange) {
+	core.HookUserDataChanges(func(u *core.User, c *core.DataChange, old *core.OldData) {
 		if cli := GetClient(u); c != nil {
-			modeline := UserModes.ParseChanges(c)
+			modeline := UserModes.ParseChanges(u, c, old)
 			if modeline != "" {
 				cli.WriteFrom(u, "MODE", modeline)
 			}

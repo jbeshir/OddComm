@@ -209,12 +209,19 @@ func (u *User) SetData(name string, value string) {
 	}
 	<-wait
 
+	// If nothing changed, don't call hooks.
+	if oldvalue == value {
+		return
+	}
+
 	runUserDataChangeHooks(u, name, oldvalue, value)
 
 	c := new(DataChange)
 	c.Name = name
 	c.Data = value
-	runUserDataChangesHooks(u, c)
+	old := new(OldData)
+	old.Data = value
+	runUserDataChangesHooks(u, c, old)
 }
 
 // SetDataList performs the given list of metadata changes on the user.
@@ -222,27 +229,43 @@ func (u *User) SetData(name string, value string) {
 // changes will receive it as a single list, and it is cheaper.
 // There must not be duplicates (changes to the same value) in this list.
 func (u *User) SetDataList(c *DataChange) {
-	oldvalues := make(map[string]string)
+	var oldvalues *OldData
 	wait := make(chan bool)
 	corechan <- func() {
-		for it := c; it != nil; it = c.Next {
-			oldvalues[c.Name] = u.data[c.Name]
+		var lasthook *DataChange
+		for it := c; it != nil; it = it.Next {
 
-			if c.Data != "" {
-				u.data[c.Name] = c.Data
-			} else {
-				u.data[c.Name] = "", false
+			// If this is a do-nothing change, cut it out.
+			if u.data[it.Name] == it.Data {
+				if lasthook != nil {
+					lasthook.Next = it.Next
+				} else {
+					c = it.Next
+				}
 			}
+
+			old := new(OldData)
+			old.Data = u.data[it.Name]
+			old.Next = oldvalues
+			oldvalues = old
+
+			if it.Data != "" {
+				u.data[it.Name] = it.Data
+			} else {
+				u.data[it.Name] = "", false
+			}
+
+			lasthook = it
 		}
 
 		wait <- true
 	}
 	<-wait
 
-	for it := c; it != nil; it = c.Next {
-		runUserDataChangeHooks(u, c.Name, oldvalues[c.Name], c.Data)
+	for it, old := c, oldvalues; it != nil && old != nil; it, old = it.Next, old.Next {
+		runUserDataChangeHooks(u, c.Name, old.Data, c.Data)
 	}
-	runUserDataChangesHooks(u, c)
+	runUserDataChangesHooks(u, c, oldvalues)
 }
 
 // Data gets the given piece of metadata.
