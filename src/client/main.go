@@ -141,8 +141,8 @@ func listen(l *net.TCPListener) {
 		addClient(client)
 
 		ip := client.conn.RemoteAddr().(*net.TCPAddr).IP.String()
-		client.u.SetData("ip", ip)
-		client.u.SetData("hostname", ip)
+		client.u.SetData(nil, "ip", ip)
+		client.u.SetData(nil, "hostname", ip)
 
 		go clientHandler(client)
 	}

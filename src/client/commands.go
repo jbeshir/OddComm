@@ -21,5 +21,7 @@ func init() {
 	UserModes.AddExtMode('i', "", func(_ bool, _ core.Extensible,
 	                                   _ string) *core.DataChange {
 		return nil
-	}, nil)
+	}, nil, func(_ core.Extensible) string {
+		return "on"
+	})
 }

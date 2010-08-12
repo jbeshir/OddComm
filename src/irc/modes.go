@@ -5,10 +5,12 @@ import "strings"
 
 import "oddircd/src/core"
 
+var currentID uint64
 
 // Stores a mapping of codepoint character modes to metadata strings they
 // correspond to.
 type ModeParser struct {
+	id uint64
 	simple map[int]string
 	parametered map[int]string
 	extended map[int]func(bool, core.Extensible, string)(*core.DataChange)
@@ -17,13 +19,14 @@ type ModeParser struct {
 	nameToParametered map[string]int
 	nameToList map[string]int
 	nameToExt map[string]func(core.Extensible, string, string)([]int, []string, []int, []string)
+	getExt map[int]func(core.Extensible)string
 }
 
 // NewModeParser returns a new mode parser, ready to add modes to.
-// channel sets whether this is a channel mode parser, or user mode parser.
-// This determines which modes to fake the existence of for compatibility.
+// This method cannot be called more than 2^64-1 times or it runs out of IDs.
 func NewModeParser() (p *ModeParser) {
 	p = new(ModeParser)
+	p.id = currentID; currentID++
 	p.simple = make(map[int]string)
 	p.parametered = make(map[int]string)
 	p.list = make(map[int]string)
@@ -32,6 +35,7 @@ func NewModeParser() (p *ModeParser) {
 	p.nameToParametered = make(map[string]int)
 	p.nameToList = make(map[string]int)
 	p.nameToExt = make(map[string]func(core.Extensible, string, string)([]int, []string, []int, []string))
+	p.getExt = make(map[int]func(core.Extensible)string)
 	return
 }
 
@@ -56,18 +60,22 @@ func (p *ModeParser) AddList(mode int, metadata string) {
 	p.nameToList[metadata] = mode
 }
 
-// AddExtMode adds a mode/metadata name combination which requires additional
-// logic to map a mode change to metadata, and visa versa.
+// AddExtMode extends an already added mode, attaching hooks to mapping the
+// mode to metadata, its metadata to modes, and generating a list of set modes
+// on a user. It permits modes which requires additional logic.
 // The name will be treated as a prefix; both it directly, and all subentries,
 // will be fed to the nameToMode function when parsing changes.
 //
-// The mode must also be added to one of the other types; this will determine
-// whether it receives a parameter on set (parametered), set and unset (list),
-// or never (simple). It is legal to have either the metadata name or the mode
-// be nil to extend the mode only one way, or create a mode that does not
-// correspond to any single piece of metadata, but a placeholder entry is
-// still needed in the appropriate other type. It is in this case permitted
-// to provide a nil function for the unused mapping.
+// The mode must already have been added to one of the other types; this will
+// determine whether its hooks receive a parameter on set (parametered),
+// set and unset (list), or never (simple). It also determines whether the
+// getSet hook will be called (simple or parametered only), and whether it may
+// return a parameter to be listed.
+
+// It is legal to have the metadata name be nil, in which case the mode will
+// not map to any specific name, and nameToMode will never be called and may
+// be nil. A placeholder metadata name must still be given while adding it as
+// one of the normal types.
 //
 // The modeToName function should expect a boolean indicating whether the mode
 // is being added or removed, and the user/channel being changed followed by
@@ -80,12 +88,15 @@ func (p *ModeParser) AddList(mode int, metadata string) {
 // another of removed mode characters, and a slice of added mode parameters
 // and another of removed mode parameters. Any of these may be empty.
 //
+// The getExt function should expect a user or channel, and return a value for
+// the mode, which may be "" to indicate it is unset, or any other value to
+// indicate it is set, and for parametered modes, with that as the parameter.
+//
 // This method cannot be called concurrently with itself, or any lookups on
 // the parser.
-func (p *ModeParser) AddExtMode(mode int, name string, modeToName func(bool, core.Extensible, string) (*core.DataChange), nameToMode func(core.Extensible, string, string) ([]int, []string, []int, []string)) {
-	if mode != 0 {
-		p.extended[mode] = modeToName
-	}
+func (p *ModeParser) AddExtMode(mode int, name string, modeToName func(bool, core.Extensible, string) (*core.DataChange), nameToMode func(core.Extensible, string, string) ([]int, []string, []int, []string), getSet func(core.Extensible) string) {
+	p.extended[mode] = modeToName
+	p.getExt[mode] = getSet
 	if name != "" {
 		p.nameToExt[name] = nameToMode
 	}
@@ -296,4 +307,40 @@ func (p *ModeParser) ParseChanges(e core.Extensible, c *core.DataChange,
 		result += "-" + remmodes
 	}
 	return result + addparams + remparams
+}
+
+
+// GetUserModes gets the modeline associated with a user or channel.
+// It caches its result via metadata on the user, using the mode parser's
+// mode ID to disambiguate it from other mode parsers.
+func (p* ModeParser) GetModes (e core.Extensible) string {
+	var modes string
+	var params string
+
+	for name, char := range p.nameToSimple {
+		data := e.Data(name)
+
+		if v, ok := p.getExt[char]; ok {
+			data = v(e)
+		}
+
+		if data != "" {
+			modes += string(char)
+		}
+	}
+
+	for name, char := range p.nameToParametered {
+		data := e.Data(name)
+
+		if v, ok := p.getExt[char]; ok {
+			data = v(e)
+		}
+
+		if data != "" {
+			modes += string(char)
+			params += " " + data
+		}
+	}
+
+	return modes + params
 }

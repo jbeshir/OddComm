@@ -40,7 +40,7 @@ func init() {
 
 	c = new(irc.Command)
 	c.Handler = cmdMode
-	c.Minargs = 2
+	c.Minargs = 1
 	c.Maxargs = 42
 	Commands.Add("MODE", c)
 
@@ -95,8 +95,8 @@ func cmdUser(u *core.User, w io.Writer, params [][]byte) {
 		return
 	}
 	
-	u.SetData("ident", string(params[0]))
-	u.SetData("realname", string(params[3]))
+	u.SetData(nil, "ident", string(params[0]))
+	u.SetData(nil, "realname", string(params[3]))
 }
 
 func cmdPing(u *core.User, w io.Writer, params [][]byte) {
@@ -107,13 +107,30 @@ func cmdPing(u *core.User, w io.Writer, params [][]byte) {
 
 func cmdMode(u *core.User, w io.Writer, params [][]byte) {
 	c := w.(*Client)
+
+	// If we're viewing the modes of a user or channel...
+	if len(params) < 2 {
+		// At present, we only support this on ourselves.
+		if strings.ToUpper(c.u.Nick()) == strings.ToUpper(string(params[0])) {
+			modeline := UserModes.GetModes(u)
+			c.WriteFrom(nil, "221", ":+%s", modeline)
+		}
+		return
+	}
+
+	// If we're listing list modes...
+	if params[1][0] != '+' && params[1][0] != '-' {
+		// No support!
+		return
+	}
+
 	if strings.ToUpper(c.u.Nick()) == strings.ToUpper(string(params[0])) {
 		changes, err := UserModes.ParseModeLine(u, params[1], params[2:])
 		if err != nil {
 			c.WriteFrom(nil, "501", "%s", err)
 		}
 		if changes != nil {
-			c.u.SetDataList(changes)
+			c.u.SetDataList(u, changes)
 		}
 	} else {
 		c.WriteFrom(nil, "501", "%s %s :%s", u.Nick(), params[0],

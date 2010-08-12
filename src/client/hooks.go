@@ -20,19 +20,19 @@ func init() {
 
 	core.RegistrationHold("oddircd/src/client")
 	core.HookUserDataChange("ident",
-	                        func(u *core.User, oldvalue, newvalue string) {
-		if c := GetClient(u); c != nil {
+	                        func(source, target *core.User, oldvalue, newvalue string) {
+		if c := GetClient(target); c != nil {
 			if oldvalue == "" {
-				u.PermitRegistration()
+				target.PermitRegistration()
 			}
 		}
 	}, true)
 
-	core.HookUserDataChanges(func(u *core.User, c *core.DataChange, old *core.OldData) {
-		if cli := GetClient(u); c != nil {
-			modeline := UserModes.ParseChanges(u, c, old)
+	core.HookUserDataChanges(func(source, target *core.User, c *core.DataChange, old *core.OldData) {
+		if cli := GetClient(target); c != nil {
+			modeline := UserModes.ParseChanges(target, c, old)
 			if modeline != "" {
-				cli.WriteFrom(u, "MODE", modeline)
+				cli.WriteFrom(source, "MODE", modeline)
 			}
 		}
 	}, false)
@@ -40,6 +40,8 @@ func init() {
 	core.HookUserRegister(func(u *core.User) {
 		if c := GetClient(u); c != nil {
 			c.WriteFrom(nil, "001", ":Welcome to IRC")
+			modeline := UserModes.GetModes(u)
+			c.WriteFrom(u, "MODE", "+%s", modeline)
 		}
 	})
 

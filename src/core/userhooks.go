@@ -91,9 +91,10 @@ func HookUserNickChange(f func(*User, string, string), unregged bool) {
 // HookUserDataChange adds a hook called whenever a user's metadata changes.
 // The name is the metadata whose changes the hook wishes to receive.
 // If unregged is false, it is not called for unregistered users.
-// The hook receives the old and new values of the data as parameters.
-// "" means unset.
-func HookUserDataChange(name string, f func(*User, string, string),
+// The hook receives the source and target of the change, and the old and new
+// values of the data as parameters, and must be prepared for source to be nil.
+// "" means unset, for either the old or new value.
+func HookUserDataChange(name string, f func(*User, *User, string, string),
                         unregged bool) {
 	if hookDataChange[name] == nil {
 		hookDataChange[name] = new(userHooklist)
@@ -104,9 +105,10 @@ func HookUserDataChange(name string, f func(*User, string, string),
 
 // HookUserDataChanges adds a hook called for all user metadata changes.
 // If unregged is false, it is not called for unregistered users.
-// The hook receives list of DataChanges and OldData as parameters, so multiple
-// changes at once result in a single call.
-func HookUserDataChanges(f func(*User, *DataChange, *OldData), unregged bool) {
+// The hook receives the source and target of the change, and lists of
+// DataChanges and OldData as parameters, so multiple changes at once result
+// in a single call. It must be prepared for source to be nil.
+func HookUserDataChanges(f func(*User, *User, *DataChange, *OldData), unregged bool) {
 	hookDataChanges.add(f, unregged)
 }
 
@@ -155,12 +157,12 @@ func runUserNickChangeHooks(u *User, oldnick, newnick string) {
 	}, u.Registered())
 }
 
-func runUserDataChangesHooks(u *User, changes *DataChange, olddata *OldData) {
+func runUserDataChangesHooks(source, target *User, changes *DataChange, olddata *OldData) {
 	hookDataChanges.run(func(f interface{}) {
-		if h, ok := f.(func(*User, *DataChange, *OldData)); ok && h != nil {
-			h(u, changes, olddata)
+		if h, ok := f.(func(*User, *User, *DataChange, *OldData)); ok && h != nil {
+			h(source, target, changes, olddata)
 		}
-	}, u.Registered())
+	}, target.Registered())
 }
 
 func runUserRemovedHooks(u *User, message string) {
@@ -171,13 +173,14 @@ func runUserRemovedHooks(u *User, message string) {
 	}, u.Registered())
 }
 
-func runUserDataChangeHooks(u *User, name string, oldvalue, newvalue string) {
+func runUserDataChangeHooks(source, target *User, name, oldvalue, newvalue string) {
 	if hookDataChange[name] == nil { return }
 	hookDataChange[name].run(func(f interface{}) {
-		if h, ok := f.(func(*User, string, string)); ok && h != nil {
-			h(u, oldvalue, newvalue)
+		if h, ok := f.(func(*User, *User, string, string)); ok &&
+				h != nil {
+			h(source, target, oldvalue, newvalue)
 		}
-	}, u.Registered())
+	}, target.Registered())
 }
 
 func runUserPMHooks(source, target *User, message []byte, t string) {

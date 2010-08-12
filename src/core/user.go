@@ -192,8 +192,9 @@ func (u *User) Registered() bool {
 }
 
 // SetData sets the given single piece of metadata on the user.
+// source may be nil, in which case the metadata is set by the server.
 // Setting it to "" unsets it.
-func (u *User) SetData(name string, value string) {
+func (u *User) SetData(source *User, name string, value string) {
 	var oldvalue string
 
 	wait := make(chan bool)
@@ -214,21 +215,21 @@ func (u *User) SetData(name string, value string) {
 		return
 	}
 
-	runUserDataChangeHooks(u, name, oldvalue, value)
+	runUserDataChangeHooks(source, u,name, oldvalue, value)
 
 	c := new(DataChange)
 	c.Name = name
 	c.Data = value
 	old := new(OldData)
 	old.Data = value
-	runUserDataChangesHooks(u, c, old)
+	runUserDataChangesHooks(source, u, c, old)
 }
 
 // SetDataList performs the given list of metadata changes on the user.
 // This is equivalent to lots of SetData calls, except hooks for all data
 // changes will receive it as a single list, and it is cheaper.
-// There must not be duplicates (changes to the same value) in this list.
-func (u *User) SetDataList(c *DataChange) {
+// source may be nil, in which case the metadata is set by the server.
+func (u *User) SetDataList(source *User, c *DataChange) {
 	var oldvalues *OldData
 	wait := make(chan bool)
 	corechan <- func() {
@@ -263,9 +264,9 @@ func (u *User) SetDataList(c *DataChange) {
 	<-wait
 
 	for it, old := c, oldvalues; it != nil && old != nil; it, old = it.Next, old.Next {
-		runUserDataChangeHooks(u, c.Name, old.Data, c.Data)
+		runUserDataChangeHooks(source, u, c.Name, old.Data, c.Data)
 	}
-	runUserDataChangesHooks(u, c, oldvalues)
+	runUserDataChangesHooks(source, u, c, oldvalues)
 }
 
 // Data gets the given piece of metadata.
