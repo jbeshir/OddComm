@@ -296,9 +296,9 @@ func (u *User) PM(source *User, message []byte, t string) {
 	runUserPMHooks(source, u, message, t)
 }
 
-// Remove kills the user.
+// Delete deletes the user from the server.
 // The given message is recorded as the reason why.
-func (u *User) Remove(message string) {
+func (u *User) Delete(message string) {
 	wait := make(chan bool)
 	corechan <- func() {
 		if users[u.id] == u {
@@ -312,5 +312,5 @@ func (u *User) Remove(message string) {
 	}
 	<-wait
 
-	runUserRemovedHooks(u, message)
+	runUserDeleteHooks(u, message)
 }

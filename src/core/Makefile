@@ -7,6 +7,7 @@ GOFILES=\
 	user.go\
 	channel.go\
 	hooks.go\
+	chanhooks.go\
 	userhooks.go
 
 include $(GOROOT)/src/Make.pkg

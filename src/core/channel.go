@@ -61,9 +61,11 @@ func (ch *Channel) Name() (name string) {
 	return
 }
 
+
 // SetData sets the given single piece of metadata on the channel.
+// source may be nil, in which case the metadata is set by the server.
 // Setting it to "" unsets it.
-func (ch *Channel) SetData(name string, value string) {
+func (ch *Channel) SetData(source *User, name string, value string) {
 	var oldvalue string
 
 	wait := make(chan bool)
@@ -79,40 +81,63 @@ func (ch *Channel) SetData(name string, value string) {
 	}
 	<-wait
 
-	// runChanDataChangeHooks(u, name, oldvalue, value)
+	// If nothing changed, don't call hooks.
+	if oldvalue == value {
+		return
+	}
 
-	// c := new(DataChange)
-	// c.Name = name
-	// c.Data = value
-	// runChanDataChangesHooks(ch, c)
+	// runChanDataChangeHooks(source, ch, name, oldvalue, value)
+
+	c := new(DataChange)
+	c.Name = name
+	c.Data = value
+	old := new(OldData)
+	old.Data = value
+	// runChanDataChangesHooks(source, ch, c, old)
 }
 
 // SetDataList performs the given list of metadata changes on the channel.
 // This is equivalent to lots of SetData calls, except hooks for all data
 // changes will receive it as a single list, and it is cheaper.
-// There must not be duplicates (changes to the same value) in this list.
-func (ch *Channel) SetDataList(c *DataChange) {
-	oldvalues := make(map[string]string)
+// source may be nil, in which case the metadata is set by the server.
+func (ch *Channel) SetDataList(source *User, c *DataChange) {
+	var oldvalues *OldData
 	wait := make(chan bool)
 	corechan <- func() {
-		for it := c; it != nil; it = c.Next {
-			oldvalues[c.Name] = ch.data[c.Name]
+		var lasthook *DataChange
+		for it := c; it != nil; it = it.Next {
 
-			if c.Data != "" {
-				ch.data[c.Name] = c.Data
-			} else {
-				ch.data[c.Name] = "", false
+			// If this is a do-nothing change, cut it out.
+			if ch.data[it.Name] == it.Data {
+				if lasthook != nil {
+					lasthook.Next = it.Next
+				} else {
+					c = it.Next
+				}
 			}
+
+			old := new(OldData)
+			old.Data = ch.data[it.Name]
+			old.Next = oldvalues
+			oldvalues = old
+
+			if it.Data != "" {
+				ch.data[it.Name] = it.Data
+			} else {
+				ch.data[it.Name] = "", false
+			}
+
+			lasthook = it
 		}
 
 		wait <- true
 	}
 	<-wait
 
-	// for it := c; it != nil; it = c.Next {
-	// 	runChanDataChangeHooks(ch, c.Name, oldvalues[c.Name], c.Data)
-	// }
-	// runChanDataChangesHooks(ch, c)
+	for it, old := c, oldvalues; it != nil && old != nil; it, old = it.Next, old.Next {
+		// runUserChanChangeHooks(source, ch, c.Name, old.Data, c.Data)
+	}
+	// runChanDataChangesHooks(source, ch, c, oldvalues)
 }
 
 // Data gets the given piece of metadata.

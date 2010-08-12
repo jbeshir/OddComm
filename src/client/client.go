@@ -20,7 +20,7 @@ type Client struct {
 
 // Disconnects the client with the given message. This internal method assumes
 // it is being called from the client goroutine.
-func (c *Client) remove(message string) {
+func (c *Client) delete(message string) {
 
 	username := c.u.Data("ident")
 	if username == "" {
@@ -46,7 +46,7 @@ func (c *Client) write(line []byte) {
 		// If we've overflowed our output buffer, kill the client.
 		if cap(c.outbuf)-len(c.outbuf) < len(line) {
 			if (c.u != nil) {
-				c.u.Remove("SendQ exceeded.")
+				c.u.Delete("SendQ exceeded.")
 			}
 			c.disconnecting = true
 			return false

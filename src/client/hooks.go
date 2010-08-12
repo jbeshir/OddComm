@@ -58,10 +58,10 @@ func init() {
 		}
 	})
 
-	core.HookUserRemoved(func(u *core.User, message string) {
+	core.HookUserDelete(func(u *core.User, message string) {
 		if c := GetClient(u); c != nil {
 			makeRequest(c, func() {
-				c.remove(message)
+				c.delete(message)
 			})		
 		}
 	}, true)

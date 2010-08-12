@@ -32,11 +32,11 @@ func init() {
 		// We will try to reconnect.
 		if u == cat && newnick != "CatServ" {
 			// Meow!
-			cat.Remove("Meow!")
+			cat.Delete("Meow!")
 		}
 	}, true)
 
-	core.HookUserRemoved(func(u *core.User, _ string) {
+	core.HookUserDelete(func(u *core.User, _ string) {
 		// If we got disconnected or quit, or someone stealing our nick
 		// quit, try to reconnect.
 		if u == cat || strings.ToUpper(u.Nick()) == "CATSERV" {
@@ -61,7 +61,7 @@ func addCat() {
 	// If I suffer a collision, quit for now; I will return when they go
 	// away.
 	if err := cat.SetNick("CatServ"); err != nil {
-		cat.Remove(err.String())
+		cat.Delete(err.String())
 		return
 	}
 

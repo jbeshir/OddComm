@@ -13,7 +13,7 @@ var hookUserAdd userHooklist
 var hookUserRegister userHooklist
 var hookUserNickChange userHooklist
 var hookDataChanges userHooklist
-var hookUserRemoved userHooklist
+var hookUserDelete userHooklist
 
 var hookDataChange map[string]*userHooklist
 var hookUserPM map[string]*userHooklist
@@ -126,10 +126,10 @@ func HookUserPM(t string, f func(*User, *User, []byte)) {
 	hookUserPM[t].add(f, false)
 }
 
-// HookUserRemoved adds a hook called whenever a user is removed.
+// HookUserDelete adds a hook called whenever a user is deleted.
 // If unregged is false, it is not called for unregistered users.
-func HookUserRemoved(f func(*User, string), unregged bool) {
-	hookUserRemoved.add(f, unregged)
+func HookUserDelete(f func(*User, string), unregged bool) {
+	hookUserDelete.add(f, unregged)
 }
 
 
@@ -165,8 +165,8 @@ func runUserDataChangesHooks(source, target *User, changes *DataChange, olddata 
 	}, target.Registered())
 }
 
-func runUserRemovedHooks(u *User, message string) {
-	hookUserRemoved.run(func(f interface{}) {
+func runUserDeleteHooks(u *User, message string) {
+	hookUserDelete.run(func(f interface{}) {
 		if h, ok := f.(func(*User, string)); ok && h != nil {
 			h(u, message)
 		}
