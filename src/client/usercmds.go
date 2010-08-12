@@ -142,7 +142,7 @@ func cmdPrivmsg(u *core.User, w io.Writer, params [][]byte) {
 	c := w.(*Client)
 	if target := core.GetUserByNick(string(params[0])); target != nil {
 		if ok, err := perm.CheckPM(u, target, params[1], ""); ok {
-			target.PM(u, params[1], "")
+			target.Message(u, params[1], "")
 		} else {
 			c.WriteFrom(nil, "404", "%s %s :%s", u.Nick(),
 			            target.Nick(), err)
@@ -154,8 +154,9 @@ func cmdPrivmsg(u *core.User, w io.Writer, params [][]byte) {
 func cmdNotice(u *core.User, w io.Writer, params [][]byte) {
 	c := w.(*Client)
 	if target := core.GetUserByNick(string(params[0])); target != nil {
-		if ok, err := perm.CheckPM(u, target, params[1], "reply"); ok {
-			target.PM(u, params[1], "reply")
+		if ok, err := perm.CheckPM(u, target, params[1],
+				"noreply"); ok {
+			target.Message(u, params[1], "noreply")
 		} else {
 			c.WriteFrom(nil, "404", "%s %s :%s", u.Nick(),
 			            target.Nick(), err)

@@ -44,12 +44,13 @@ func init() {
 		}
 	}, true)
 
-	core.HookUserPM("", func(source, target *core.User, message []byte) {
+	core.HookUserMessage("", func(source, target *core.User,
+			message []byte) {
 		// If someone sent a message to us, say hi.
 		// In a real psuedoserver, you could write whatever
 		// functionality you liked here.
 		if target == cat {
-			source.PM(cat, []byte("Meow!"), "reply")
+			source.Message(cat, []byte("Meow!"), "noreply")
 		}
 	})
 }

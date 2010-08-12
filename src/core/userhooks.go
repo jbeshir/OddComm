@@ -16,13 +16,13 @@ var hookDataChanges userHooklist
 var hookUserDelete userHooklist
 
 var hookDataChange map[string]*userHooklist
-var hookUserPM map[string]*userHooklist
+var hookUserMessage map[string]*userHooklist
 
 
 func init() {
 	holdRegistration = make(map[string]int)
 	hookDataChange = make(map[string]*userHooklist)
-	hookUserPM = make(map[string]*userHooklist)
+	hookUserMessage = make(map[string]*userHooklist)
 }
 
 
@@ -113,17 +113,17 @@ func HookUserDataChanges(f func(*User, *User, *DataChange, *OldData), unregged b
 }
 
 
-// HookUserPM adds a hook called whenever a user sends/receives a PM.
+// HookUserMessage adds a hook called whenever a user receives a message.
 // t indicates the type of PM the hook is interested in, and may be "", to
 // hook the default type.
 // The hook receives the source, target, and message as parameters, and must be
 // prepared for the source to be nil.
-func HookUserPM(t string, f func(*User, *User, []byte)) {
-	if hookUserPM[t] == nil {
-		hookUserPM[t] = new(userHooklist)
+func HookUserMessage(t string, f func(*User, *User, []byte)) {
+	if hookUserMessage[t] == nil {
+		hookUserMessage[t] = new(userHooklist)
 	}
 
-	hookUserPM[t].add(f, false)
+	hookUserMessage[t].add(f, false)
 }
 
 // HookUserDelete adds a hook called whenever a user is deleted.
@@ -183,9 +183,9 @@ func runUserDataChangeHooks(source, target *User, name, oldvalue, newvalue strin
 	}, target.Registered())
 }
 
-func runUserPMHooks(source, target *User, message []byte, t string) {
-	if hookUserPM[t] == nil { return }
-	hookUserPM[t].run(func(f interface{}) {
+func runUserMessageHooks(source, target *User, message []byte, t string) {
+	if hookUserMessage[t] == nil { return }
+	hookUserMessage[t].run(func(f interface{}) {
 		if h, ok := f.(func(*User, *User, []byte)); ok && h != nil {
 			h(source, target, message)
 		}

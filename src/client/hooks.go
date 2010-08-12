@@ -45,13 +45,14 @@ func init() {
 		}
 	})
 
-	core.HookUserPM("", func(source, target *core.User, message []byte) {
+	core.HookUserMessage("", func(source, target *core.User,
+			message []byte) {
 		if c := GetClient(target); c != nil {
 			c.WriteFrom(source, "PRIVMSG", ":%s", message)
 		}
 	})
 
-	core.HookUserPM("reply",
+	core.HookUserMessage("noreply",
 	                func(source, target *core.User, message []byte) {
 		if c := GetClient(target); c != nil {
 			c.WriteFrom(source, "NOTICE", ":%s", message)
