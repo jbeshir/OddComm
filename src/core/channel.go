@@ -27,6 +27,7 @@ func GetChannel(t, name string) (ch *Channel) {
 			ch.name = name
 			ch.t = t
 			ch.ts = time.Seconds()
+			ch.data = make(map[string]string)
 			channels[t][NAME] = ch
 		}
 	} else {
@@ -35,6 +36,7 @@ func GetChannel(t, name string) (ch *Channel) {
 		ch.name = name
 		ch.t = t
 		ch.ts = time.Seconds()
+		ch.data = make(map[string]string)
 		channels[t][NAME] = ch
 	}
 	return

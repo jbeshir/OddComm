@@ -142,10 +142,23 @@ func cmdMode(u *core.User, w io.Writer, params [][]byte) {
 
 	// If we're viewing the modes of a user or channel...
 	if len(params) < 2 {
-		// At present, we only support this on ourselves.
 		if strings.ToUpper(c.u.Nick()) == strings.ToUpper(string(params[0])) {
 			modeline := UserModes.GetModes(u)
 			c.WriteTo(nil, "221", ":+%s", modeline)
+			return
+		}
+
+		if params[0][0] == '#' {
+			channame := string(params[0][1:])
+			ch := core.FindChannel("", channame)
+			if ch != nil {
+				modeline := ChanModes.GetModes(ch)
+				ts := ch.TS()
+				c.WriteTo(nil, "324", "#%s +%s", ch.Name(),
+				          modeline)
+				c.WriteTo(nil, "329", "#%s %d", ch.Name(), ts)
+			}
+			return
 		}
 		return
 	}
@@ -156,6 +169,7 @@ func cmdMode(u *core.User, w io.Writer, params [][]byte) {
 		return
 	}
 
+
 	if strings.ToUpper(c.u.Nick()) == strings.ToUpper(string(params[0])) {
 		changes, err := UserModes.ParseModeLine(u, params[1], params[2:])
 		if err != nil {
@@ -164,10 +178,26 @@ func cmdMode(u *core.User, w io.Writer, params [][]byte) {
 		if changes != nil {
 			c.u.SetDataList(u, changes)
 		}
-	} else {
-		c.WriteTo(nil, "501", "%s %s :%s", u.Nick(), params[0],
-		            "No such nick/channel")
+		return
 	}
+
+	if params[0][0] == '#' {
+		channame := string(params[0][1:])
+		ch := core.FindChannel("", channame)
+		if ch != nil {
+			changes, err := ChanModes.ParseModeLine(ch, params[1], params[2:])
+			if err != nil {
+				c.WriteTo(nil, "501", "%s", err)
+			}
+			if changes != nil {
+				ch.SetDataList(u, changes)
+			}
+		}
+		return
+	}
+
+	c.WriteTo(nil, "501", "%s %s :%s", u.Nick(), params[0],
+		  "No such nick/channel")
 }
 
 func cmdPrivmsg(u *core.User, w io.Writer, params [][]byte) {
