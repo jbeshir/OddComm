@@ -321,7 +321,7 @@ func (u *User) Delete(message string) {
 			users[u.id] = nil, false
 		}
 		NICK := strings.ToUpper(u.nick)
-		if users[NICK] == u {
+		if usersByNick[NICK] == u {
 			usersByNick[NICK] = nil, false
 		}
 

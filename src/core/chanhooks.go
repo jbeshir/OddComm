@@ -150,8 +150,8 @@ func runChanDataChangesHooks(t string, source *User, ch *Channel, c *DataChange,
 	}
 }
 
-func runChanMessageHooks(t string, source *User, ch *Channel, message []byte, msgt string) {
-	if hookChanDataChange[t] == nil {
+func runChanMessageHooks(t, msgt string, source *User, ch *Channel, message []byte) {
+	if hookChanMessage[t] == nil {
 		return
 	}
 	for h := hookChanMessage[t][msgt]; h != nil; h = h.next {

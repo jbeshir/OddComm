@@ -247,7 +247,7 @@ func (ch *Channel) Message(source *User, message []byte, t string) {
 	}
 
 	// We actually just call hooks, and let the subsystems handle it.
-	runChanMessageHooks(ch.t, source, ch, message, t)
+	runChanMessageHooks(ch.t, t, source, ch, message)
 }
 
 // Delete deletes the channel.
