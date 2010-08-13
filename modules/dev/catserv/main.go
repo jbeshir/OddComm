@@ -9,14 +9,14 @@ import "oddircd/src/core"
 
 
 // Must be set, must be unique.
-var MODULENAME string = "catserv"
+var MODULENAME string = "dev/catserv"
 
 
 var cat *core.User
 
 func init() {
 	// Don't show my psuedoclient until I'm done adding myself.
-	core.RegistrationHold("oddircd/modules/catserv")
+	core.RegistrationHold("oddircd/modules/dev/catserv")
 
 	// Join the server on startup.
 	core.HookStart(addCat)

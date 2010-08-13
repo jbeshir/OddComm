@@ -9,12 +9,14 @@ package main
 import "oddircd/src/core"
 import "oddircd/src/client"
 
-import modules_catserv "oddircd/modules/catserv"
+import modules_dev_catserv "oddircd/modules/dev/catserv"
+import modules_dev_horde "oddircd/modules/dev/horde"
 import modules_irc_botmode "oddircd/modules/irc/botmode"
 
 func main() {
 	// Makes modules be permitted to link in.
-	_ = modules_catserv.MODULENAME
+	_ = modules_dev_catserv.MODULENAME
+	_ = modules_dev_horde.MODULENAME
 	_ = modules_irc_botmode.MODULENAME
 
 	var exitList [1]chan int
