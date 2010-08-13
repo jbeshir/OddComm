@@ -73,7 +73,7 @@ func init() {
 		}
 	})
 
-	core.HookChanUserJoin(func(u *core.User, ch *core.Channel) {
+	core.HookChanUserJoin("", func(u *core.User, ch *core.Channel) {
 		for m := ch.Users(); m != nil; m = m.ChanNext() {
 			if c := GetClient(m.User()); c != nil {
 				c.WriteFrom(u, "JOIN #%s", ch.Name())
@@ -81,7 +81,8 @@ func init() {
 		}
 	})
 
-	core.HookChanUserRemove(func(source, u *core.User, ch *core.Channel) {
+	core.HookChanUserRemove("", func(source, u *core.User,
+	                                 ch *core.Channel) {
 		// If the user doesn't exist anymore (quit, for example),
 		// don't bother to show their removal, we'll already have
 		// shown the quit.
@@ -112,7 +113,7 @@ func init() {
 		}
 	})
 
-	core.HookChanMessage("", func(source *core.User, ch *core.Channel,
+	core.HookChanMessage("", "", func(source *core.User, ch *core.Channel,
 	                     message []byte) {
 		for m := ch.Users(); m != nil; m = m.ChanNext() {
 			if m.User() == source {
@@ -125,7 +126,7 @@ func init() {
 		}
 	})
 
-	core.HookChanMessage("noreply",
+	core.HookChanMessage("", "noreply",
 	                     func(source *core.User, ch *core.Channel,
 			     message []byte) {
 		for m := ch.Users(); m != nil; m = m.ChanNext() {

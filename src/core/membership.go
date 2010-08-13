@@ -74,7 +74,7 @@ func (m *Membership) Remove(source *User) {
 	}
 	<-wait
 
-	runChanUserRemoveHooks(source, m.u, m.c)
+	runChanUserRemoveHooks(m.c.t, source, m.u, m.c)
 
 	return
 }

@@ -67,6 +67,13 @@ func (ch *Channel) Name() (name string) {
 	return
 }
 
+// Type returns the channel's type. This may be "", for default.
+func (ch *Channel) Type() (t string) {
+	// This cannot change after the channel has been created.
+	// No need to bother the core goroutine with synchronisation.
+	return ch.t
+}
+
 // TS returns the channel's creation time.
 func (ch *Channel) TS() (ts int64) {
 	wait := make(chan bool)
@@ -207,7 +214,7 @@ func (ch *Channel) Join(u *User) {
 	}
 	<-wait
 
-	runChanUserJoinHooks(u, ch)
+	runChanUserJoinHooks(ch.t, u, ch)
 }
 
 // Remove removes the given user from the channel.
@@ -240,7 +247,7 @@ func (ch *Channel) Message(source *User, message []byte, t string) {
 	}
 
 	// We actually just call hooks, and let the subsystems handle it.
-	runChanMessageHooks(source, ch, message, t)
+	runChanMessageHooks(ch.t, source, ch, message, t)
 }
 
 // Delete deletes the channel.

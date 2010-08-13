@@ -343,7 +343,7 @@ func (u *User) Delete(message string) {
 	<-wait
 
 	for it := chans; it != nil; it = it.UserNext() {
-		runChanUserRemoveHooks(u, u, it.c)
+		runChanUserRemoveHooks(it.c.t, u, u, it.c)
 	}
 
 	runUserDeleteHooks(u, message)
