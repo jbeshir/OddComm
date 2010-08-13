@@ -6,6 +6,7 @@ GOFILES=\
 	id.go\
 	user.go\
 	channel.go\
+	membership.go\
 	hooks.go\
 	chanhooks.go\
 	userhooks.go

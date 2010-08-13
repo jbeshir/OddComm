@@ -39,6 +39,18 @@ func init() {
 	Commands.Add("PING", c)
 
 	c = new(irc.Command)
+	c.Handler = cmdJoin
+	c.Minargs = 1
+	c.Maxargs = 1
+	Commands.Add("JOIN", c)
+
+	c = new(irc.Command)
+	c.Handler = cmdPart
+	c.Minargs = 1
+	c.Maxargs = 1
+	Commands.Add("PART", c)
+
+	c = new(irc.Command)
 	c.Handler = cmdMode
 	c.Minargs = 1
 	c.Maxargs = 42
@@ -66,14 +78,14 @@ func cmdNick(u *core.User, w io.Writer, params [][]byte) {
 
 	if ok, err := perm.ValidateNick(u, nick); !ok {
 		if c, ok := w.(*Client); ok {
-			c.WriteFrom(nil, "432", "%s :%s", nick, err)
+			c.WriteTo(nil, "432", "%s :%s", nick, err)
 		}
 		return
 	}
 
 	if err := u.SetNick(nick); err != nil {
 		if c, ok := w.(*Client); ok {
-			c.WriteFrom(nil, "433", "%s :%s", nick, err)
+			c.WriteTo(nil, "433", "%s :%s", nick, err)
 		}
 	}
 }
@@ -86,12 +98,12 @@ func cmdUser(u *core.User, w io.Writer, params [][]byte) {
 	realname := string(params[3])
 
 	if ok, err := perm.ValidateIdent(u, ident); !ok {
-		c.WriteFrom(nil, "461", "USER :%s", err)
+		c.WriteTo(nil, "461", "USER :%s", err)
 		return
 	}
 
 	if ok, err := perm.ValidateRealname(u, realname); !ok {
-		c.WriteFrom(nil, "461", "USER :%s", err)
+		c.WriteTo(nil, "461", "USER :%s", err)
 		return
 	}
 	
@@ -101,8 +113,28 @@ func cmdUser(u *core.User, w io.Writer, params [][]byte) {
 
 func cmdPing(u *core.User, w io.Writer, params [][]byte) {
 	c := w.(*Client)
-	c.WriteServer("PONG %s :%s", "Server.name", params[0])
+	c.WriteFrom(nil, "PONG %s :%s", "Server.name", params[0])
 	
+}
+
+func cmdJoin(u *core.User, w io.Writer, params [][]byte) {
+	channame := string(params[0])
+	if channame[0] == '#' {
+		channame = channame[1:]
+	}
+	
+	core.GetChannel("", channame).Join(u)
+}
+
+func cmdPart(u *core.User, w io.Writer, params [][]byte) {
+	channame := string(params[0])
+	if channame[0] == '#' {
+		channame = channame[1:]
+	}
+
+	if ch := core.FindChannel("", channame); ch != nil {
+		ch.Remove(u, u)
+	}
 }
 
 func cmdMode(u *core.User, w io.Writer, params [][]byte) {
@@ -113,7 +145,7 @@ func cmdMode(u *core.User, w io.Writer, params [][]byte) {
 		// At present, we only support this on ourselves.
 		if strings.ToUpper(c.u.Nick()) == strings.ToUpper(string(params[0])) {
 			modeline := UserModes.GetModes(u)
-			c.WriteFrom(nil, "221", ":+%s", modeline)
+			c.WriteTo(nil, "221", ":+%s", modeline)
 		}
 		return
 	}
@@ -127,13 +159,13 @@ func cmdMode(u *core.User, w io.Writer, params [][]byte) {
 	if strings.ToUpper(c.u.Nick()) == strings.ToUpper(string(params[0])) {
 		changes, err := UserModes.ParseModeLine(u, params[1], params[2:])
 		if err != nil {
-			c.WriteFrom(nil, "501", "%s", err)
+			c.WriteTo(nil, "501", "%s", err)
 		}
 		if changes != nil {
 			c.u.SetDataList(u, changes)
 		}
 	} else {
-		c.WriteFrom(nil, "501", "%s %s :%s", u.Nick(), params[0],
+		c.WriteTo(nil, "501", "%s %s :%s", u.Nick(), params[0],
 		            "No such nick/channel")
 	}
 }
@@ -144,8 +176,17 @@ func cmdPrivmsg(u *core.User, w io.Writer, params [][]byte) {
 		if ok, err := perm.CheckPM(u, target, params[1], ""); ok {
 			target.Message(u, params[1], "")
 		} else {
-			c.WriteFrom(nil, "404", "%s %s :%s", u.Nick(),
+			c.WriteTo(nil, "404", "%s %s :%s", u.Nick(),
 			            target.Nick(), err)
+		}
+		return
+	}
+
+	if params[0][0] == '#' {
+		channame := string(params[0][1:])
+		ch := core.FindChannel("", channame)
+		if ch != nil {
+			ch.Message(u, params[1], "")
 		}
 		return
 	}
@@ -158,8 +199,17 @@ func cmdNotice(u *core.User, w io.Writer, params [][]byte) {
 				"noreply"); ok {
 			target.Message(u, params[1], "noreply")
 		} else {
-			c.WriteFrom(nil, "404", "%s %s :%s", u.Nick(),
+			c.WriteTo(nil, "404", "%s %s :%s", u.Nick(),
 			            target.Nick(), err)
+		}
+		return
+	}
+
+	if params[0][0] == '#' {
+		channame := string(params[0][1:])
+		ch := core.FindChannel("", channame)
+		if ch != nil {
+			ch.Message(u, params[1], "noreply")
 		}
 		return
 	}

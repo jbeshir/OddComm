@@ -199,18 +199,18 @@ func input(c *Client) {
 				switch perr.Num {
 				case irc.CmdNotFound:
 					if c.u.Registered() {
-						c.WriteFrom(nil, "421", "%s :%s", perr.CmdName, perr)
+						c.WriteTo(nil, "421", "%s :%s", perr.CmdName, perr)
 					}
 				case irc.CmdForRegistered:
-					c.WriteServer("451 %s :%s",
-					              perr.CmdName, perr)
+					c.WriteFrom(nil, "451 %s :%s",
+					            perr.CmdName, perr)
 				case irc.CmdForUnregistered:
-					c.WriteServer("462 %s :%s",
-					              c.u.Nick(), perr)
+					c.WriteFrom(nil, "462 %s :%s",
+					            c.u.Nick(), perr)
 				default:
-					c.WriteServer("461 %s %s :%s",
-					              c.u.Nick(), perr.CmdName,
-					              perr)
+					c.WriteFrom(nil, "461 %s %s :%s",
+					            c.u.Nick(), perr.CmdName,
+					            perr)
 				}
 			}
 

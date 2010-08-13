@@ -23,6 +23,11 @@ func init() {
 		}
 
 		if nick[0] <= 127 {
+			// Block nicks starting with the channel prefix.
+			if strings.IndexRune("#", int(nick[0])) != -1 {
+				return -1e9, os.NewError("Nickname starts with illegal character.")
+			}
+
 			// Block nicks starting with one of the standard (or
 			// particularly common) operator or channel symbols.
 			// While these shouldn't be any more bad than any

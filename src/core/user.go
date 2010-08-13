@@ -10,6 +10,7 @@ type User struct {
 	nick string
 	checked bool
 	regcount int
+	chans *Membership
 	data map[string]string
 }
 
@@ -282,6 +283,17 @@ func (u *User) Data(name string) (value string) {
 	return
 }
 
+// Channels returns a pointer to the user's membership list.
+func (u* User) Channels() (chans *Membership) {
+	wait := make(chan bool)
+	corechan <- func() {
+		chans = u.chans
+		wait <- true
+	}
+	<-wait
+	return
+}
+
 // Message sends a message directly to the user.
 // source may be nil, indicating a message from the server.
 // t may be "" (for default), and indicates the type of message.
@@ -297,20 +309,42 @@ func (u *User) Message(source *User, message []byte, t string) {
 }
 
 // Delete deletes the user from the server.
+// They are removed from all channels they are in first.
 // The given message is recorded as the reason why.
 func (u *User) Delete(message string) {
+	var chans *Membership
+
 	wait := make(chan bool)
 	corechan <- func() {
+		// Delete the user from the user tables.
 		if users[u.id] == u {
 			users[u.id] = nil, false
 		}
-		if users[u.nick] == u {
-			usersByNick[u.nick] = nil, false
+		NICK := strings.ToUpper(u.nick)
+		if users[NICK] == u {
+			usersByNick[NICK] = nil, false
+		}
+
+		// Remove them from all channel lists.
+		chans = u.chans
+		for it := u.chans; it != nil; it = it.unext {
+			if it.cprev == nil {
+				it.c.users = it.cnext
+			} else {
+				it.cprev.cnext = it.cnext
+			}
+			if it.cnext != nil {
+				it.cnext.cprev = it.cprev
+			}
 		}
 
 		wait <- true
 	}
 	<-wait
+
+	for it := chans; it != nil; it = it.UserNext() {
+		runChanUserRemoveHooks(u, u, it.c)
+	}
 
 	runUserDeleteHooks(u, message)
 }

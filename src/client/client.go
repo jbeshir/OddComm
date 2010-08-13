@@ -103,10 +103,10 @@ func (c *Client) Write(line []byte) (int, os.Error) {
 	return len(line), nil
 }
 
-// Write a formatted line from the given user.
+// Write a formatted line from the given user, addressed to this client.
 // u may be nil, in which case, the line will be from the server.
 // A line ending will be automatically appended.
-func (c *Client) WriteFrom(u *core.User, cmd string, format string,
+func (c *Client) WriteTo(u *core.User, cmd string, format string,
                            args ...interface{}) {
 	if u != nil {
 		fmt.Fprintf(c, ":%s!%s@%s %s %s %s\r\n", u.Nick(),
@@ -118,8 +118,16 @@ func (c *Client) WriteFrom(u *core.User, cmd string, format string,
 	}
 }
 
-// Write the given line, only prefixed by the server name.
-// Useful for some numerics. A line ending will be automatically appended.
-func (c *Client) WriteServer(format string, args ...interface{}) {
-	fmt.Fprintf(c, ":%s %s\r\n", "Server.name", fmt.Sprintf(format, args))
+// Write the given line, prefixed by the given source.
+// u may be nil, in which case, the line will be from the server.
+// A line ending will be automatically appended.
+func (c *Client) WriteFrom(u *core.User, format string, args ...interface{}) {
+	if u != nil {
+		fmt.Fprintf(c, ":%s!%s@%s %s\r\n", u.Nick(),
+		            irc.GetIdent(u), irc.GetHostname(u),
+		            fmt.Sprintf(format, args))
+	} else {
+		fmt.Fprintf(c, ":%s %s\r\n", "Server.name",
+		            fmt.Sprintf(format, args))
+	}
 }
