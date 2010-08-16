@@ -9,6 +9,7 @@ GOFILES=\
 	membership.go\
 	hooks.go\
 	chanhooks.go\
-	userhooks.go
+	userhooks.go\
+	trie.go
 
 include $(GOROOT)/src/Make.pkg

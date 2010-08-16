@@ -119,7 +119,7 @@ func cmdUser(u *core.User, w io.Writer, params [][]byte) {
 		return
 	}
 	
-	u.SetData(nil, "ident", string(params[0]))
+	u.SetData(nil, "ident", "~" + string(params[0]))
 	u.SetData(nil, "realname", string(params[3]))
 }
 
@@ -140,8 +140,8 @@ func cmdWho(u *core.User, w io.Writer, params [][]byte) {
 		for it := ch.Users(); it != nil; it = it.ChanNext() {
 			user := it.User()
 			c.WriteTo(nil, "352", "#%s %s %s %s %s H* :0 %s",
-			          channame, irc.GetIdent(user),
-			          irc.GetHostname(user), "Server.name",
+			          channame, user.GetIdent(),
+			          user.GetHostname(), "Server.name",
 			          user.Nick(), user.Data("realname"))
 		}
 		c.WriteTo(nil, "315", "#%s :End of /WHO list.", channame)
@@ -205,27 +205,79 @@ func cmdMode(u *core.User, w io.Writer, params [][]byte) {
 		if params[0][0] == '#' {
 			channame := string(params[0][1:])
 			ch := core.FindChannel("", channame)
-			if ch != nil {
-				modeline := ChanModes.GetModes(ch)
-				ts := ch.TS()
-				c.WriteTo(nil, "324", "#%s +%s", ch.Name(),
-				          modeline)
-				c.WriteTo(nil, "329", "#%s %d", ch.Name(), ts)
+			if ch == nil {
+				return
 			}
+			modeline := ChanModes.GetModes(ch)
+			ts := ch.TS()
+			c.WriteTo(nil, "324", "#%s +%s", ch.Name(), modeline)
+			c.WriteTo(nil, "329", "#%s %d", ch.Name(), ts)
 			return
 		}
 		return
 	}
 
-	// If we're listing list modes...
-	if params[1][0] != '+' && params[1][0] != '-' {
-		// No support!
-		return
+	// If we're listing list modes on a channel...
+	if params[0][0] == '#' && params[1][0] != '+' && params[1][0] != '-' {
+		channame := string(params[0][1:])
+		ch := core.FindChannel("", channame)
+		if ch == nil {
+			return
+		}
+
+		var badmodes string
+		for _, mode := range string(params[1]) {
+			// Different, fixed numerics for different
+			// modes. Stupid protocol.
+			num := "941"; endnum := "940"
+			switch mode {
+			case 'b': num = "367"; endnum = "368"
+			case 'e': num = "348"; endnum = "349"
+			case 'I': num = "346"; endnum = "347"
+			}
+
+			valid := ChanModes.ListMode(ch, int(mode),
+			                   func(p, v string) {
+				var setTime string = "0"
+				var setBy string = "Server.name"
+				words := strings.Fields(v)
+				for _, word := range words {
+					if len(word) > 6 && word[0:6] == "setat-" {
+						setTime = word[6:]
+						continue
+					}
+					if len(word) > 6 && word[0:6] == "setby-" {
+						setBy = word[6:]
+						continue
+					}
+				}
+
+				c.WriteTo(nil, num, "#%s %s %s %s",
+				          ch.Name(), p, setBy, setTime)
+			})
+			if valid {
+				c.WriteTo(nil, endnum,
+				          "#%s :End of mode list.",
+				          ch.Name())
+			} else {
+				badmodes += string(mode)
+			}
+		}
+		if badmodes != "" {
+			if badmodes != string(params[1]) {
+				c.WriteTo(nil, "501", "Unknown list modes: %s", badmodes)
+				return
+			}
+			// If ALL the mode characters were invalid, we let it
+			// fall through and try to treat it as setting modes.
+		} else {
+			return
+		}
 	}
 
 
 	if strings.ToUpper(c.u.Nick()) == strings.ToUpper(string(params[0])) {
-		changes, err := UserModes.ParseModeLine(u, params[1], params[2:])
+		changes, err := UserModes.ParseModeLine(u, u, params[1], params[2:])
 		if err != nil {
 			c.WriteTo(nil, "501", "%s", err)
 		}
@@ -239,7 +291,7 @@ func cmdMode(u *core.User, w io.Writer, params [][]byte) {
 		channame := string(params[0][1:])
 		ch := core.FindChannel("", channame)
 		if ch != nil {
-			changes, err := ChanModes.ParseModeLine(ch, params[1], params[2:])
+			changes, err := ChanModes.ParseModeLine(u, ch, params[1], params[2:])
 			if err != nil {
 				c.WriteTo(nil, "501", "%s", err)
 			}

@@ -1,7 +1,9 @@
 package irc
 
+import "fmt"
 import "os"
 import "strings"
+import "time"
 
 import "oddircd/src/core"
 
@@ -62,7 +64,7 @@ func (p *ModeParser) AddList(mode int, metadata string) {
 
 // AddExtMode extends an already added mode, attaching hooks to mapping the
 // mode to metadata, its metadata to modes, and generating a list of set modes
-// on a user. It permits modes which requires additional logic.
+// on a user. It permits modes which require additional logic.
 // The name will be treated as a prefix; both it directly, and all subentries,
 // will be fed to the nameToMode function when parsing changes.
 //
@@ -108,7 +110,7 @@ func (p *ModeParser) AddExtMode(mode int, name string, modeToName func(bool, cor
 // An error is returned if unknown modes are encountered, or modes are dropped
 // due to missing parameters. The remainder of the modes are still parsed.
 // e is the user or channel being changed.
-func (p *ModeParser) ParseModeLine(e core.Extensible, modeline []byte, params [][]byte) (*core.DataChange, os.Error) {
+func (p *ModeParser) ParseModeLine(source *core.User, e core.Extensible, modeline []byte, params [][]byte) (*core.DataChange, os.Error) {
 	var adding bool = true
 	var unknown string
 	var missing string
@@ -196,6 +198,9 @@ func (p *ModeParser) ParseModeLine(e core.Extensible, modeline []byte, params []
 			if v, ok := p.extended[char]; ok {
 				newchanges := v(adding, e, cparam)
 				for it := newchanges; it != nil; it = it.Next {
+					if it.Data != "" {
+						it.Data += fmt.Sprintf(" setby-%s setat-%d", source.GetSetBy(), time.Seconds())
+					}
 					changes[it.Name] = it
 				}
 				continue
@@ -203,7 +208,7 @@ func (p *ModeParser) ParseModeLine(e core.Extensible, modeline []byte, params []
 
 			if adding {
 				change.Name = v + " " + cparam
-				change.Data = "on"
+				change.Data = fmt.Sprintf("on setby-%s setat-%d", source.GetSetBy(), time.Seconds())
 			} else {
 				change.Name = v + " " + cparam
 			}
@@ -284,15 +289,15 @@ func (p *ModeParser) ParseChanges(e core.Extensible, c *core.DataChange,
 			continue
 		}
 
-		var subentry = strings.IndexRune(it.Name, ' ') + 1
-		if subentry != 0 {
+		var subentry = strings.LastIndex(it.Name, " ") + 1
+		if subentry > 2 {
 			if v, ok := p.nameToList[it.Name[0:subentry-1]]; ok {
 				if it.Data != "" {
 					addmodes += string(v)
-					addparams += " " + it.Data
+					addparams += " " + it.Name[subentry:]
 				} else {
 					remmodes += string(v)
-					remparams += " " + it.Data
+					remparams += " " + it.Name[subentry:]
 				}
 				continue
 			}
@@ -310,7 +315,7 @@ func (p *ModeParser) ParseChanges(e core.Extensible, c *core.DataChange,
 }
 
 
-// GetUserModes gets the modeline associated with a user or channel.
+// GetModes gets the modeline associated with a user or channel.
 // It caches its result via metadata on the user, using the mode parser's
 // mode ID to disambiguate it from other mode parsers.
 func (p* ModeParser) GetModes (e core.Extensible) string {
@@ -343,4 +348,19 @@ func (p* ModeParser) GetModes (e core.Extensible) string {
 	}
 
 	return modes + params
+}
+
+
+// GetModeList calls the given function for every entry in the list mode,
+// with the parameter of this mode list entry, and its metadata value. If
+// there are none, it will not be called.
+func (p* ModeParser) ListMode(e core.Extensible, char int, f func(param, value string)) bool {
+	prefix := p.list[char]
+	if prefix != "" {
+		e.DataRange(prefix + " ", func(name, value string) {
+			f(name[len(prefix)+1:], value)
+		})
+		return true
+	}
+	return false
 }

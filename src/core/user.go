@@ -11,7 +11,7 @@ type User struct {
 	checked bool
 	regcount int
 	chans *Membership
-	data map[string]string
+	data *Trie
 }
 
 
@@ -35,7 +35,6 @@ func NewUser(creator string, checked bool, forceid string) (u *User) {
 		}
 
 		u = new(User)
-		u.data = make(map[string]string)
 		u.checked = checked
 		u.regcount = holdRegistration[creator]
 		if (!checked) {
@@ -200,11 +199,14 @@ func (u *User) SetData(source *User, name string, value string) {
 
 	wait := make(chan bool)
 	corechan <- func() {
-		oldvalue = u.data[name]
+		var old interface{}
 		if value != "" {
-			u.data[name] = value
+			old = TrieAdd(&u.data, name, value)
 		} else {
-			u.data[name] = "", false
+			old = TrieDel(&u.data, name)
+		}
+		if old != nil {
+			oldvalue = old.(string)
 		}
 
 		wait <- true
@@ -237,26 +239,32 @@ func (u *User) SetDataList(source *User, c *DataChange) {
 		var lasthook *DataChange
 		for it := c; it != nil; it = it.Next {
 
-			// If this is a do-nothing change, cut it out.
-			if u.data[it.Name] == it.Data {
+			// Make the change.
+			var old interface{}
+			var oldvalue string
+			if it.Data != "" {
+				old = TrieAdd(&u.data, it.Name, it.Data)
+			} else {
+				old = TrieDel(&u.data, it.Name)
+			}
+			if old != nil {
+				oldvalue = old.(string)
+			}
+
+			// If this was a do-nothing change, cut it out.
+			if oldvalue == it.Data {
 				if lasthook != nil {
 					lasthook.Next = it.Next
 				} else {
 					c = it.Next
 				}
+				continue
 			}
 
-			old := new(OldData)
-			old.Data = u.data[it.Name]
-			old.Next = oldvalues
-			oldvalues = old
-
-			if it.Data != "" {
-				u.data[it.Name] = it.Data
-			} else {
-				u.data[it.Name] = "", false
-			}
-
+			olddata := new(OldData)
+			olddata.Data = oldvalue
+			olddata.Next = oldvalues
+			oldvalues = olddata
 			lasthook = it
 		}
 
@@ -275,13 +283,64 @@ func (u *User) SetDataList(source *User, c *DataChange) {
 func (u *User) Data(name string) (value string) {
 	wait := make(chan bool)
 	corechan <- func() {
-		value = u.data[name]
+		val := TrieGet(&u.data, name)
+		if val != nil {
+			value = val.(string)
+		}
 		wait <- true
 	}
 	<-wait
 
 	return
 }
+
+// DataRange calls the given function for every piece of metadata with the
+// given prefix. If none are found, the function is never called. Metadata
+// items added while this function is running may or may not be missed.
+func (u *User) DataRange(prefix string, f func(name, value string)) {
+	var dataArray [50]DataChange
+	var data []DataChange = dataArray[0:0]
+	var root, it *Trie
+	wait := make(chan bool)
+
+	// Get an iterator pointing to our first value.
+	corechan <- func() {
+		root = TrieGetSub(&u.data, prefix)
+		it = root
+		if it != nil {
+			if key, _ := it.Value(); key == "" {
+				it = it.Next(root)
+			}
+		}
+		wait <- true
+	}
+	<-wait
+
+	for it != nil {
+		// Get up to 50 values from this subtrie.
+		corechan <- func() {
+			for i := 0; i < cap(data); i++ {
+				var val interface{}
+				data = data[0:i+1]
+				data[i].Name, val = it.Value()
+				data[i].Data = val.(string)
+				it = it.Next(root)
+				if it == nil {
+					break
+				}
+			}
+			wait <- true
+		}
+		<- wait
+
+		// Call the function for all of them, and clear data.
+		for _, item := range data {
+			f(item.Name, item.Data)
+		}
+		data = data[0:0]
+	}
+}
+
 
 // Channels returns a pointer to the user's membership list.
 func (u* User) Channels() (chans *Membership) {
@@ -347,4 +406,48 @@ func (u *User) Delete(message string) {
 	}
 
 	runUserDeleteHooks(u, message)
+}
+
+// GetIdent gets an ident for a user, substituting "." if none exists.
+func (u *User) GetIdent() (ident string) {
+	ident = u.Data("ident")
+	if ident == "" {
+		ident = "-"
+	}
+	return
+}
+
+// GetHostname gets a hostname for a user, substituting the server name if none
+// exists.
+func (u *User) GetHostname() (hostname string) {
+	hostname = u.Data("hostname")
+	if hostname == "" {
+		hostname = "Server.name"
+	}
+	return
+}
+
+// GetSetBy gets a string representing who set a piece of metadata set by the
+// user. It returns the user's nick!ident@host if they are logged out, and
+// their account name if they are logged in.
+func (u *User) GetSetBy() (setby string) {
+	wait := make(chan bool)
+	corechan <- func() {
+		if v := TrieGet(&u.data, "account"); v != nil {
+			setby = v.(string)
+		} else {
+			ident := "-"
+			if v := TrieGet(&u.data, "ident"); v != nil {
+				ident = v.(string)
+			}
+			hostname := "Server.name"
+			if v := TrieGet(&u.data, "hostname"); v != nil {
+				hostname = v.(string)
+			}
+			setby = u.nick + "!" + ident + "@" + hostname
+		}
+		wait <- true
+	}
+	<-wait
+	return
 }

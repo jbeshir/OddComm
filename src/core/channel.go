@@ -10,7 +10,7 @@ type Channel struct {
 	t string
 	ts int64
 	users *Membership
-	data map[string]string
+	data *Trie
 }
 
 
@@ -27,7 +27,6 @@ func GetChannel(t, name string) (ch *Channel) {
 			ch.name = name
 			ch.t = t
 			ch.ts = time.Seconds()
-			ch.data = make(map[string]string)
 			channels[t][NAME] = ch
 		}
 	} else {
@@ -36,7 +35,6 @@ func GetChannel(t, name string) (ch *Channel) {
 		ch.name = name
 		ch.t = t
 		ch.ts = time.Seconds()
-		ch.data = make(map[string]string)
 		channels[t][NAME] = ch
 	}
 	return
@@ -93,11 +91,14 @@ func (ch *Channel) SetData(source *User, name string, value string) {
 
 	wait := make(chan bool)
 	corechan <- func() {
-		oldvalue = ch.data[name]
+		var old interface{}
 		if value != "" {
-			ch.data[name] = value
+			old = TrieAdd(&ch.data, name, value)
 		} else {
-			ch.data[name] = "", false
+			old = TrieDel(&ch.data, name)
+		}
+		if old != nil {
+			oldvalue = old.(string)
 		}
 
 		wait <- true
@@ -109,14 +110,14 @@ func (ch *Channel) SetData(source *User, name string, value string) {
 		return
 	}
 
-	// runChanDataChangeHooks(source, ch, name, oldvalue, value)
+	runChanDataChangeHooks(ch.Type(), source, ch, name, oldvalue, value)
 
 	c := new(DataChange)
 	c.Name = name
 	c.Data = value
 	old := new(OldData)
 	old.Data = value
-	// runChanDataChangesHooks(source, ch, c, old)
+	runChanDataChangesHooks(ch.Type(), source, ch, c, old)
 }
 
 // SetDataList performs the given list of metadata changes on the channel.
@@ -130,26 +131,32 @@ func (ch *Channel) SetDataList(source *User, c *DataChange) {
 		var lasthook *DataChange
 		for it := c; it != nil; it = it.Next {
 
-			// If this is a do-nothing change, cut it out.
-			if ch.data[it.Name] == it.Data {
+			// Make the change.
+			var old interface{}
+			var oldvalue string
+			if it.Data != "" {
+				old = TrieAdd(&ch.data, it.Name, it.Data)
+			} else {
+				old = TrieDel(&ch.data, it.Name)
+			}
+			if old != nil {
+				oldvalue = old.(string)
+			}
+
+			// If this was a do-nothing change, cut it out.
+			if oldvalue == it.Data {
 				if lasthook != nil {
 					lasthook.Next = it.Next
 				} else {
 					c = it.Next
 				}
+				continue
 			}
 
-			old := new(OldData)
-			old.Data = ch.data[it.Name]
-			old.Next = oldvalues
-			oldvalues = old
-
-			if it.Data != "" {
-				ch.data[it.Name] = it.Data
-			} else {
-				ch.data[it.Name] = "", false
-			}
-
+			olddata := new(OldData)
+			olddata.Data = oldvalue
+			olddata.Next = oldvalues
+			oldvalues = olddata
 			lasthook = it
 		}
 
@@ -158,9 +165,9 @@ func (ch *Channel) SetDataList(source *User, c *DataChange) {
 	<-wait
 
 	for it, old := c, oldvalues; it != nil && old != nil; it, old = it.Next, old.Next {
-		// runUserChanChangeHooks(source, ch, c.Name, old.Data, c.Data)
+		runChanDataChangeHooks(ch.Type(), source, ch, c.Name, old.Data, c.Data)
 	}
-	// runChanDataChangesHooks(source, ch, c, oldvalues)
+	runChanDataChangesHooks(ch.Type(), source, ch, c, oldvalues)
 }
 
 // Data gets the given piece of metadata.
@@ -168,12 +175,62 @@ func (ch *Channel) SetDataList(source *User, c *DataChange) {
 func (ch *Channel) Data(name string) (value string) {
 	wait := make(chan bool)
 	corechan <- func() {
-		value = ch.data[name]
+		val := TrieGet(&ch.data, name)
+		if val != nil {
+			value = val.(string)
+		}
 		wait <- true
 	}
 	<-wait
 
 	return
+}
+
+// DataRange calls the given function for every piece of metadata with the
+// given prefix. If none are found, the function is never called. Metadata
+// items added while this function is running may or may not be missed.
+func (ch *Channel) DataRange(prefix string, f func(name, value string)) {
+	var dataArray [50]DataChange
+	var data []DataChange = dataArray[0:0]
+	var root, it *Trie
+	wait := make(chan bool)
+
+	// Get an iterator pointing to our first value.
+	corechan <- func() {
+		root = TrieGetSub(&ch.data, prefix)
+		it = root
+		if it != nil {
+			if key, _ := it.Value(); key == "" {
+				it = it.Next(root)
+			}
+		}
+		wait <- true
+	}
+	<-wait
+
+	for it != nil {
+		// Get up to 50 values from this subtrie.
+		corechan <- func() {
+			for i := 0; i < cap(data); i++ {
+				var val interface{}
+				data = data[0:i+1]
+				data[i].Name, val = it.Value()
+				data[i].Data = val.(string)
+				it = it.Next(root)
+				if it == nil {
+					break
+				}
+			}
+			wait <- true
+		}
+		<- wait
+
+		// Call the function for all of them, and clear data.
+		for _, item := range data {
+			f(item.Name, item.Data)
+		}
+		data = data[0:0]
+	}
 }
 
 // Users returns a pointer to the channel's membership list.

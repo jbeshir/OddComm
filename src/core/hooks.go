@@ -3,7 +3,8 @@ package core
 // Represents anything which has Data and SetData methods for metadata.
 type Extensible interface {
 	Data(name string) string
-	SetData(source *User, name string, value string)
+	SetData(source *User, name, value string)
+	DataRange(prefix string, f func(name, value string))
 }
 
 // Represents a metadata change.

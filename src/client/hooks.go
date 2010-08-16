@@ -81,6 +81,20 @@ func init() {
 		}
 	})
 
+	core.HookChanDataChanges("", func(source *core.User, ch *core.Channel, c *core.DataChange, old *core.OldData) {
+		modeline := ChanModes.ParseChanges(ch, c, old)
+		if modeline == "" {
+			return
+		}
+		for m := ch.Users(); m != nil; m = m.ChanNext() {
+			c := GetClient(m.User())
+			if c == nil {
+				continue
+			}
+			c.WriteFrom(source, "MODE #%s %s", ch.Name(), modeline)
+		}
+	})
+
 	core.HookChanUserRemove("", func(source, u *core.User,
 	                                 ch *core.Channel) {
 		// If the user doesn't exist anymore (quit, for example),

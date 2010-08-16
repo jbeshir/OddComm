@@ -39,4 +39,9 @@ func init() {
 	}, nil, func(_ core.Extensible) string {
 		return "on"
 	})
+
+	// Add ban, ban exception, and invex modes on channels.
+	ChanModes.AddList('b', "ban host")
+	ChanModes.AddList('e', "banexcept")
+	ChanModes.AddList('I', "invex")
 }

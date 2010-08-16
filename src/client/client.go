@@ -5,7 +5,6 @@ import "net"
 import "os"
 
 import "oddircd/src/core"
-import "oddircd/src/irc"
 
 
 // Handle a client connection.
@@ -110,7 +109,7 @@ func (c *Client) WriteTo(u *core.User, cmd string, format string,
                            args ...interface{}) {
 	if u != nil {
 		fmt.Fprintf(c, ":%s!%s@%s %s %s %s\r\n", u.Nick(),
-		            irc.GetIdent(u), irc.GetHostname(u), cmd,
+		            u.GetIdent(), u.GetHostname(), cmd,
 		            c.u.Nick(), fmt.Sprintf(format, args))
 	} else {
 		fmt.Fprintf(c, ":%s %s %s %s\r\n", "Server.name", cmd,
@@ -124,7 +123,7 @@ func (c *Client) WriteTo(u *core.User, cmd string, format string,
 func (c *Client) WriteFrom(u *core.User, format string, args ...interface{}) {
 	if u != nil {
 		fmt.Fprintf(c, ":%s!%s@%s %s\r\n", u.Nick(),
-		            irc.GetIdent(u), irc.GetHostname(u),
+		            u.GetIdent(), u.GetHostname(),
 		            fmt.Sprintf(format, args))
 	} else {
 		fmt.Fprintf(c, ":%s %s\r\n", "Server.name",

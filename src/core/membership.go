@@ -8,7 +8,7 @@ type Membership struct {
 	uprev *Membership // Next membership entry for the user.
 	cprev *Membership // Previous membership entry for the channel.
 	cnext *Membership // Next membership entry for the channel.
-	data map[string]string
+	data *Trie
 }
 
 // Channel returns the channel that this membership entry is for.
