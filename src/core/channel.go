@@ -1,5 +1,6 @@
 package core
 
+import "strconv"
 import "strings"
 import "time"
 
@@ -165,7 +166,7 @@ func (ch *Channel) SetDataList(source *User, c *DataChange) {
 	<-wait
 
 	for it, old := c, oldvalues; it != nil && old != nil; it, old = it.Next, old.Next {
-		runChanDataChangeHooks(ch.Type(), source, ch, c.Name, old.Data, c.Data)
+		runChanDataChangeHooks(ch.Type(), source, ch, it.Name, old.Data, it.Data)
 	}
 	runChanDataChangesHooks(ch.Type(), source, ch, c, oldvalues)
 }
@@ -308,7 +309,44 @@ func (ch *Channel) Message(source *User, message []byte, t string) {
 }
 
 // Delete deletes the channel.
-// Remaining users are kicked, if any still exist.
+// Does nothing if users are still in the channel.
 func (ch *Channel) Delete() {
 	// This doesn't actually do anything yet.
+}
+
+// GetTopic gets the topic, the topic setter string, and the time it was set.
+func (ch *Channel) GetTopic() (topic, setby, setat string){
+	wait := make(chan bool)
+	corechan <- func() {
+		setby = "Server.name"
+		setat = "0"
+		if v := TrieGet(&ch.data, "topic"); v != nil {
+			topic = v.(string)
+		}
+		if v := TrieGet(&ch.data, "topic setby"); v != nil {
+			setby = v.(string)
+		}
+		if v := TrieGet(&ch.data, "topic setat"); v != nil {
+			setat = v.(string)
+		}
+		wait <- true
+	}
+	<-wait
+	return
+}
+
+// SetTopic sets the topic, including recording its setting and set time.
+func (ch *Channel) SetTopic(source *User, topic string) {
+	var changes [3]DataChange
+	changes[0].Name = "topic"
+	changes[0].Data = topic
+	changes[0].Next = &changes[1]
+	changes[1].Name = "topic setat"
+	changes[1].Data = strconv.Itoa64(time.Seconds())
+	if source != nil {
+		changes[1].Next = &changes[2]
+		changes[2].Name = "topic setby"
+		changes[2].Data = source.GetSetBy()
+	}
+	ch.SetDataList(source, &changes[0])
 }

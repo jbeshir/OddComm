@@ -69,6 +69,12 @@ func init() {
 	Commands.Add("MODE", c)
 
 	c = new(irc.Command)
+	c.Handler = cmdTopic
+	c.Minargs = 1
+	c.Maxargs = 2
+	Commands.Add("TOPIC", c)
+
+	c = new(irc.Command)
 	c.Handler = cmdPrivmsg
 	c.Minargs = 2
 	c.Maxargs = 2
@@ -349,4 +355,36 @@ func cmdNotice(u *core.User, w io.Writer, params [][]byte) {
 		}
 		return
 	}
+}
+
+func cmdTopic(u *core.User, w io.Writer, params [][]byte) {
+	c := w.(*Client)
+
+	var ch *core.Channel
+	if params[0][0] == '#' {
+		channame := string(params[0][1:])
+		ch = core.FindChannel("", channame)
+	}
+	if ch == nil {
+		c.WriteTo(nil, "404", "%s %s :No such channel.", u.Nick(),
+		          params[0])
+		return
+	}
+
+	// If we're displaying the topic...
+	if len(params) < 2 {
+		topic, setby, setat := ch.GetTopic()
+		if topic != "" {
+			c.WriteTo(nil, "332", "#%s :%s", ch.Name(), topic)
+			c.WriteTo(nil, "333", "#%s %s %s", ch.Name(), setby,
+			          setat)
+		} else {
+			c.WriteTo(nil, "331", "#%s :No topic is set.",
+				  ch.Name())
+		}
+		return
+	}
+
+	// Otherwise, we're setting the topic.
+	ch.SetTopic(u, string(params[1]))
 }

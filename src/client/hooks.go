@@ -74,9 +74,32 @@ func init() {
 	})
 
 	core.HookChanUserJoin("", func(u *core.User, ch *core.Channel) {
+
+		// Send the JOIN to all clients in the same channel.
 		for m := ch.Users(); m != nil; m = m.ChanNext() {
 			if c := GetClient(m.User()); c != nil {
 				c.WriteFrom(u, "JOIN #%s", ch.Name())
+			}
+		}
+
+		// If it's our client that joined...
+		if c := GetClient(u); c != nil {
+
+			// Send them the topic.
+			if topic, setby, setat := ch.GetTopic(); topic != "" {
+				c.WriteTo(nil, "332", "#%s :%s", ch.Name(),
+				          topic)
+				c.WriteTo(nil, "333", "#%s %s %s", ch.Name(),
+				          setby, setat)
+			}
+		}
+	})
+
+	core.HookChanDataChange("", "topic",
+	                        func(source *core.User, ch *core.Channel, oldvalue, newvalue string) {
+		for m := ch.Users(); m != nil; m = m.ChanNext() {
+			if c := GetClient(m.User()); c != nil {
+				c.WriteFrom(source, "TOPIC #%s :%s", ch.Name(), newvalue)
 			}
 		}
 	})
