@@ -451,3 +451,41 @@ func (u *User) GetSetBy() (setby string) {
 	<-wait
 	return
 }
+
+// GetDecentBan gets a reasonable default ban string on this user, without
+// a ban, ban exception, or unrestriction prefix attached.
+// At present, it uses an account ban if they are logged into an account, or
+// a host ban on their ident@host otherwise. As such, it should be used only
+// if a means to adminstrate both kinds of ban is available.
+func (u *User) GetDecentBan() string {
+
+	// Logged in? Ban them by account.
+	if v := u.Data("account"); v != "" {
+		return "account " + v
+	}
+
+	ident := u.GetIdent()
+	hostname := u.GetHostname()
+
+	if ident[0] == '~' {
+		ident = ident[1:]
+	}
+
+	if v := strings.IndexRune(hostname, '.'); v != -1 && len(hostname) > v+1 {
+		// Decent for all resolved hosts.
+		if hostname != u.Data("ip") {
+			hostname = "*" + hostname[v+1:]
+		} else {
+			// Decent for IPv4.
+			v = strings.LastIndex(hostname, ".")
+			hostname = hostname[0:v+1] + "*"
+		}
+	} else if v := strings.IndexRune(hostname, ':'); v != -1 && len(hostname) > v+1 {
+		// Decent for IPv6. Maybe.
+		// It'll do until a better idea shows up.
+		v = strings.LastIndex(hostname, ":")
+		hostname = hostname[0:v+1] + "*"
+	}
+
+	return "host *!~" + ident + "@" + hostname
+}

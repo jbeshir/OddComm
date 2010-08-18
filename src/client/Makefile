@@ -6,6 +6,7 @@ GOFILES=\
 	client.go\
 	climap.go\
 	commands.go\
+	modes.go\
 	handler.go\
 	request.go\
 	usercmds.go\

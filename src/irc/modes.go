@@ -20,7 +20,7 @@ type ModeParser struct {
 	nameToSimple map[string]int
 	nameToParametered map[string]int
 	nameToList map[string]int
-	nameToExt map[string]func(core.Extensible, string, string)([]int, []string, []int, []string)
+	nameToExt map[string]func(core.Extensible, string, string, string)([]int, []string, []int, []string)
 	getExt map[int]func(core.Extensible)string
 }
 
@@ -36,35 +36,61 @@ func NewModeParser() (p *ModeParser) {
 	p.nameToSimple = make(map[string]int)
 	p.nameToParametered = make(map[string]int)
 	p.nameToList = make(map[string]int)
-	p.nameToExt = make(map[string]func(core.Extensible, string, string)([]int, []string, []int, []string))
+	p.nameToExt = make(map[string]func(core.Extensible, string, string, string)([]int, []string, []int, []string))
 	p.getExt = make(map[int]func(core.Extensible)string)
 	return
 }
 
 // AddSimple adds a simple mode. It cannot be called concurrently with itself,
 // or any lookups on the parser.
+// If a mode character or metadata name is added twice, the mode associated
+// with the previous value is deleted.
 func (p *ModeParser) AddSimple(mode int, metadata string) {
+	if v := p.simple[mode]; v != "" {
+		p.nameToSimple[v] = 0, false
+	}
+	if v := p.nameToSimple[metadata]; v != 0 {
+		p.simple[v] = "", false
+	}
 	p.simple[mode] = metadata
 	p.nameToSimple[metadata] = mode
 }
 
 // AddParametered adds a parametered mode. It cannot be called concurrently
 // with itself, or any lookups on the parser.
+// If a mode character or metadata name is added twice, the mode associated
+// with the previous value is deleted.
 func (p *ModeParser) AddParametered(mode int, metadata string) {
+	if v := p.parametered[mode]; v != "" {
+		p.nameToParametered[v] = 0, false
+	}
+	if v := p.nameToParametered[metadata]; v != 0 {
+		p.parametered[v] = "", false
+	}
 	p.parametered[mode] = metadata
 	p.nameToParametered[metadata] = mode
 }
 
 // AddList adds a list mode. It cannot be called concurrently with itself, or
-// any lookups on the parser.
+// any lookups on the parser. value is the value that the list mode will be
+// given when it is set.
+// If a mode character or metadata name is added twice, the mode associated
+// with the previous value is deleted.
 func (p *ModeParser) AddList(mode int, metadata string) {
+	if v := p.list[mode]; v != "" {
+		p.nameToList[v] = 0, false
+	}
+	if v := p.nameToList[metadata]; v != 0 {
+		p.list[v] = "", false
+	}
 	p.list[mode] = metadata
 	p.nameToList[metadata] = mode
 }
 
 // AddExtMode extends an already added mode, attaching hooks to mapping the
 // mode to metadata, its metadata to modes, and generating a list of set modes
-// on a user. It permits modes which require additional logic.
+// on a user. It permits modes which require additional logic specific to that
+// mode.
 // The name will be treated as a prefix; both it directly, and all subentries,
 // will be fed to the nameToMode function when parsing changes.
 //
@@ -88,15 +114,19 @@ func (p *ModeParser) AddList(mode int, metadata string) {
 // followed by the metadata item's full name, its previous value, and its
 // current value. It should return a slice of added mode characters and
 // another of removed mode characters, and a slice of added mode parameters
-// and another of removed mode parameters. Any of these may be empty.
+// and another of removed mode parameters. Any of these may be empty, and the
+// added or removed mode characters may include modes other than the mode
+// which corresponds to this name if and only if the previous value is not "".
+// This function will also be called to convert existing metadata into list
+// mode entries, with a previous value of "".
 //
-// The getExt function should expect a user or channel, and return a value for
+// The getSet function should expect a user or channel, and return a value for
 // the mode, which may be "" to indicate it is unset, or any other value to
 // indicate it is set, and for parametered modes, with that as the parameter.
 //
 // This method cannot be called concurrently with itself, or any lookups on
 // the parser.
-func (p *ModeParser) AddExtMode(mode int, name string, modeToName func(bool, core.Extensible, string) (*core.DataChange), nameToMode func(core.Extensible, string, string) ([]int, []string, []int, []string), getSet func(core.Extensible) string) {
+func (p *ModeParser) AddExtMode(mode int, name string, modeToName func(bool, core.Extensible, string) (*core.DataChange), nameToMode func(core.Extensible, string, string, string) ([]int, []string, []int, []string), getSet func(core.Extensible) string) {
 	p.extended[mode] = modeToName
 	p.getExt[mode] = getSet
 	if name != "" {
@@ -142,7 +172,7 @@ func (p *ModeParser) ParseModeLine(source *core.User, e core.Extensible, modelin
 				change.Data = "on"
 			}
 
-			changes[v] = change	
+			changes[change.Name] = change	
 			continue
 		}
 
@@ -182,7 +212,7 @@ func (p *ModeParser) ParseModeLine(source *core.User, e core.Extensible, modelin
 				change.Name = v
 			}
 
-			changes[v] = change
+			changes[change.Name] = change
 			continue
 		}
 		
@@ -213,7 +243,7 @@ func (p *ModeParser) ParseModeLine(source *core.User, e core.Extensible, modelin
 				change.Name = v + " " + cparam
 			}
 
-			changes[v] = change
+			changes[change.Name] = change
 			continue
 		}
 
@@ -256,9 +286,9 @@ func (p *ModeParser) ParseChanges(e core.Extensible, c *core.DataChange,
 	var addparams string
 	var remparams string
 
-	for it, o := c, old; it != nil && o != nil; it, o = c.Next, o.Next {
+	for it, o := c, old; it != nil && o != nil; it, o = it.Next, o.Next {
 		if v, ok := p.nameToExt[it.Name]; ok {
-			add, addpar, rem, rempar := v(e, o.Data, it.Data)
+			add, addpar, rem, rempar := v(e, it.Name, o.Data, it.Data)
 			addmodes += string(add)
 			remmodes += string(rem)
 			for _, par := range addpar {
@@ -289,8 +319,21 @@ func (p *ModeParser) ParseChanges(e core.Extensible, c *core.DataChange,
 			continue
 		}
 
-		var subentry = strings.LastIndex(it.Name, " ") + 1
-		if subentry > 2 {
+		var subentry = strings.IndexRune(it.Name, ' ') + 1
+		for subentry > 2 {
+			if v, ok := p.nameToExt[it.Name[0:subentry-1]]; ok {
+				add, addpar, rem, rempar := v(e, it.Name, o.Data, it.Data)
+				addmodes += string(add)
+				remmodes += string(rem)
+				for _, par := range addpar {
+					addparams += " " + par
+				}
+				for _, par := range rempar {
+					remparams += " " + par
+				}
+				break
+			}
+
 			if v, ok := p.nameToList[it.Name[0:subentry-1]]; ok {
 				if it.Data != "" {
 					addmodes += string(v)
@@ -299,8 +342,10 @@ func (p *ModeParser) ParseChanges(e core.Extensible, c *core.DataChange,
 					remmodes += string(v)
 					remparams += " " + it.Name[subentry:]
 				}
-				continue
+				break
 			}
+			subentry = strings.IndexRune(it.Name[subentry:], ' ') +
+			           subentry + 1
 		}
 	}
 
@@ -358,7 +403,14 @@ func (p* ModeParser) ListMode(e core.Extensible, char int, f func(param, value s
 	prefix := p.list[char]
 	if prefix != "" {
 		e.DataRange(prefix + " ", func(name, value string) {
-			f(name[len(prefix)+1:], value)
+			if v, ok := p.nameToExt[prefix]; ok {
+				_, addpar, _, _ := v(e, name, "", value)
+				for _, par := range addpar {
+					f(par, value)
+				}
+			} else {
+				f(name[len(prefix)+1:], value)
+			}
 		})
 		return true
 	}

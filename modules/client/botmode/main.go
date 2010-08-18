@@ -6,7 +6,7 @@ package botmode
 import "oddircd/src/client"
 
 
-var MODULENAME string = "modules/irc/botmode"
+var MODULENAME string = "modules/client/botmode"
 
 func init() {
 	client.UserModes.AddSimple('B', "bot")

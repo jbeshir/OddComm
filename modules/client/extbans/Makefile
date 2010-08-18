@@ -1,6 +1,6 @@
 include $(GOROOT)/src/Make.$(GOARCH)
 
-TARG=oddircd/modules/irc/botmode
+TARG=oddircd/modules/client/extbans
 GOFILES=\
 	main.go
 

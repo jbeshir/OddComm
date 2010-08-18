@@ -9,17 +9,19 @@ package main
 import "oddircd/src/core"
 import "oddircd/src/client"
 
+import modules_client_botmode "oddircd/modules/client/botmode"
+import modules_client_extbans "oddircd/modules/client/extbans"
 import modules_dev_catserv "oddircd/modules/dev/catserv"
 import modules_dev_horde "oddircd/modules/dev/horde"
 import modules_dev_tmmode "oddircd/modules/dev/tmmode"
-import modules_irc_botmode "oddircd/modules/irc/botmode"
 
 func main() {
 	// Makes modules be permitted to link in.
+	_ = modules_client_botmode.MODULENAME
+	_ = modules_client_extbans.MODULENAME
 	_ = modules_dev_catserv.MODULENAME
 	_ = modules_dev_horde.MODULENAME
 	_ = modules_dev_tmmode.MODULENAME
-	_ = modules_irc_botmode.MODULENAME
 
 	var exitList [1]chan int
 	var msg chan string
