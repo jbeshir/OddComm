@@ -314,7 +314,7 @@ func (p *ModeParser) ParseModeLine(source *core.User, e core.Extensible, modelin
 				change.Data = "on"
 			}
 
-			changes[change.Name + " " + u.ID()] = change
+			changes["m" + u.ID() + " " + change.Name] = change
 			continue
 		}
 
@@ -457,7 +457,7 @@ func (p *ModeParser) ParseChanges(e core.Extensible, c *core.DataChange,
 // GetModes gets the modeline associated with a user or channel.
 // It caches its result via metadata on the user, using the mode parser's
 // mode ID to disambiguate it from other mode parsers.
-func (p* ModeParser) GetModes (e core.Extensible) string {
+func (p* ModeParser) GetModes(e core.Extensible) string {
 	var modes string
 	var params string
 

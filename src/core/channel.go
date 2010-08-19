@@ -131,6 +131,7 @@ func (ch *Channel) SetDataList(source *User, c *DataChange) {
 	wait := make(chan bool)
 	corechan <- func() {
 		var lasthook *DataChange
+		var lastold **OldData = &oldvalues
 		for it := c; it != nil; it = it.Next {
 
 			// Figure out what we're making the change to.
@@ -165,9 +166,10 @@ func (ch *Channel) SetDataList(source *User, c *DataChange) {
 			// Otherwise, add the old value to the old data list.
 			olddata := new(OldData)
 			olddata.Data = oldvalue
-			olddata.Next = oldvalues
-			oldvalues = olddata
+			*lastold = olddata
 			lasthook = it
+			lastold = &olddata.Next
+
 		}
 
 		wait <- true

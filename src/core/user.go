@@ -237,6 +237,7 @@ func (u *User) SetDataList(source *User, c *DataChange) {
 	wait := make(chan bool)
 	corechan <- func() {
 		var lasthook *DataChange
+		var lastold **OldData = &oldvalues
 		for it := c; it != nil; it = it.Next {
 
 			// Make the change.
@@ -263,9 +264,9 @@ func (u *User) SetDataList(source *User, c *DataChange) {
 
 			olddata := new(OldData)
 			olddata.Data = oldvalue
-			olddata.Next = oldvalues
-			oldvalues = olddata
+			*lastold = olddata
 			lasthook = it
+			lastold = &olddata.Next
 		}
 
 		wait <- true
