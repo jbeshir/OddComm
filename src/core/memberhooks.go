@@ -35,4 +35,3 @@ func runMemberDataChangeHooks(t string, source *User, m *Membership, name, oldva
 		}
 	}
 }
-

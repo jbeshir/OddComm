@@ -145,10 +145,20 @@ func cmdWho(u *core.User, w io.Writer, params [][]byte) {
 	if ch := core.FindChannel("", channame); ch != nil {
 		for it := ch.Users(); it != nil; it = it.ChanNext() {
 			user := it.User()
-			c.WriteTo(nil, "352", "#%s %s %s %s %s H* :0 %s",
+			var prefixes string
+			if user.Data("away") == "" {
+				prefixes += "H"
+			} else {
+				prefixes += "G"
+			}
+			if user.Data("op") != "" {
+				prefixes += "*"
+			}
+			prefixes += ChanModes.GetPrefixes(it)
+			c.WriteTo(nil, "352", "#%s %s %s %s %s %s :0 %s",
 			          channame, user.GetIdent(),
 			          user.GetHostname(), "Server.name",
-			          user.Nick(), user.Data("realname"))
+			          user.Nick(), prefixes, user.Data("realname"))
 		}
 		c.WriteTo(nil, "315", "#%s :End of /WHO list.", channame)
 	}
@@ -187,12 +197,18 @@ func cmdNames(u *core.User, w io.Writer, params [][]byte) {
 	if ch := core.FindChannel("", channame); ch != nil {
 		var names string
 		for it := ch.Users(); it != nil; it = it.ChanNext() {
-			if names != "" {
-				names += " "
-			}
+			names += " " + ChanModes.GetPrefixes(it)
 			names += it.User().Nick()
 		}
-		c.WriteTo(nil, "353", "= #%s :%s", channame, names)
+
+		var myprefix string
+		if m := ch.GetMember(u); m != nil {
+			myprefix = ChanModes.GetPrefixes(m)
+		}
+		if myprefix == "" {
+			myprefix = "="
+		}
+		c.WriteTo(nil, "353", "%s #%s :%s", myprefix, channame, names)
 		c.WriteTo(nil, "366", "#%s :End of /NAMES list", channame)
 	}
 }

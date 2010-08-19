@@ -47,6 +47,62 @@ func (m *Membership) UserNext() (next *Membership) {
 	return
 }
 
+// SetData sets the given single piece of metadata on the membership entry.
+// source may be nil, in which case the metadata is set by the server.
+// Setting it to "" unsets it.
+func (m *Membership) SetData(source *User, name string, value string) {
+	var oldvalue string
+
+	wait := make(chan bool)
+	corechan <- func() {
+
+		var old interface{}
+		if value != "" {
+			old = TrieAdd(&m.data, name, value)
+		} else {
+			old = TrieDel(&m.data, name)
+		}
+		if old != nil {
+			oldvalue = old.(string)
+		}
+
+		wait <- true
+	}
+	<-wait
+
+	// If nothing changed, don't call hooks.
+	if oldvalue == value {
+		return
+	}
+
+	runMemberDataChangeHooks(m.c.Type(), source, m, name, oldvalue, value)
+
+	c := new(DataChange)
+	c.Name = name
+	c.Data = value
+	c.Member = m
+	old := new(OldData)
+	old.Data = value
+	runChanDataChangesHooks(m.c.Type(), source, m.c, c, old)
+}
+
+
+// Data retrieves the requested piece of metadata from this membership entry.
+// It returns "" if no such piece of metadata exists.
+func (m *Membership) Data(name string) (value string) {
+	wait := make(chan bool)
+	corechan <- func() {
+		val := TrieGet(&m.data, name)
+		if val != nil {
+			value = val.(string)
+		}
+		wait <- true
+	}
+	<-wait
+	return
+
+}
+
 // Remove removes this membership entry; the user is removed from the channel.
 // The specified source is responsible. It may be nil.
 func (m *Membership) Remove(source *User) {

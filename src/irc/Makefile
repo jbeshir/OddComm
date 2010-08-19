@@ -6,6 +6,7 @@ GOFILES=\
 	command.go\
 	parse.go\
 	modes.go\
+	modeprefixes.go\
 	usercmds.go
 
 include $(GOROOT)/src/Make.pkg

@@ -25,6 +25,7 @@ type ModeParser struct {
 	nameToMembership map[string]int
 	nameToExt map[string]func(core.Extensible, string, string, string)([]int, []string, []int, []string)
 	getExt map[int]func(core.Extensible)string
+	prefixes *prefix
 }
 
 // NewModeParser returns a new mode parser, ready to add modes to.
@@ -35,8 +36,12 @@ type ModeParser struct {
 // And then it's game over, man, game over.
 func NewModeParser(uids bool) (p *ModeParser) {
 	p = new(ModeParser)
-	p.id = currentID; currentID++
 	p.uids = uids
+
+	// Set our ID.
+	p.id = currentID; currentID++
+
+	// Initialise ALL our maps.
 	p.simple = make(map[int]string)
 	p.parametered = make(map[int]string)
 	p.list = make(map[int]string)
@@ -48,6 +53,11 @@ func NewModeParser(uids bool) (p *ModeParser) {
 	p.nameToMembership = make(map[string]int)
 	p.nameToExt = make(map[string]func(core.Extensible, string, string, string)([]int, []string, []int, []string))
 	p.getExt = make(map[int]func(core.Extensible)string)
+
+	// Add the base prefixes.
+	p.AddPrefix('@', "op", 1000)
+	p.AddPrefix('+', "voiced", 100)
+
 	return
 }
 
