@@ -25,6 +25,7 @@ func init() {
 	c.Handler = cmdLogin
 	c.Minargs = 1
 	c.Maxargs = 2
+	c.Unregged = 1
 	client.Commands.Add("LOGIN", c)
 
 	// We would load from config here.
