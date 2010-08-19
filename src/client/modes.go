@@ -18,8 +18,8 @@ var ChanModes *irc.ModeParser
 
 
 func init() {
-	UserModes = irc.NewModeParser()
-	ChanModes = irc.NewModeParser()
+	UserModes = irc.NewModeParser(false)
+	ChanModes = irc.NewModeParser(false)
 
 	// Fake an always-on +i on users.
 	UserModes.AddSimple('i', "__placeholder__")
@@ -48,6 +48,10 @@ func init() {
 	ChanModes.AddList('b', "ban host")
 	ChanModes.AddList('e', "banexception host")
 	ChanModes.AddList('I', "unrestrict host")
+
+	// Add op and voice membership modes for channels.
+	ChanModes.AddMembership('o', "op")
+	ChanModes.AddMembership('v', "voiced")
 
 	// DELIBERATELY NOT IMPLEMENTED: +k, +p
 	// These modes are not deemed to be the optimal way of doing anything.

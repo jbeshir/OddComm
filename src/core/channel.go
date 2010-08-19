@@ -92,6 +92,7 @@ func (ch *Channel) SetData(source *User, name string, value string) {
 
 	wait := make(chan bool)
 	corechan <- func() {
+
 		var old interface{}
 		if value != "" {
 			old = TrieAdd(&ch.data, name, value)
@@ -132,13 +133,20 @@ func (ch *Channel) SetDataList(source *User, c *DataChange) {
 		var lasthook *DataChange
 		for it := c; it != nil; it = it.Next {
 
+			// Figure out what we're making the change to.
+			// The channel, or a member?
+			trie := &ch.data
+			if it.Member != nil {
+				trie = &it.Member.data
+			}
+
 			// Make the change.
 			var old interface{}
 			var oldvalue string
 			if it.Data != "" {
-				old = TrieAdd(&ch.data, it.Name, it.Data)
+				old = TrieAdd(trie, it.Name, it.Data)
 			} else {
-				old = TrieDel(&ch.data, it.Name)
+				old = TrieDel(trie, it.Name)
 			}
 			if old != nil {
 				oldvalue = old.(string)
@@ -154,6 +162,7 @@ func (ch *Channel) SetDataList(source *User, c *DataChange) {
 				continue
 			}
 
+			// Otherwise, add the old value to the old data list.
 			olddata := new(OldData)
 			olddata.Data = oldvalue
 			olddata.Next = oldvalues
@@ -166,7 +175,13 @@ func (ch *Channel) SetDataList(source *User, c *DataChange) {
 	<-wait
 
 	for it, old := c, oldvalues; it != nil && old != nil; it, old = it.Next, old.Next {
-		runChanDataChangeHooks(ch.Type(), source, ch, it.Name, old.Data, it.Data)
+		if it.Member == nil {
+			runChanDataChangeHooks(ch.Type(), source, ch, it.Name,
+			                       old.Data, it.Data)
+		} else {
+			runMemberDataChangeHooks(ch.Type(), source, it.Member,
+                                                 it.Name, old.Data, it.Data)
+		}
 	}
 	runChanDataChangesHooks(ch.Type(), source, ch, c, oldvalues)
 }
@@ -245,16 +260,44 @@ func (ch* Channel) Users() (users *Membership) {
 	return
 }
 
-// Join adds a user to the channel.
-func (ch *Channel) Join(u *User) {
-
-	// Unregistered users may not join channels.
-	if !u.Registered() {
-		return
-	}
-
+// GetMember returns a pointer to this channel's membership structure for the
+// given user, or nil if they are not a member. This is also how to check
+// whether a user is on the channel or not.
+func (ch *Channel) GetMember(u *User) (m *Membership) {
 	wait := make(chan bool)
 	corechan <- func() {
+		for it := ch.users; it != nil; it = it.cnext {
+			if it.u == u {
+				m = it
+				break
+			}
+		}
+		wait <- true
+	}
+	<-wait
+	return
+}
+
+// Join adds a user to the channel.
+func (ch *Channel) Join(u *User) {
+	var joined bool
+	wait := make(chan bool)
+	corechan <- func() {
+
+		// Unregistered users may not join channels.
+		if u.regcount != 0 {
+			wait <- true
+			return
+		}
+
+		// Users who are already IN the channel may not join.
+		for it := ch.users; it != nil; it = it.cnext {
+			if it.u == u {
+				wait <- true
+				return
+			}
+		}
+
 		m := new(Membership)
 		m.c = ch
 		m.u = u
@@ -268,11 +311,14 @@ func (ch *Channel) Join(u *User) {
 		if m.unext != nil {
 			m.unext.uprev = m
 		}
+		joined = true
 		wait <- true
 	}
 	<-wait
 
-	runChanUserJoinHooks(ch.t, u, ch)
+	if joined {
+		runChanUserJoinHooks(ch.t, u, ch)
+	}
 }
 
 // Remove removes the given user from the channel.

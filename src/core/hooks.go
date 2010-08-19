@@ -9,9 +9,12 @@ type Extensible interface {
 
 // Represents a metadata change.
 // The name is the name of the metadata changed, and the data is what it is
-// set to.
+// set to. The member value, only valid for channel metadata changes, is nil
+// for non-membership changes, or the Membership structure which was changed
+// changed for membership changes.
 type DataChange struct {
 	Name, Data string
+	Member *Membership
 	Next *DataChange
 }
 

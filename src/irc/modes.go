@@ -13,29 +13,39 @@ var currentID uint64
 // correspond to.
 type ModeParser struct {
 	id uint64
+	uids bool
 	simple map[int]string
 	parametered map[int]string
 	extended map[int]func(bool, core.Extensible, string)(*core.DataChange)
 	list map[int]string
+	membership map[int]string
 	nameToSimple map[string]int
 	nameToParametered map[string]int
 	nameToList map[string]int
+	nameToMembership map[string]int
 	nameToExt map[string]func(core.Extensible, string, string, string)([]int, []string, []int, []string)
 	getExt map[int]func(core.Extensible)string
 }
 
 // NewModeParser returns a new mode parser, ready to add modes to.
+// uids indicates whether this mode parser should output UIDs or nicks
+// for membership changes, and is only relevant if this mode parser is going
+// to be used for channel modes.
 // This method cannot be called more than 2^64-1 times or it runs out of IDs.
-func NewModeParser() (p *ModeParser) {
+// And then it's game over, man, game over.
+func NewModeParser(uids bool) (p *ModeParser) {
 	p = new(ModeParser)
 	p.id = currentID; currentID++
+	p.uids = uids
 	p.simple = make(map[int]string)
 	p.parametered = make(map[int]string)
 	p.list = make(map[int]string)
+	p.membership = make(map[int]string)
 	p.extended = make(map[int]func(bool, core.Extensible, string)(*core.DataChange))
 	p.nameToSimple = make(map[string]int)
 	p.nameToParametered = make(map[string]int)
 	p.nameToList = make(map[string]int)
+	p.nameToMembership = make(map[string]int)
 	p.nameToExt = make(map[string]func(core.Extensible, string, string, string)([]int, []string, []int, []string))
 	p.getExt = make(map[int]func(core.Extensible)string)
 	return
@@ -72,8 +82,7 @@ func (p *ModeParser) AddParametered(mode int, metadata string) {
 }
 
 // AddList adds a list mode. It cannot be called concurrently with itself, or
-// any lookups on the parser. value is the value that the list mode will be
-// given when it is set.
+// any lookups on the parser.
 // If a mode character or metadata name is added twice, the mode associated
 // with the previous value is deleted.
 func (p *ModeParser) AddList(mode int, metadata string) {
@@ -85,6 +94,22 @@ func (p *ModeParser) AddList(mode int, metadata string) {
 	}
 	p.list[mode] = metadata
 	p.nameToList[metadata] = mode
+}
+
+// AddMembership adds a membership mode. It cannot be called concurrently with
+// itself, or any lookups on the parser.
+// If a mode character or metadata name is added twice, the mode associated
+// with the previous value is deleted.
+// Membership modes are ignored if this is not a channel mode parser.
+func (p *ModeParser) AddMembership(mode int, metadata string) {
+	if v := p.membership[mode]; v != "" {
+		p.nameToMembership[v] = 0, false
+	}
+	if v := p.nameToMembership[metadata]; v != 0 {
+		p.membership[v] = "", false
+	}
+	p.membership[mode] = metadata
+	p.nameToMembership[metadata] = mode
 }
 
 // AddExtMode extends an already added mode, attaching hooks to mapping the
@@ -247,6 +272,42 @@ func (p *ModeParser) ParseModeLine(source *core.User, e core.Extensible, modelin
 			continue
 		}
 
+		if v, ok := p.membership[char]; ok {
+			var ch *core.Channel
+			var ok bool
+			if ch, ok = e.(*core.Channel); !ok {
+				continue
+			}
+			if param >= len(params) {
+				missing += string(char)
+				continue
+			}
+			p := string(params[param])
+			param++
+
+			var u *core.User
+			var m *core.Membership
+			if u = core.GetUser(p); u == nil {
+				if u = core.GetUserByNick(p); u == nil {
+					continue
+				}
+			}
+			if m = ch.GetMember(u); m == nil {
+				continue
+			}
+			
+			change := new(core.DataChange)
+			change.Name = v
+			change.Member = m
+
+			if adding {
+				change.Data = "on"
+			}
+
+			changes[change.Name + " " + u.ID()] = change
+			continue
+		}
+
 		unknown += string(char)
 	}
 
@@ -315,6 +376,29 @@ func (p *ModeParser) ParseChanges(e core.Extensible, c *core.DataChange,
 				addparams += " " + it.Data
 			} else {
 				remmodes += string(v)
+			}
+			continue
+		}
+
+		if v, ok := p.nameToMembership[it.Name]; ok {
+			if it.Member == nil {
+				// Wha
+				continue
+			}
+
+			var param string
+			if p.uids {
+				param = it.Member.User().ID()
+			} else {
+				param = it.Member.User().Nick()
+			}
+
+			if it.Data != "" {
+				addmodes += string(v)
+				addparams += " " + param
+			} else {
+				remmodes += string(v)
+				remparams += " " + param
 			}
 			continue
 		}
