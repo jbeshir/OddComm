@@ -360,7 +360,7 @@ func (u* User) Channels() (chans *Membership) {
 func (u *User) Message(source *User, message []byte, t string) {
 
 	// Unregistered users may neither send nor receive messages.
-	if !u.Registered() || !source.Registered() {
+	if !u.Registered() || (source != nil && !source.Registered()) {
 		return
 	}
 

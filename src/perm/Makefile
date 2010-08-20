@@ -6,6 +6,7 @@ GOFILES=\
 	hooklist.go\
 	validate.go\
 	message.go\
-	bans.go
+	bans.go\
+	ops.go
 
 include $(GOROOT)/src/Make.pkg

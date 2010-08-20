@@ -103,6 +103,53 @@ func (m *Membership) Data(name string) (value string) {
 
 }
 
+// DataRange calls the given function for every piece of metadata with the
+// given prefix. If none are found, the function is never called. Metadata
+// items added while this function is running may or may not be missed.
+func (m *Membership) DataRange(prefix string, f func(name, value string)) {
+	var dataArray [50]DataChange
+	var data []DataChange = dataArray[0:0]
+	var root, it *Trie
+	wait := make(chan bool)
+
+	// Get an iterator pointing to our first value.
+	corechan <- func() {
+		root = TrieGetSub(&m.data, prefix)
+		it = root
+		if it != nil {
+			if key, _ := it.Value(); key == "" {
+				it = it.Next(root)
+			}
+		}
+		wait <- true
+	}
+	<-wait
+
+	for it != nil {
+		// Get up to 50 values from this subtrie.
+		corechan <- func() {
+			for i := 0; i < cap(data); i++ {
+				var val interface{}
+				data = data[0:i+1]
+				data[i].Name, val = it.Value()
+				data[i].Data = val.(string)
+				it = it.Next(root)
+				if it == nil {
+					break
+				}
+			}
+			wait <- true
+		}
+		<- wait
+
+		// Call the function for all of them, and clear data.
+		for _, item := range data {
+			f(item.Name, item.Data)
+		}
+		data = data[0:0]
+	}
+}
+
 // Remove removes this membership entry; the user is removed from the channel.
 // The specified source is responsible. It may be nil.
 func (m *Membership) Remove(source *User) {

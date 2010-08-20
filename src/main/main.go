@@ -15,6 +15,7 @@ import modules_client_login "oddircd/modules/client/login"
 import modules_client_ochanctrl "oddircd/modules/client/ochanctrl"
 import modules_client_opermode "oddircd/modules/client/opermode"
 import modules_oper_account "oddircd/modules/oper/account"
+import modules_oper_pmoverride "oddircd/modules/oper/pmoverride"
 import modules_dev_catserv "oddircd/modules/dev/catserv"
 import modules_dev_horde "oddircd/modules/dev/horde"
 import modules_dev_tmmode "oddircd/modules/dev/tmmode"
@@ -27,6 +28,7 @@ func main() {
 	_ = modules_client_ochanctrl.MODULENAME
 	_ = modules_client_opermode.MODULENAME
 	_ = modules_oper_account.MODULENAME
+	_ = modules_oper_pmoverride.MODULENAME
 	_ = modules_dev_catserv.MODULENAME
 	_ = modules_dev_horde.MODULENAME
 	_ = modules_dev_tmmode.MODULENAME
