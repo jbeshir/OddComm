@@ -45,6 +45,12 @@ func init() {
 	Commands.Add("WHO", c)
 
 	c = new(irc.Command)
+	c.Handler = cmdNames
+	c.Minargs = 1
+	c.Maxargs = 1
+	Commands.Add("NAMES", c)
+
+	c = new(irc.Command)
 	c.Handler = cmdJoin
 	c.Minargs = 1
 	c.Maxargs = 1
@@ -57,11 +63,11 @@ func init() {
 	Commands.Add("PART", c)
 	
 	c = new(irc.Command)
-	c.Handler = cmdNames
-	c.Minargs = 1
-	c.Maxargs = 1
-	Commands.Add("NAMES", c)
-
+	c.Handler = cmdKick
+	c.Minargs = 2
+	c.Maxargs = 3
+	Commands.Add("KICK", c)
+	
 	c = new(irc.Command)
 	c.Handler = cmdMode
 	c.Minargs = 1
@@ -164,29 +170,6 @@ func cmdWho(u *core.User, w io.Writer, params [][]byte) {
 	}
 }
 
-
-func cmdJoin(u *core.User, w io.Writer, params [][]byte) {
-	channame := string(params[0])
-	if channame[0] == '#' {
-		channame = channame[1:]
-	}
-	
-	core.GetChannel("", channame).Join(u)
-
-	cmdNames(u, w, params[0:1])
-}
-
-func cmdPart(u *core.User, w io.Writer, params [][]byte) {
-	channame := string(params[0])
-	if channame[0] == '#' {
-		channame = channame[1:]
-	}
-
-	if ch := core.FindChannel("", channame); ch != nil {
-		ch.Remove(u, u)
-	}
-}
-
 func cmdNames(u *core.User, w io.Writer, params [][]byte) {
 	c := w.(*Client)
 	channame := string(params[0])
@@ -211,6 +194,45 @@ func cmdNames(u *core.User, w io.Writer, params [][]byte) {
 		c.WriteTo(nil, "353", "%s #%s :%s", myprefix, channame, names)
 		c.WriteTo(nil, "366", "#%s :End of /NAMES list", channame)
 	}
+}
+
+func cmdJoin(u *core.User, w io.Writer, params [][]byte) {
+	channame := string(params[0])
+	if channame[0] == '#' {
+		channame = channame[1:]
+	}
+	
+	core.GetChannel("", channame).Join(u)
+}
+
+func cmdPart(u *core.User, w io.Writer, params [][]byte) {
+	channame := string(params[0])
+	if channame[0] == '#' {
+		channame = channame[1:]
+	}
+
+	if ch := core.FindChannel("", channame); ch != nil {
+		ch.Remove(u, u)
+	}
+}
+
+func cmdKick(u *core.User, w io.Writer, params [][]byte) {
+	var ch *core.Channel
+	var target *core.User
+
+	channame := string(params[0])
+	if channame[0] == '#' {
+		channame = channame[1:]
+	}
+	if ch = core.FindChannel("", channame); ch == nil {
+		return
+	}
+
+	if target = core.GetUserByNick(string(params[1])); target == nil {
+		return
+	}
+
+	ch.Remove(u, target)
 }
 
 func cmdMode(u *core.User, w io.Writer, params [][]byte) {

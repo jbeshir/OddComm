@@ -13,6 +13,8 @@ build:
 	cd modules/client/botmode && make install
 	cd modules/client/extbans && make install
 	cd modules/client/login && make install
+	cd modules/client/ochanctrl && make install
+	cd modules/client/opermode && make install
 	cd modules/oper/account && make install
 	cd modules/dev/catserv && make install
 	cd modules/dev/horde && make install
@@ -27,6 +29,8 @@ clean:
 	cd modules/client/botmode && make clean
 	cd modules/client/extbans && make clean
 	cd modules/client/login && make clean
+	cd modules/client/ochanctrl && make clean
+	cd modules/client/opermode && make clean
 	cd modules/oper/account && make clean
 	cd modules/dev/catserv && make clean
 	cd modules/dev/horde && make clean
@@ -41,6 +45,8 @@ nuke:
 	cd modules/client/botmode && make nuke
 	cd modules/client/extbans && make nuke
 	cd modules/client/login && make nuke
+	cd modules/client/ochanctrl && make nuke
+	cd modules/client/opermode && make nuke
 	cd modules/oper/account && make nuke
 	cd modules/dev/catserv && make nuke
 	cd modules/dev/horde && make nuke

@@ -55,7 +55,7 @@ func NewModeParser(uids bool) (p *ModeParser) {
 	p.getExt = make(map[int]func(core.Extensible)string)
 
 	// Add the base prefixes.
-	p.AddPrefix('@', "op", 1000)
+	p.AddPrefix('@', "op", 100000)
 	p.AddPrefix('+', "voiced", 100)
 
 	return

@@ -330,7 +330,7 @@ func (ch *Channel) Join(u *User) {
 func (ch *Channel) Remove(source, u *User) {
 
 	// Unregistered users may not join channels OR remove other users.
-	if !source.Registered() || !u.Registered() {
+	if (source != nil && !source.Registered()) || !u.Registered() {
 		return
 	}
 	

@@ -1,0 +1,36 @@
+package ochanctrl
+
+import "io"
+
+import "oddircd/src/client"
+import "oddircd/src/core"
+import "oddircd/src/irc"
+
+
+// Add command.
+func init() {
+	c := new(irc.Command)
+	c.Handler = cmdOkick
+	c.Minargs = 2
+	c.Maxargs = 3
+	client.Commands.Add("OKICK", c)
+}
+
+func cmdOkick(u *core.User, w io.Writer, params [][]byte) {
+	var ch *core.Channel
+	var target *core.User
+
+	channame := string(params[0])
+	if channame[0] == '#' {
+		channame = channame[1:]
+	}
+	if ch = core.FindChannel("", channame); ch == nil {
+		return
+	}
+
+	if target = core.GetUserByNick(string(params[1])); target == nil {
+		return
+	}
+
+	ch.Remove(nil, target)
+}

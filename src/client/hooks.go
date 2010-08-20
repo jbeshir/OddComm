@@ -85,6 +85,11 @@ func init() {
 		// If it's our client that joined...
 		if c := GetClient(u); c != nil {
 
+			// Send them NAMES.
+			var params [1][]byte
+			params[0] = []byte(ch.Name())
+			cmdNames(u, c, params[0:])
+
 			// Send them the topic.
 			if topic, setby, setat := ch.GetTopic(); topic != "" {
 				c.WriteTo(nil, "332", "#%s :%s", ch.Name(),
@@ -132,8 +137,8 @@ func init() {
 			if source == u {
 				c.WriteFrom(u, "PART #%s", ch.Name())
 			} else {
-				c.WriteFrom(source, "KICK #%s %s :", u.Nick(),
-				            ch.Name())
+				c.WriteFrom(source, "KICK #%s %s :", ch.Name(),
+				            u.Nick())
 			}
 		}
 
@@ -144,7 +149,7 @@ func init() {
 					c.WriteFrom(u, "PART #%s", ch.Name())
 				} else {
 					c.WriteFrom(source, "KICK #%s %s :",
-					            u.Nick(), ch.Name())
+					            ch.Name(), u.Nick())
 				}
 			}
 		}

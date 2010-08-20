@@ -11,18 +11,30 @@ var MODULENAME string = "modules/oper/account"
 
 
 // Maps accounts to sets of oper flags.
-var operAccounts map[string]string
+var operFlags map[string]string
+var operCommands map[string]string
+var operType map[string]string
 
 func init() {
-	operAccounts = make(map[string]string)
+	operFlags = make(map[string]string)
+	operCommands = make(map[string]string)
+	operType = make(map[string]string)
 
 	// Here, we would load things in from the config.
-	operAccounts["NAMEGDUF"] = "on"
+	operType["NAMEGDUF"] = "Uberdude"
+	operFlags["NAMEGDUF"] = "on"
 
 	// Oper people when they login to their account.
 	core.HookUserDataChange("account", func(source, target *core.User, oldvalue, newvalue string) {
-		if v, ok := operAccounts[strings.ToUpper(newvalue)]; ok {
+		account := strings.ToUpper(newvalue)
+		if v, ok := operType[account]; ok {
+			target.SetData(nil, "optype", v)
+		}
+		if v, ok := operFlags[account]; ok {
 			target.SetData(nil, "op", v)
+			if v, ok := operCommands[account]; ok {
+				target.SetData(nil, "opcommands", v)
+			}
 		}
 	}, true)
 }

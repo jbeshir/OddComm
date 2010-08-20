@@ -12,6 +12,8 @@ import "oddircd/src/client"
 import modules_client_botmode "oddircd/modules/client/botmode"
 import modules_client_extbans "oddircd/modules/client/extbans"
 import modules_client_login "oddircd/modules/client/login"
+import modules_client_ochanctrl "oddircd/modules/client/ochanctrl"
+import modules_client_opermode "oddircd/modules/client/opermode"
 import modules_oper_account "oddircd/modules/oper/account"
 import modules_dev_catserv "oddircd/modules/dev/catserv"
 import modules_dev_horde "oddircd/modules/dev/horde"
@@ -22,6 +24,8 @@ func main() {
 	_ = modules_client_botmode.MODULENAME
 	_ = modules_client_extbans.MODULENAME
 	_ = modules_client_login.MODULENAME
+	_ = modules_client_ochanctrl.MODULENAME
+	_ = modules_client_opermode.MODULENAME
 	_ = modules_oper_account.MODULENAME
 	_ = modules_dev_catserv.MODULENAME
 	_ = modules_dev_horde.MODULENAME
