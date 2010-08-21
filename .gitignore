@@ -1,0 +1,5 @@
+.fuse*
+*.6
+_obj
+src/main/oddircd
+oddircd
