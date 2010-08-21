@@ -14,9 +14,10 @@ func init() {
 }
 
 // If a user has the mute restriction from a ban, they don't get to speak.
+// This is, however, weaker than all specific permissions to speak.
 func banned(source* core.User, target *core.Channel, msg []byte) (int, os.Error) {
 	if BanMatch(source, target, "ban", "mute") {
-		return -1000, os.NewError("You are banned and cannot speak on the channel.")
+		return -100, os.NewError("You are banned and cannot speak on the channel.")
 	}
 	return 0, nil
 }
@@ -24,7 +25,7 @@ func banned(source* core.User, target *core.Channel, msg []byte) (int, os.Error)
 // Moderated being set on a channel prevents speech.
 func moderated(source *core.User, target *core.Channel, msg []byte) (int, os.Error) {
 	if target.Data("moderated") !=  "" {
-		return -100, os.NewError("Channel is moderated. You must have permission to speak on the channel.")
+		return -200, os.NewError("Channel is moderated. You must have permission to speak on the channel.")
 	}
 	return 0, nil
 }
@@ -33,7 +34,7 @@ func moderated(source *core.User, target *core.Channel, msg []byte) (int, os.Err
 func voiceOverride(source *core.User, target *core.Channel, msg []byte) (int, os.Error) {
 	if m := target.GetMember(source); m != nil {
 		if m.Data("voiced") != "" {
-			return 1000, nil
+			return 200, nil
 		}
 	}
 	return 0, nil
