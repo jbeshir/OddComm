@@ -76,33 +76,36 @@ func init() {
 	client.ChanModes.AddExtMode('b', "ban",
 	                     func(adding bool, e core.Extensible,
 	                          param string) *core.DataChange {
-		return processBan("ban", perm.DefaultBan(), adding, e, param)
+		return processBan("ban", perm.DefaultBan("ban"), adding, e,
+		                  param)
 	}, func (e core.Extensible, name, oldvalue,
 	         newvalue string) ([]int, []string, []int, []string) {
-		return makeBan('b', perm.DefaultBan(), e, name, oldvalue, newvalue)
+		return makeBan('b', perm.DefaultBan("ban"), e, name, oldvalue,
+		               newvalue)
 	} , nil)
 
 	// Extend ban exception mode.
 	client.ChanModes.AddExtMode('e', "banexception",
 	                     func(adding bool, e core.Extensible,
 	                          param string) *core.DataChange {
-		return processBan("banexception", perm.DefaultBan(), adding, e,
-		                  param)
+		return processBan("banexception", perm.DefaultBan("ban"),
+		                  adding, e, param)
 	}, func (e core.Extensible, name, oldvalue,
 	         newvalue string) ([]int, []string, []int, []string) {
-		return makeBan('e', perm.DefaultBan(), e, name, oldvalue, newvalue)
+		return makeBan('e', perm.DefaultBan("ban"), e, name, oldvalue,
+		               newvalue)
 	} , nil)
 
 	// Extend unrestrict (invex) mode.
 	client.ChanModes.AddExtMode('I', "unrestrict",
 	                     func(adding bool, e core.Extensible,
 	                          param string) *core.DataChange {
-		return processBan("unrestrict", perm.DefaultUnrestrict(), adding, e,
-		                  param)
+		return processBan("unrestrict", perm.DefaultBan("unrestrict"),
+		                  adding, e, param)
 	}, func (e core.Extensible, name, oldvalue,
 	         newvalue string) ([]int, []string, []int, []string) {
-		return makeBan('I', perm.DefaultUnrestrict(), e, name, oldvalue,
-		               newvalue)
+		return makeBan('I', perm.DefaultBan("unrestrict"), e, name,
+		               oldvalue, newvalue)
 	} , nil)
 	
 	// Block colons from use in nicks and idents.

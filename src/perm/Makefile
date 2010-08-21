@@ -8,6 +8,8 @@ GOFILES=\
 	message.go\
 	bans.go\
 	ops.go\
-	defaultmsg.go
+	defaultmsg.go\
+	defaultbans.go\
+	glob.go
 
 include $(GOROOT)/src/Make.pkg

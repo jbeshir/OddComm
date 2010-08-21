@@ -7,9 +7,18 @@ import "oddircd/src/core"
 
 func init() {
 	// Add the core metadata effects for speaking in channels.
+	HookChanMsg(true, "", "", banned) 
 	HookChanMsg(true, "", "", moderated) 
 	HookChanMsg(true, "", "", voiceOverride) 
 	HookChanMsg(true, "", "", opOverride) 
+}
+
+// If a user has the mute restriction from a ban, they don't get to speak.
+func banned(source* core.User, target *core.Channel, msg []byte) (int, os.Error) {
+	if BanMatch(source, target, "ban", "mute") {
+		return -1000, os.NewError("You are banned and cannot speak on the channel.")
+	}
+	return 0, nil
 }
 
 // Moderated being set on a channel prevents speech.

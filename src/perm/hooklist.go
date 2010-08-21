@@ -48,7 +48,7 @@ func (l *hook) run(f func(interface{}) (int, os.Error), def bool) (perm int, err
 			perm = result
 			absperm = absresult
 			err = thisErr
-		} else if absresult == absperm && result < 0 {
+		} else if absresult == absperm && result > 0 {
 			perm = result
 			absperm = absresult
 			err = thisErr
