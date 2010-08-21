@@ -7,6 +7,7 @@ GOFILES=\
 	validate.go\
 	message.go\
 	bans.go\
-	ops.go
+	ops.go\
+	defaultmsg.go
 
 include $(GOROOT)/src/Make.pkg

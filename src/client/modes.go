@@ -41,7 +41,7 @@ func init() {
 
 	// Add channel modes +i, +m, and +s.
 	ChanModes.AddSimple('i', "invite-only")
-	ChanModes.AddSimple('m', "muted")
+	ChanModes.AddSimple('m', "moderated")
 	ChanModes.AddSimple('s', "hidden")
 
 	// Add ban, ban exception, and unrestrict (invex) modes on channels.
