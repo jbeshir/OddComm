@@ -13,49 +13,22 @@ import "utf8"
 
 import "oddircd/src/client"
 import "oddircd/src/core"
+import "oddircd/src/irc"
 import "oddircd/src/perm"
 
 var MODULENAME string = "modules/client/extbans"
 
 
-// Maps extended ban characters to type/restriction strings, and visa versa.
-type ExtBanMapper struct {
-	charToExtBan map[int]string
-	extBanToChar map[string]int
-}
-
-// Add adds an extban to this extban mapper.
-// Must only be used during init().
-func (e *ExtBanMapper) Add(char int, extban string) {
-	e.charToExtBan[char] = extban
-	e.extBanToChar[extban] = char
-}
-
-// ExtBan looks up the extban for the given character.
-// It returns "" for none.
-func (e *ExtBanMapper) ExtBan(char int) string {
-	return e.charToExtBan[char]
-}
-
-// Char looks up the character for the given extban.
-// It returns 0 for none.
-func (e *ExtBanMapper) Char(extban string) int {
-	return e.extBanToChar[extban]
-}
-
-
 // ExtBanRestrict is the mapper for extban characters to ban restrictions.
-var ExtBanRestrict ExtBanMapper
+var ExtBanRestrict *irc.CMapper
 
 // ExtBanType is the map of extban characters to ban type.
-var ExtBanType ExtBanMapper
+var ExtBanType *irc.CMapper
 
 
 func init() {
-	ExtBanRestrict.charToExtBan = make(map[int]string)
-	ExtBanRestrict.extBanToChar = make(map[string]int)
-	ExtBanType.charToExtBan = make(map[int]string)
-	ExtBanType.extBanToChar = make(map[string]int)
+	ExtBanRestrict = irc.NewCMapper()
+	ExtBanType = irc.NewCMapper()
 
 	// Add the built-in ban types.
 	ExtBanType.Add('h', "host")
@@ -148,7 +121,7 @@ func processBan(prefix, def string, adding bool, e core.Extensible, param string
 	if first > -1 && second > -1 {
 		change.Data = ""
 		for _, char := range param[0:first] {
-			if v := ExtBanRestrict.ExtBan(char); v != "" {
+			if v := ExtBanRestrict.Str(char); v != "" {
 				if change.Data != "" {
 					change.Data += " "
 				}
@@ -162,7 +135,7 @@ func processBan(prefix, def string, adding bool, e core.Extensible, param string
 			reverse = true
 			char, _ = utf8.DecodeRuneInString(param[first+2:])
 		}
-		if v := ExtBanType.ExtBan(char); v != "" {
+		if v := ExtBanType.Str(char); v != "" {
 			t = v
 			if reverse {
 				t = "~" + t
@@ -182,7 +155,7 @@ func processBan(prefix, def string, adding bool, e core.Extensible, param string
 			pos += 1
 		}
 		if param[pos] == ':' {
-			if v := ExtBanType.ExtBan(char); v != "" {
+			if v := ExtBanType.Str(char); v != "" {
 				exttype = v
 				if reverse {
 					exttype = "~" + exttype
@@ -196,7 +169,7 @@ func processBan(prefix, def string, adding bool, e core.Extensible, param string
 		if exttype == "" {
 			change.Data = ""
 			for _, char := range param[0:first] {
-				if v := ExtBanRestrict.ExtBan(char); v != "" {
+				if v := ExtBanRestrict.Str(char); v != "" {
 
 					// Omit duplicates.
 					words := strings.Fields(change.Data)

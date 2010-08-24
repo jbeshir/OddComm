@@ -12,14 +12,14 @@ var defServerOp []string
 
 func init() {
 	// Add the core default channel op flags.
-	AddChanDefOpFlag("ban")
-	AddChanDefOpFlag("banview")
-	AddChanDefOpFlag("invite")
-	AddChanDefOpFlag("moderate")
-	AddChanDefOpFlag("msg")
-	AddChanDefOpFlag("topic")
-	AddChanDefOpFlag("(de)op")
-	AddChanDefOpFlag("(de)voice")
+	AddChanDefOpFlag("ban")      // Set/remove bans, kick users.
+	AddChanDefOpFlag("banview")  // View bans.
+	AddChanDefOpFlag("invite")   // Invite users with op privileges.
+	AddChanDefOpFlag("moderate") // Set restrict modes on the channel.
+	AddChanDefOpFlag("msg")      // Override message restrictions.
+	AddChanDefOpFlag("topic")    // Set the topic if +t.
+	AddChanDefOpFlag("(de)op")   // Op/deop other ops.
+	AddChanDefOpFlag("(de)mark") // "Mark" and unmark (inc. voice) users.
 
 	// Add the core default server op flags.
 	AddServerDefOpFlag("ban")
@@ -27,6 +27,15 @@ func init() {
 	AddServerDefOpFlag("msg")
 }
 
+// ChanDefaultOp returns the default op flags for a channel op as a string.
+func ChanDefaultOp() string {
+	return strings.Join(defChanOp, " ")
+}
+
+// ServerDefaultOp returns the default op flags for a server op as a string.
+func ServerDefaultOp() string {
+	return strings.Join(defServerOp, " ")
+}
 
 // AddChanDefOpFlag adds the given flag to the default channel op flag list.
 // Does nothing if the flag already is in the default list, so can safely be

@@ -292,13 +292,25 @@ func (p *ModeParser) ParseModeLine(source *core.User, e core.Extensible, modelin
 				missing += string(char)
 				continue
 			}
-			p := string(params[param])
+			par := string(params[param])
 			param++
+
+			if v, ok := p.extended[char]; ok {
+				newchanges := v(adding, e, par)
+				for it := newchanges; it != nil; it = it.Next {
+					if it.Member != nil {
+						changes["m" + it.Member.User().ID() + " " + it.Name] = it
+					} else {
+						changes[it.Name] = it
+					}
+				}
+				continue
+			}
 
 			var u *core.User
 			var m *core.Membership
-			if u = core.GetUser(p); u == nil {
-				if u = core.GetUserByNick(p); u == nil {
+			if u = core.GetUser(par); u == nil {
+				if u = core.GetUserByNick(par); u == nil {
 					continue
 				}
 			}
@@ -314,7 +326,7 @@ func (p *ModeParser) ParseModeLine(source *core.User, e core.Extensible, modelin
 				change.Data = "on"
 			}
 
-			changes["m" + u.ID() + " " + change.Name] = change
+			changes["m" + change.Member.User().ID() + " " + change.Name] = change
 			continue
 		}
 
@@ -358,7 +370,7 @@ func (p *ModeParser) ParseChanges(e core.Extensible, c *core.DataChange,
 	var remparams string
 
 	for it, o := c, old; it != nil && o != nil; it, o = it.Next, o.Next {
-		if v, ok := p.nameToExt[it.Name]; ok {
+		if v, ok := p.nameToExt[it.Name]; ok && v != nil {
 			add, addpar, rem, rempar := v(e, it.Name, o.Data, it.Data)
 			addmodes += string(add)
 			remmodes += string(rem)
@@ -415,7 +427,8 @@ func (p *ModeParser) ParseChanges(e core.Extensible, c *core.DataChange,
 
 		var subentry = strings.IndexRune(it.Name, ' ') + 1
 		for subentry > 2 {
-			if v, ok := p.nameToExt[it.Name[0:subentry-1]]; ok {
+			if v, ok := p.nameToExt[it.Name[0:subentry-1]]; ok &&
+					v != nil {
 				add, addpar, rem, rempar := v(e, it.Name, o.Data, it.Data)
 				addmodes += string(add)
 				remmodes += string(rem)
