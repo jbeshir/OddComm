@@ -223,9 +223,9 @@ func cmdPart(u *core.User, w io.Writer, params [][]byte) {
 }
 
 func cmdKick(u *core.User, w io.Writer, params [][]byte) {
-	var ch *core.Channel
-	var target *core.User
+	c := w.(*Client)
 
+	var ch *core.Channel
 	channame := string(params[0])
 	if channame[0] == '#' {
 		channame = channame[1:]
@@ -234,11 +234,18 @@ func cmdKick(u *core.User, w io.Writer, params [][]byte) {
 		return
 	}
 
-	if target = core.GetUserByNick(string(params[1])); target == nil {
-		return
+	nicks := strings.Split(string(params[1]), ",", -1)
+	for _, nick := range nicks {
+		target := core.GetUserByNick(nick)
+		if target == nil {
+			continue
+		}
+		if ok, err := perm.CheckRemove(u, target, ch); ok {
+			ch.Remove(u, target)
+		} else {
+			c.WriteTo(nil, "482", "#%s :%s", ch.Name(), err)
+		}
 	}
-
-	ch.Remove(u, target)
 }
 
 func cmdMode(u *core.User, w io.Writer, params [][]byte) {
@@ -374,7 +381,7 @@ func cmdPrivmsg(u *core.User, w io.Writer, params [][]byte) {
 			channame := string(t[1:])
 			ch := core.FindChannel("", channame)
 			if ch != nil {
-				if ok, err := perm.CheckChanMsg(u, ch.Type(), ch,
+				if ok, err := perm.CheckChanMsg(u, ch,
 				                                params[1], ""); ok {
 					ch.Message(u, params[1], "")
 				} else {
@@ -407,7 +414,7 @@ func cmdNotice(u *core.User, w io.Writer, params [][]byte) {
 			channame := string(t[1:])
 			ch := core.FindChannel("", channame)
 			if ch != nil {
-				if ok, err := perm.CheckChanMsg(u, ch.Type(), ch,
+				if ok, err := perm.CheckChanMsg(u, ch,
 						params[1]," noreply"); ok {
 					ch.Message(u, params[1], "noreply")
 				} else {

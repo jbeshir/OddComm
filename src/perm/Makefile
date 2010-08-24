@@ -6,10 +6,12 @@ GOFILES=\
 	hooklist.go\
 	validate.go\
 	message.go\
-	bans.go\
-	ops.go\
+	join.go\
 	defaultmsg.go\
+	defaultjoin.go\
+	bans.go\
 	defaultbans.go\
+	ops.go\
 	glob.go
 
 include $(GOROOT)/src/Make.pkg

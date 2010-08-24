@@ -7,14 +7,14 @@ import "oddircd/src/core"
 
 func init() {
 	// Add the core permissions for speaking in channels.
-	HookChanMsg(true, "", "", banned) 
+	HookChanMsg(true, "", "", muteBanned)
 	HookChanMsg(true, "", "", moderated) 
 	HookChanMsg(true, "", "", voiceOverride) 
-	HookChanMsg(true, "", "", opOverride) 
+	HookChanMsg(true, "", "", opMsgOverride)
 }
 
 // If a user has a ban with the mute restriction, they don't get to speak.
-func banned(source* core.User, target *core.Channel, msg []byte) (int, os.Error) {
+func muteBanned(source* core.User, target *core.Channel, msg []byte) (int, os.Error) {
 	if Banned(source, target, "mute") {
 		return -100, os.NewError("You are banned and cannot speak on the channel.")
 	}
@@ -39,8 +39,8 @@ func voiceOverride(source *core.User, target *core.Channel, msg []byte) (int, os
 	return 0, nil
 }
 
-// Channel operators override most restrictions on speaking.
-func opOverride(source *core.User, target *core.Channel, msg []byte) (int, os.Error) {
+// Channel operators with the "msg" flag override most restrictions on speaking.
+func opMsgOverride(source *core.User, target *core.Channel, msg []byte) (int, os.Error) {
 	if HasOpFlag(source, target, "msg") {
 		return 10000, nil
 	}
