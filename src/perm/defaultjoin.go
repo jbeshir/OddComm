@@ -19,7 +19,7 @@ func init() {
 // If a user has a ban with the join restriction, they don't get to join.
 func joinBanned(source* core.User, target *core.Channel) (int, os.Error) {
 	if Banned(source, target, "join") {
-		return -100, os.NewError("You are banned and cannot join the channel.")
+		return -10000, os.NewError("You are banned and cannot join the channel.")
 	}
 	return 0, nil
 }
