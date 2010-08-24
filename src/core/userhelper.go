@@ -81,5 +81,5 @@ func (u *User) GetDecentBan() string {
 		hostname = hostname[0:v+1] + "*"
 	}
 
-	return "host *!~" + ident + "@" + hostname
+	return "host *!*" + ident + "@" + hostname
 }

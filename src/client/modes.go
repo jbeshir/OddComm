@@ -40,19 +40,21 @@ func init() {
 	})
 
 	// Add channel modes +i, +m, and +s.
-	ChanModes.AddSimple('i', "invite-only")
-	ChanModes.AddSimple('m', "moderated")
+	ChanModes.AddSimple('i', "restrict join")
+	ChanModes.AddSimple('m', "restrict mute")
 	ChanModes.AddSimple('s', "hidden")
 
-	// Add ban, ban exception, and unrestrict (invex) modes on channels.
+	// Add channel ban, ban exception, and unrestrict (invex) modes.
 	ChanModes.AddList('b', "ban host")
 	ChanModes.AddList('e', "banexception host")
 	ChanModes.AddList('I', "unrestrict host")
 
-	// Add op and voice membership modes for channels.
+	// Add channel op and voice membership modes.
 	ChanModes.AddMembership('o', "op")
 	ChanModes.AddMembership('v', "voiced")
 
-	// DELIBERATELY NOT IMPLEMENTED: +k, +p
+	// DELIBERATELY NOT IMPLEMENTED
+	// Channel modes: +k, +l, +n (always on), +p
+	// User modes: +i (always on)
 	// These modes are not deemed to be the optimal way of doing anything.
 }

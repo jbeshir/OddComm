@@ -76,11 +76,11 @@ func init() {
 	client.ChanModes.AddExtMode('b', "ban",
 	                     func(adding bool, e core.Extensible,
 	                          param string) *core.DataChange {
-		return processBan("ban", perm.DefaultBan("ban"), adding, e,
+		return processBan("ban", perm.DefaultBan(), adding, e,
 		                  param)
 	}, func (e core.Extensible, name, oldvalue,
 	         newvalue string) ([]int, []string, []int, []string) {
-		return makeBan('b', perm.DefaultBan("ban"), e, name, oldvalue,
+		return makeBan('b', perm.DefaultBan(), e, name, oldvalue,
 		               newvalue)
 	} , nil)
 
@@ -88,11 +88,11 @@ func init() {
 	client.ChanModes.AddExtMode('e', "banexception",
 	                     func(adding bool, e core.Extensible,
 	                          param string) *core.DataChange {
-		return processBan("banexception", perm.DefaultBan("ban"),
+		return processBan("banexception", perm.DefaultBan(),
 		                  adding, e, param)
 	}, func (e core.Extensible, name, oldvalue,
 	         newvalue string) ([]int, []string, []int, []string) {
-		return makeBan('e', perm.DefaultBan("ban"), e, name, oldvalue,
+		return makeBan('e', perm.DefaultBan(), e, name, oldvalue,
 		               newvalue)
 	} , nil)
 
@@ -100,11 +100,11 @@ func init() {
 	client.ChanModes.AddExtMode('I', "unrestrict",
 	                     func(adding bool, e core.Extensible,
 	                          param string) *core.DataChange {
-		return processBan("unrestrict", perm.DefaultBan("unrestrict"),
+		return processBan("unrestrict", perm.DefaultUnrestrict(),
 		                  adding, e, param)
 	}, func (e core.Extensible, name, oldvalue,
 	         newvalue string) ([]int, []string, []int, []string) {
-		return makeBan('I', perm.DefaultBan("unrestrict"), e, name,
+		return makeBan('I', perm.DefaultUnrestrict(), e, name,
 		               oldvalue, newvalue)
 	} , nil)
 	
