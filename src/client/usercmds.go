@@ -197,22 +197,28 @@ func cmdNames(u *core.User, w io.Writer, params [][]byte) {
 }
 
 func cmdJoin(u *core.User, w io.Writer, params [][]byte) {
-	channame := string(params[0])
-	if channame[0] == '#' {
-		channame = channame[1:]
-	}
+	chans := strings.Split(string(params[0]), ",", -1)
+	for _, c := range chans {
+		channame := c
+		if channame[0] == '#' {
+			channame = channame[1:]
+		}
 	
-	core.GetChannel("", channame).Join(u)
+		core.GetChannel("", channame).Join(u)
+	}
 }
 
 func cmdPart(u *core.User, w io.Writer, params [][]byte) {
-	channame := string(params[0])
-	if channame[0] == '#' {
-		channame = channame[1:]
-	}
+	chans := strings.Split(string(params[0]), ",", -1)
+	for _, c := range chans {
+		channame := c
+		if channame[0] == '#' {
+			channame = channame[1:]
+		}
 
-	if ch := core.FindChannel("", channame); ch != nil {
-		ch.Remove(u, u)
+		if ch := core.FindChannel("", channame); ch != nil {
+			ch.Remove(u, u)
+		}
 	}
 }
 
@@ -352,59 +358,67 @@ func cmdMode(u *core.User, w io.Writer, params [][]byte) {
 
 func cmdPrivmsg(u *core.User, w io.Writer, params [][]byte) {
 	c := w.(*Client)
-	if target := core.GetUserByNick(string(params[0])); target != nil {
-		if ok, err := perm.CheckUserMsg(u, target, params[1], ""); ok {
-			target.Message(u, params[1], "")
-		} else {
-			c.WriteTo(nil, "404", "%s :%s", target.Nick(), err)
-		}
-		return
-	}
 
-	if params[0][0] == '#' {
-		channame := string(params[0][1:])
-		ch := core.FindChannel("", channame)
-		if ch != nil {
-			if ok, err := perm.CheckChanMsg(u, ch.Type(), ch,
-			                                params[1], ""); ok {
-				ch.Message(u, params[1], "")
+	targets := strings.Split(string(params[0]), ",", -1)
+	for _, t := range targets {
+		if target := core.GetUserByNick(string(t)); target != nil {
+			if ok, err := perm.CheckUserMsg(u, target, params[1], ""); ok {
+				target.Message(u, params[1], "")
 			} else {
-				c.WriteTo(nil, "404", "#%s :%s", ch.Name(), err)
+				c.WriteTo(nil, "404", "%s :%s", target.Nick(), err)
 			}
-			return
+			continue
 		}
-	}
 
-	c.WriteTo(nil, "404", "%s :%s", params[0], "No such nick or channel.")
+		if t[0] == '#' {
+			channame := string(t[1:])
+			ch := core.FindChannel("", channame)
+			if ch != nil {
+				if ok, err := perm.CheckChanMsg(u, ch.Type(), ch,
+				                                params[1], ""); ok {
+					ch.Message(u, params[1], "")
+				} else {
+					c.WriteTo(nil, "404", "#%s :%s", ch.Name(), err)
+				}
+				continue
+			}
+		}
+
+		c.WriteTo(nil, "404", "%s :%s", t, "No such nick or channel.")
+	}
 }
 
 func cmdNotice(u *core.User, w io.Writer, params [][]byte) {
 	c := w.(*Client)
-	if target := core.GetUserByNick(string(params[0])); target != nil {
-		if ok, err := perm.CheckUserMsg(u, target, params[1],
-		                                "noreply"); ok {
-			target.Message(u, params[1], "noreply")
-		} else {
-			c.WriteTo(nil, "404", "%s :%s", target.Nick(), err)
-		}
-		return
-	}
 
-	if params[0][0] == '#' {
-		channame := string(params[0][1:])
-		ch := core.FindChannel("", channame)
-		if ch != nil {
-			if ok, err := perm.CheckChanMsg(u, ch.Type(), ch,
-					params[1]," noreply"); ok {
-				ch.Message(u, params[1], "noreply")
+	targets := strings.Split(string(params[0]), ",", -1)
+	for _, t := range targets {
+		if target := core.GetUserByNick(string(t)); target != nil {
+			if ok, err := perm.CheckUserMsg(u, target, params[1],
+			                                "noreply"); ok {
+				target.Message(u, params[1], "noreply")
 			} else {
-				c.WriteTo(nil, "404", "#%s :%s", ch.Name(), err)
+				c.WriteTo(nil, "404", "%s :%s", target.Nick(), err)
 			}
-			return
+			continue
 		}
-	}
 
-	c.WriteTo(nil, "404", "%s :%s", params[0], "No such nick or channel.")
+		if t[0] == '#' {
+			channame := string(t[1:])
+			ch := core.FindChannel("", channame)
+			if ch != nil {
+				if ok, err := perm.CheckChanMsg(u, ch.Type(), ch,
+						params[1]," noreply"); ok {
+					ch.Message(u, params[1], "noreply")
+				} else {
+					c.WriteTo(nil, "404", "#%s :%s", ch.Name(), err)
+				}
+				continue
+			}
+		}
+
+		c.WriteTo(nil, "404", "%s :%s", t, "No such nick or channel.")
+	}
 }
 
 func cmdTopic(u *core.User, w io.Writer, params [][]byte) {
