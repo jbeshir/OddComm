@@ -31,8 +31,8 @@ func init() {
 	ExtBanType = irc.NewCMapper()
 
 	// Add the built-in ban types.
-	ExtBanType.Add('h', "host")
-	ExtBanType.Add('a', "account")
+	ExtBanType.Add('H', "host")
+	ExtBanType.Add('A', "account")
 
 	// Add the built-in ban restrictions.
 	ExtBanRestrict.Add('j', "join")
