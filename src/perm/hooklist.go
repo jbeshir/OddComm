@@ -65,6 +65,12 @@ func (l *hook) run(f func(interface{}) (int, os.Error), def bool) (perm int, err
 // Run a slice of permission hook lists, and combine results.
 func runPermHookLists(lists []*hook, f func(interface{}) (int, os.Error),
                       def bool) (perm int, err os.Error) {
+	if def {
+		perm = 1
+	} else {
+		perm = -1
+	}
+
 	var absPerm int
 	for i := range lists {
 		thisPerm, thisErr := lists[i].run(f, def)
@@ -86,6 +92,10 @@ func runPermHookLists(lists []*hook, f func(interface{}) (int, os.Error),
 			absPerm = absThisPerm
 			err = thisErr
 		}
+	}
+
+	if perm < 0 && err == nil {
+		err = os.NewError("Permission denied.")
 	}
 
 	return

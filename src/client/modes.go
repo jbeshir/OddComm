@@ -39,6 +39,9 @@ func init() {
 		return "on"
 	})
 
+	// Add user mode +o.
+	UserModes.AddSimple('o', "op")
+
 	// Add channel modes +i, +m, and +s.
 	ChanModes.AddSimple('i', "restrict join")
 	ChanModes.AddSimple('m', "restrict mute")

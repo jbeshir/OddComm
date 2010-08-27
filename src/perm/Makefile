@@ -7,6 +7,7 @@ GOFILES=\
 	validate.go\
 	message.go\
 	join.go\
+	data.go\
 	defaultmsg.go\
 	defaultjoin.go\
 	bans.go\

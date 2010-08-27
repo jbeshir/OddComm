@@ -6,6 +6,7 @@ import "strings"
 import "oddircd/src/core"
 import "oddircd/src/client"
 import "oddircd/src/irc"
+import "oddircd/src/perm"
 
 func init() {
 	c := new(irc.Command)
@@ -98,6 +99,27 @@ func cmdOmode(u *core.User, w io.Writer, params [][]byte) {
 	if err != nil {
 		c.WriteTo(nil, "501", "%s", err)
 	}
+
+	prev := &changes
+	for cha := changes; cha != nil; cha = cha.Next {
+		if cha.Member != nil {
+			num, err := perm.CheckMemberDataPerm(u, cha.Member, cha.Name, cha.Data)
+			if num < -1000000 {
+				c.WriteTo(nil, "482", "#%s %s: %s", ch.Name(), cha.Name, err)
+			} else {
+				prev = &cha.Next
+			}
+		} else {
+			num, err := perm.CheckChanDataPerm(u, ch, cha.Name, cha.Data)
+			if num < -1000000 {
+				c.WriteTo(nil, "482", "#%s %s: %s", ch.Name(), cha.Name, err)
+				(*prev) = cha.Next
+			} else {
+				prev = &cha.Next
+			}
+		}
+	}
+
 	if changes != nil {
 		ch.SetDataList(nil, changes)
 	}

@@ -338,6 +338,17 @@ func cmdMode(u *core.User, w io.Writer, params [][]byte) {
 		if err != nil {
 			c.WriteTo(nil, "501", "%s", err)
 		}
+		
+		prev := &changes
+		for cha := changes; cha != nil; cha = cha.Next {
+			ok, err := perm.CheckUserData(u, u, cha.Name, cha.Data)
+			if !ok {
+				c.WriteTo(nil, "482", "%s %s: %s", u.Nick(), cha.Name, err)
+				(*prev) = cha.Next
+			} else {
+				prev = &cha.Next
+			}
+		}
 		if changes != nil {
 			c.u.SetDataList(u, changes)
 		}
@@ -347,15 +358,36 @@ func cmdMode(u *core.User, w io.Writer, params [][]byte) {
 	if params[0][0] == '#' {
 		channame := string(params[0][1:])
 		ch := core.FindChannel("", channame)
-		if ch != nil {
-			changes, err := ChanModes.ParseModeLine(u, ch, params[1], params[2:])
-			if err != nil {
-				c.WriteTo(nil, "501", "%s", err)
-			}
-			if changes != nil {
-				ch.SetDataList(u, changes)
+		if ch == nil {
+			return
+		}
+		changes, err := ChanModes.ParseModeLine(u, ch, params[1], params[2:])
+		if err != nil {
+			c.WriteTo(nil, "501", "%s", err)
+		}
+		prev := &changes
+		for cha := changes; cha != nil; cha = cha.Next {
+			if cha.Member != nil {
+				ok, err := perm.CheckMemberData(u, cha.Member, cha.Name, cha.Data)
+				if !ok {
+					c.WriteTo(nil, "482", "#%s %s: %s", ch.Name(), cha.Name, err)
+				} else {
+					prev = &cha.Next
+				}
+			} else {
+				ok, err := perm.CheckChanData(u, ch, cha.Name, cha.Data)
+				if !ok {
+					c.WriteTo(nil, "482", "#%s %s: %s", ch.Name(), cha.Name, err)
+					(*prev) = cha.Next
+				} else {
+					prev = &cha.Next
+				}
 			}
 		}
+		if changes != nil {
+			ch.SetDataList(u, changes)
+		}
+
 		return
 	}
 
