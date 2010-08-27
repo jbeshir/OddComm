@@ -44,15 +44,13 @@ func init() {
 		return processOp(adding, ch, param)
 	}, nil , nil)
 
-	// Block colons from use in nicks and idents.
-	NoColons := func(u *core.User, nick string) (int, os.Error) {
+	// Block colons from use in nicks.
+	perm.HookCheckNick(func(_ *core.User, nick string) (int, os.Error) {
 		if strings.IndexRune(nick, ':') != -1 {
-			return -1e9, os.NewError("Parameter contains colon.")
+			return -1e9, os.NewError("Nick contains colon.")
 		}
 		return 0, nil
-	}
-	perm.HookValidateNick(NoColons)
-	perm.HookValidateIdent(NoColons)
+	})
 }
 
 // Function handling processing of extended op syntax into metadata.

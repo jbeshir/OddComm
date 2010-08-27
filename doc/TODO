@@ -10,6 +10,7 @@ COMMANDS:
 - INVITE
 - AWAY
 - LIST
+- KILL
 
 - OPFLAGS: Displays the flags of a channel operator. Can always be used on oneself, and with viewflags, others.
 

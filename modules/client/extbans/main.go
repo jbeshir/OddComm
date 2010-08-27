@@ -82,14 +82,18 @@ func init() {
 	} , nil)
 	
 	// Block colons from use in nicks and idents.
-	NoColons := func(u *core.User, nick string) (int, os.Error) {
+	perm.HookCheckNick(func(_ *core.User, nick string) (int, os.Error) {
 		if strings.IndexRune(nick, ':') != -1 {
-			return -1e9, os.NewError("Parameter contains colon.")
+			return -1e9, os.NewError("Nick contains colon.")
 		}
 		return 0, nil
-	}
-	perm.HookValidateNick(NoColons)
-	perm.HookValidateIdent(NoColons)
+	})
+	perm.HookCheckUserData("ident", func(_, _ *core.User, _, ident string) (int, os.Error) {
+		if strings.IndexRune(ident, ':') != -1 {
+			return -1e9, os.NewError("Ident contains colon.")
+		}
+		return 0, nil
+	})
 }
 
 // Function handling processing of ban syntax into metadata.

@@ -100,7 +100,7 @@ func cmdNick(u *core.User, w io.Writer, params [][]byte) {
 		nick = u.ID()		
 	}
 
-	if ok, err := perm.ValidateNick(u, nick); !ok {
+	if ok, err := perm.CheckNick(u, nick); !ok {
 		if c, ok := w.(*Client); ok {
 			c.WriteTo(nil, "432", "%s :%s", nick, err)
 		}
@@ -118,21 +118,21 @@ func cmdUser(u *core.User, w io.Writer, params [][]byte) {
 	c := w.(*Client)
 	if (u.Data("ident") != "") { return }
 
-	ident := string(params[0])
-	realname := string(params[3])
+	ident := "~" + string(params[0])
+	real := string(params[3])
 
-	if ok, err := perm.ValidateIdent(u, ident); !ok {
+	// Check that the ident and realname are valid.
+	if num, err := perm.CheckUserDataPerm(u, u, "ident", ident); num <= -1e9 {
 		c.WriteTo(nil, "461", "USER :%s", err)
 		return
 	}
-
-	if ok, err := perm.ValidateRealname(u, realname); !ok {
+	if num, err := perm.CheckUserDataPerm(u, u, "realname", real); num <= -1e9 {
 		c.WriteTo(nil, "461", "USER :%s", err)
 		return
 	}
 	
-	u.SetData(nil, "ident", "~" + string(params[0]))
-	u.SetData(nil, "realname", string(params[3]))
+	u.SetData(nil, "ident", ident)
+	u.SetData(nil, "real", real)
 }
 
 func cmdPing(u *core.User, w io.Writer, params [][]byte) {
