@@ -10,7 +10,6 @@ var checkUserData map[string]**hook
 var checkChanData map[string]map[string]**hook
 var checkMemberData map[string]map[string]**hook
 
-
 func init() {
 	checkUserData = make(map[string]**hook)
 	checkChanData = make(map[string]map[string]**hook)
@@ -106,7 +105,11 @@ func CheckUserDataPerm(source, target *core.User, name, value string) (int, os.E
 			i++
 		}
 
-		prefix = prefix[0:strings.LastIndex(prefix, " ")]
+		if v := strings.LastIndex(prefix, " "); v != -1 {
+			prefix = prefix[0:v]
+		} else {
+			break
+		}
 	}
 
 	return runPermHookLists(lists, f, false)
@@ -155,7 +158,11 @@ func CheckChanDataPerm(u *core.User, ch *core.Channel, name, value string) (int,
 			i++
 		}
 
-		prefix = prefix[0:strings.LastIndex(prefix, " ")]
+		if v := strings.LastIndex(prefix, " "); v != -1 {
+			prefix = prefix[0:v]
+		} else {
+			break
+		}
 	}
 
 	return runPermHookLists(lists, f, false)
@@ -205,8 +212,35 @@ func CheckMemberDataPerm(u *core.User, m *core.Membership, name, value string) (
 			i++
 		}
 
-		prefix = prefix[0:strings.LastIndex(prefix, " ")]
+		if v := strings.LastIndex(prefix, " "); v != -1 {
+			prefix = prefix[0:v]
+		} else {
+			break
+		}
 	}
 
 	return runPermHookLists(lists, f, false)
+}
+
+
+// Permits ops with the given flag to set metadata with the given name, or
+// beginning with the given name, on the given type of channel.
+func PermitChanDataOp(chantype, flag, name string) {
+	HookCheckChanData(chantype, name, func(u *core.User, ch *core.Channel, name, value string) (int, os.Error) {
+		if HasOpFlag(u, ch, flag) {
+			return 10000, nil
+		}
+		return 0, nil
+	})
+}
+
+// Permits ops with the given flag to set member metadata with the given name,
+// or beginning with the given name, on the given type of channel.
+func PermitMemberDataOp(chantype, flag, name string) {
+	HookCheckMemberData(chantype, name, func(u *core.User, m *core.Membership, name, value string) (int, os.Error) {
+		if HasOpFlag(u, m.Channel(), flag) {
+			return 10000, nil
+		}
+		return 0, nil
+	})
 }

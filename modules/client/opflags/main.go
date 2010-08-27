@@ -24,13 +24,14 @@ func init() {
 
 	// Add opflag characters for all the default core opflags.
 	Flags.Add('b', "ban")
-	Flags.Add('c', "banview")
 	Flags.Add('i', "invite")
-	Flags.Add('m', "moderate")
+	Flags.Add('o', "op")
 	Flags.Add('p', "msg")
+	Flags.Add('r', "restrict")
 	Flags.Add('t', "topic")
-	Flags.Add('o', "(de)op")
-	Flags.Add('v', "(de)mark")
+	Flags.Add('v', "mark")
+	Flags.Add('c', "viewflags")
+	Flags.Add('d', "viewbans")
 
 	// Extend op mode.
 	client.ChanModes.AddExtMode('o', "op",

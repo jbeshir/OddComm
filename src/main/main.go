@@ -9,7 +9,7 @@ package main
 import "oddircd/src/core"
 import "oddircd/src/client"
 
-import modules_client_botmode "oddircd/modules/client/botmode"
+import modules_user_botmark "oddircd/modules/user/botmark"
 import modules_client_extbans "oddircd/modules/client/extbans"
 import modules_client_login "oddircd/modules/client/login"
 import modules_client_ochanctrl "oddircd/modules/client/ochanctrl"
@@ -23,7 +23,7 @@ import modules_dev_tmmode "oddircd/modules/dev/tmmode"
 
 func main() {
 	// Makes modules be permitted to link in.
-	_ = modules_client_botmode.MODULENAME
+	_ = modules_user_botmark.MODULENAME
 	_ = modules_client_extbans.MODULENAME
 	_ = modules_client_login.MODULENAME
 	_ = modules_client_ochanctrl.MODULENAME

@@ -57,7 +57,7 @@ func init() {
 	ChanModes.AddMembership('v', "voiced")
 
 	// DELIBERATELY NOT IMPLEMENTED
-	// Channel modes: +k, +l, +n (always on), +p
 	// User modes: +i (always on)
+	// Channel modes: +k, +l, +n (always on), +p
 	// These modes are not deemed to be the optimal way of doing anything.
 }

@@ -12,7 +12,7 @@ func init() {
 	c := new(irc.Command)
 	c.Handler = cmdOmode
 	c.Minargs = 2
-	c.Maxargs = 3
+	c.Maxargs = 42
 	client.Commands.Add("OMODE", c)
 }
 

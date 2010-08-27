@@ -1,7 +1,8 @@
 include $(GOROOT)/src/Make.$(GOARCH)
 
-TARG=oddircd/modules/client/botmode
+TARG=oddircd/modules/user/botmark
 GOFILES=\
-	main.go
+	main.go\
+	client_add.go
 
 include $(GOROOT)/src/Make.pkg

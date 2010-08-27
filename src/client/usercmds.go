@@ -371,6 +371,7 @@ func cmdMode(u *core.User, w io.Writer, params [][]byte) {
 				ok, err := perm.CheckMemberData(u, cha.Member, cha.Name, cha.Data)
 				if !ok {
 					c.WriteTo(nil, "482", "#%s %s: %s", ch.Name(), cha.Name, err)
+					(*prev) = cha.Next
 				} else {
 					prev = &cha.Next
 				}

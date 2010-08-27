@@ -10,6 +10,7 @@ GOFILES=\
 	data.go\
 	defaultmsg.go\
 	defaultjoin.go\
+	defaultdata.go\
 	bans.go\
 	defaultbans.go\
 	ops.go\

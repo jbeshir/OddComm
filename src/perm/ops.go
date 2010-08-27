@@ -14,11 +14,11 @@ func init() {
 	// Add the core default channel op flags.
 	AddChanDefOpFlag("ban")       // Set/remove bans, kick users.
 	AddChanDefOpFlag("invite")    // Invite users with op privileges.
-	AddChanDefOpFlag("moderate")  // Set restrict modes on the channel.
+	AddChanDefOpFlag("restrict")  // Set (un)restrict modes on the channel.
 	AddChanDefOpFlag("msg")       // Override message restrictions.
 	AddChanDefOpFlag("topic")     // Set the topic if +t.
-	AddChanDefOpFlag("(de)op")    // Op/deop other ops.
-	AddChanDefOpFlag("(de)mark")  // "Mark" and unmark (inc. voice) users.
+	AddChanDefOpFlag("op")        // Op/deop others.
+	AddChanDefOpFlag("mark")      // "Mark" and unmark (inc. voice) users.
 	AddChanDefOpFlag("viewbans")  // View bans.
 	AddChanDefOpFlag("viewflags") // View permissions on the channel.
 

@@ -10,7 +10,7 @@ build:
 	cd src/perm && make install
 	cd src/irc && make install
 	cd src/client && make install
-	cd modules/client/botmode && make install
+	cd modules/user/botmark && make install
 	cd modules/client/extbans && make install
 	cd modules/client/login && make install
 	cd modules/client/ochanctrl && make install
@@ -28,7 +28,7 @@ clean:
 	cd src/perm && make clean
 	cd src/irc && make clean
 	cd src/client && make clean
-	cd modules/client/botmode && make clean
+	cd modules/user/botmark && make clean
 	cd modules/client/extbans && make clean
 	cd modules/client/login && make clean
 	cd modules/client/ochanctrl && make clean
@@ -46,7 +46,7 @@ nuke:
 	cd src/perm && make nuke
 	cd src/irc && make nuke
 	cd src/client && make nuke
-	cd modules/client/botmode && make nuke
+	cd modules/user/botmark && make nuke
 	cd modules/client/extbans && make nuke
 	cd modules/client/login && make nuke
 	cd modules/client/ochanctrl && make nuke
