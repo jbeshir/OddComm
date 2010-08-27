@@ -1,0 +1,41 @@
+This file lists "taken" metadata entries for users, channels, and membership entries. These meanings are in use either in the core, or in existing modules (if marked with "Module").
+
+Unless otherwise stated, a non-empty value should be treated as the metadata being on in some way, and empty meaning off. Metadata values may have additional meaning, in which case, this is noted. If this is not noted, the value may be used as the code wishes, so long as it is aware that code other than it setting that metadata may have its own ideas.
+
+Use these metadata names to flag the same thing, rather than duplicating them, for more complete integration into the rest of the server.
+
+
+User Metadata:
+
+bot
+User is not actually a human, but some kind of automated service or connection. Users may set this on themselves. (Module)
+
+op (value: space separated list of oper flags)
+The user is a server operator. The value is a space-separated list of flags setting their privileges, or "on" for default flags.
+
+
+Channel Metadata:
+
+ban <type> <mask> (value: space separated list of restrictions)
+Users matching the ban are banned. The value of the metadata is a space-separated list of restrictions applied to them.
+
+banexception <type> <mask> (value: space separated list of restrictions)
+Users matching the ban exception are exempted from bans. The value of the metadata is a space-seaprated list of restrictions they are exempt from bans applying to them. This exemption only applies to bans, not to other things (such as restrict modes) which can restrict users.
+
+hidden
+The channel is not public, and should not be listed to people outside of it. This may be set by any chanop with the "restrict" flag.
+
+restrict <restriction>
+The given restriction is applied to all users. Existing restrictions are "join" (prevents anyone from joining) and "mute" (prevents anyone from speaking). These may be set by any chanop with the "restrict" flag.
+
+unrestrict <type> <mask> (value: space separated list of restrictions)
+Users matching the mask are exempted from restrictions. The value of the metadata is a space-separated list of restrictions they are exempted from. The type specifies the type of mask. The exemption only applies to restrict * modes, not to other things (such as ban metadata) which can restrict users.
+
+
+Membership Metadata:
+
+op (value: space separated list of op flags)
+This user is a channel operator, with powers specified by the value of the metadata. As a membership metadata entry, these last only until the user leaves the channel, or has this metadata unset.
+
+voiced
+This user can speak on the channel, regardless of bans and restrict metadata that might otherwise affect them. As a membership metadata entry, this lasts only until the user leaves the channel, or has it unset.

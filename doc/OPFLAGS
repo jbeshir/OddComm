@@ -1,0 +1,15 @@
+This file lists the channel op flags recognised by the core, or by existing modules.
+
+Core:
+
+on: Default op flags. Includes all flags marked with a (D).
+
+ban (D): Set/remove bans, disconnect users.
+invite (D): Invite users with op privileges.
+restrict (D): Set (un)restrict modes on the channel.
+msg (D): Override restrictions on messaging the channel.
+topic (D): Override restrictions on setting the topic.
+op (D): Op/deop users.
+mark (D): Mark and unmark (inc. voice) users.
+viewbans (D): View bans and unrestrictions on the channel.
+viewflags (D): View chanop flags in the channel.

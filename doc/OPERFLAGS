@@ -1,0 +1,18 @@
+This file lists the oper flags recognised by the core, or by existing modules.
+
+Core:
+
+on: Default oper flags. Includes all flags marked with a (D).
+
+ban (D): Set/remove bans, disconnect users.
+broadcast (D): Send global messages.
+viewusers (D): View hidden user information.
+viewchans (D): View hidden channel information.
+viewflags (D): View oper flags and permissions.
+viewlog (D): View log output from the server (this may/will contain hidden information).
+
+
+Modules:
+
+chanctrl: Fore changes to a channel's state.
+userctrl: Force changes to a user's state.
