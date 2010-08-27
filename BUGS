@@ -1,0 +1,3 @@
+- Setting two extended modes which affect the same final piece of data in the same modeline causes the second to replace the first, which is not correct for extbans or opflags. Solutions are hard, probably involve passing the whole list of relevant modes to an extmode handler at once, also opportunity for rather needed API adjustments.
+
+- It is possible to complete registration without setting a nickname. As this is generally undesirable, even where an ident isn't required, this is probably best addressed by making it required to set a nickname for all users.
