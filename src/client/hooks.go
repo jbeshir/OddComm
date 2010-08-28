@@ -32,7 +32,7 @@ func init() {
 		}
 	}, false)
 
-	core.RegistrationHold("oddircd/src/client")
+	core.RegistrationHold("oddcomm/src/client")
 	core.HookUserDataChange("ident",
 	                        func(source, target *core.User, oldvalue, newvalue string) {
 		if c := GetClient(target); c != nil {

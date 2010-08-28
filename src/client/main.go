@@ -137,7 +137,7 @@ func listen(l *net.TCPListener) {
 		client.cchan = make(chan clientRequest)
 		client.conn = c
 		client.conn.SetWriteTimeout(1)
-		client.u = core.NewUser("oddircd/src/client", false, "")
+		client.u = core.NewUser("oddcomm/src/client", false, "")
 		addClient(client)
 
 		ip := client.conn.RemoteAddr().(*net.TCPAddr).IP.String()
