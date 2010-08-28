@@ -91,6 +91,13 @@ func init() {
 	c.Minargs = 2
 	c.Maxargs = 2
 	Commands.Add("NOTICE", c)
+	
+	c = new(irc.Command)
+	c.Handler = cmdOperflags
+	c.Minargs = 1
+	c.Maxargs = 1
+	Commands.Add("OPERFLAGS", c)
+
 }
 
 func cmdNick(u *core.User, w io.Writer, params [][]byte) {
@@ -508,4 +515,37 @@ func cmdTopic(u *core.User, w io.Writer, params [][]byte) {
 
 	// Otherwise, we're setting the topic.
 	ch.SetTopic(u, string(params[1]))
+}
+
+func cmdOperflags(u *core.User, w io.Writer, params [][]byte) {
+	c := w.(*Client)
+
+	if !perm.HasOperCommand(u, "operflags", "viewflags") {
+		c.WriteTo(nil, "481", ":You do not have the appropriate privileges to use this command.")
+		return
+	}
+
+	var target *core.User
+	if target = core.GetUserByNick(string(params[0])); target == nil {
+		c.WriteTo(nil, "404", "%s %s :No such user.", u.Nick(),
+		          params[0])
+		return
+	}
+
+	var flags string
+	if flags = target.Data("op"); flags == "" {
+		c.WriteTo(nil, "304", ":%s has no server operator flags.", target.Nick())
+		return
+	}
+
+	if flags == "on" {
+		flags = perm.DefaultServerOp()
+	}	
+	c.WriteTo(nil, "304", ":%s has server operator flags: %s", target.Nick(), flags)
+
+	var commands string
+	if commands = target.Data("opcommands"); commands == "" {
+		return
+	}
+	c.WriteTo(nil, "304", ":%s also has the following specific commands: %s", target.Nick(), commands)
 }

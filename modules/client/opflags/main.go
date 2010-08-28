@@ -56,7 +56,7 @@ func init() {
 func processOp(adding bool, ch *core.Channel, param string) *core.DataChange {
 	var change core.DataChange
 	change.Name = "op"
-	change.Data = perm.ChanDefaultOp()
+	change.Data = perm.DefaultChanOp()
 
 	// Find a colon, indicating extended op syntax.
 	var colon, mask int
@@ -97,7 +97,7 @@ func processOp(adding bool, ch *core.Channel, param string) *core.DataChange {
 	var existing string
 	for _, word := range words {
 		if word == "on" {
-			word = perm.ChanDefaultOp()
+			word = perm.DefaultChanOp()
 		}
 		
 		if existing != "" {
@@ -158,7 +158,7 @@ func processOp(adding bool, ch *core.Channel, param string) *core.DataChange {
 	// Test for whether we have a default restriction.
 	var outsideDefault bool
 	var missingDefault bool
-	defwords := strings.Fields(perm.ChanDefaultOp())
+	defwords := strings.Fields(perm.DefaultChanOp())
 	words = strings.Fields(change.Data)
 	for _, word := range words {
 		var found bool

@@ -32,12 +32,12 @@ func init() {
 }
 
 // ChanDefaultOp returns the default op flags for a channel op as a string.
-func ChanDefaultOp() string {
+func DefaultChanOp() string {
 	return strings.Join(defChanOp, " ")
 }
 
 // ServerDefaultOp returns the default op flags for a server op as a string.
-func ServerDefaultOp() string {
+func DefaultServerOp() string {
 	return strings.Join(defServerOp, " ")
 }
 
@@ -105,6 +105,45 @@ func HasOpFlag(u *core.User, ch *core.Channel, flag string) bool {
 		}
 		if word == "on" {
 			for _, defword := range defwords {
+				if defword == flag {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
+}
+
+
+// HasOperCommand returns whether the user has access to the given oper command.
+// This checks for the presence of the command in their opcommand list, and
+// if a flag is given, also checks for the presence of that, including the
+// "on" keyword for default privileges.
+//
+// Unlike HasOpFlag, this SHOULD be used directly to determine if a user can
+// run the given command, as we extend the ability to adjust who has access to
+// commands to the server administration via configuration instead of modules
+// in the case of oper commands.
+func HasOperCommand(u *core.User, command, flag string) bool {
+	var words []string
+
+	// Check commands.
+	words = strings.Fields(u.Data("opcommands"))
+	for _, word := range words {
+		if word == command {
+			return true
+		}
+	}
+
+	// Check flags.
+	words = strings.Fields(u.Data("op"))
+	for _, word := range words {
+		if word == flag {
+			return true
+		}
+		if word == "on" {
+			for _, defword := range defServerOp {
 				if defword == flag {
 					return true
 				}

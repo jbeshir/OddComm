@@ -13,6 +13,12 @@ User is not actually a human, but some kind of automated service or connection. 
 op (value: space separated list of oper flags)
 The user is a server operator. The value is a space-separated list of flags setting their privileges, or "on" for default flags.
 
+opercommands (value: space separated list of oper commands)
+Adds individual commands to a server operator's abilities. The value is a space-separated list of commands in addition to those from flags that the operator is to be able to use.
+
+optype (value: space-free op type name)
+Specifies what "type" of server op this is. Used for messages, does not affect privileges unless specific checks are made on it.
+
 
 Channel Metadata:
 

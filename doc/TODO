@@ -16,14 +16,14 @@ COMMANDS:
 
 - OPFLAGS: Displays the flags of a channel operator. Can always be used on oneself, and with viewflags, others.
 
-- OPERFLAGS: Displays the operflags of an operator. Can always be used on yourself, and with <priv to be determined>, others.
+- OPERFLAGS: Displays the operflags of an operator. Can always be used on yourself, and with viewflags, others.
 
 
 FEATURES:
 
 - Logging scheme being implemented, and messages being added in appropriate places.
 
-- Filter subsystem, calls into it from PRIVMSG and NOTICE, permitting colours to be stripped, auditorium mode, implementation of FILTER... unavoidably slow, though.
+- Filter subsystem, calls into it from PRIVMSG and NOTICE, permitting colours to be stripped, auditorium mode, implementation of FILTER and SILENCE... unavoidably slow, though.
 
 - On-connect messages.
 
