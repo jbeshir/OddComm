@@ -1,6 +1,6 @@
 NOT FINISHED YET:
 
-- Permissions: Mode list viewing needs adding, user removal and channel creation needs adding.
+- Permissions: User removal and channel creation needs adding.
 
 - KICK/PART: Needs reason, and KICK needs to prevent rejoin for three seconds.
 
@@ -11,6 +11,7 @@ COMMANDS:
 - AWAY
 - LIST
 - KILL
+- VERSION
 
 - OPFLAGS: Displays the flags of a channel operator. Can always be used on oneself, and with viewflags, others.
 
@@ -24,6 +25,10 @@ FEATURES:
 - Logging scheme being implemented, and messages being added in appropriate places.
 
 - Filter subsystem, calls into it from PRIVMSG and NOTICE, permitting colours to be stripped, auditorium mode, implementation of FILTER... unavoidably slow, though.
+
+- On-connect messages.
+
+- MOTD
 
 - CAP
 -- SASL (needs linking).
