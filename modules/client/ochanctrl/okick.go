@@ -5,6 +5,7 @@ import "io"
 import "oddcomm/src/client"
 import "oddcomm/src/core"
 import "oddcomm/lib/irc"
+import "oddcomm/lib/perm"
 
 
 // Add command.
@@ -17,6 +18,8 @@ func init() {
 }
 
 func cmdOkick(u *core.User, w io.Writer, params [][]byte) {
+	c := w.(*client.Client)
+
 	var ch *core.Channel
 	var target *core.User
 
@@ -30,6 +33,10 @@ func cmdOkick(u *core.User, w io.Writer, params [][]byte) {
 
 	if target = core.GetUserByNick(string(params[1])); target == nil {
 		return
+	}
+
+	if perm, err := perm.CheckRemovePerm(u, target, ch); perm < -1000000 {
+		c.WriteTo(nil, "482", "#%s :%s", ch.Name(), err)
 	}
 
 	var message string

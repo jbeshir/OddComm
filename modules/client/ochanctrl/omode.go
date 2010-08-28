@@ -31,7 +31,7 @@ func cmdOmode(u *core.User, w io.Writer, params [][]byte) {
 		return
 	}
 
-	// If we're viewing the modes of a user or channel...
+	// If we're viewing the modes of a channel...
 	if len(params) < 2 {
 		modeline := client.ChanModes.GetModes(ch)
 		ts := ch.TS()
@@ -44,6 +44,17 @@ func cmdOmode(u *core.User, w io.Writer, params [][]byte) {
 	if params[1][0] != '+' && params[1][0] != '-' {
 		var badmodes string
 		for _, mode := range string(params[1]) {
+			name := client.ChanModes.GetName(mode)
+			if name == "" {
+				badmodes += string(mode)
+				continue
+			}
+
+			if perm, err := perm.CheckChanViewDataPerm(u, ch, name); perm < -1000000 {
+				c.WriteTo(nil, "482", "#%s :%s", ch.Name(), err)
+				continue
+			}
+
 			// Different, fixed numerics for different
 			// modes. Stupid protocol.
 			num := "941"; endnum := "940"

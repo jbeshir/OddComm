@@ -191,14 +191,20 @@ func cmdNames(u *core.User, w io.Writer, params [][]byte) {
 }
 
 func cmdJoin(u *core.User, w io.Writer, params [][]byte) {
+	c := w.(*Client)
+
 	chans := strings.Split(string(params[0]), ",", -1)
-	for _, c := range chans {
-		channame := c
+	for _, channame := range chans {
 		if channame[0] == '#' {
 			channame = channame[1:]
 		}
 	
-		core.GetChannel("", channame).Join(u)
+		ch := core.GetChannel("", channame)
+		if ok, err := perm.CheckJoin(u, ch); ok {
+			ch.Join(u)
+		} else {
+			c.WriteTo(nil, "495", "#%s :%s", ch.Name(), err)
+		}
 	}
 }
 
@@ -294,7 +300,7 @@ func cmdMode(u *core.User, w io.Writer, params [][]byte) {
 
 			if ok, err := perm.CheckChanViewData(u, ch, name); !ok {
 				c.WriteTo(nil, "482", "#%s :%s", ch.Name(), err)
-				return
+				continue
 			}
 
 			// Different, fixed numerics for different
@@ -306,7 +312,7 @@ func cmdMode(u *core.User, w io.Writer, params [][]byte) {
 			case 'I': num = "346"; endnum = "347"
 			}
 
-			ChanModes.ListMode(ch, int(mode), func(p, v string) {
+			valid := ChanModes.ListMode(ch, int(mode), func(p, v string) {
 				var setTime string = "0"
 				var setBy string = "Server.name"
 				words := strings.Fields(v)
@@ -324,8 +330,12 @@ func cmdMode(u *core.User, w io.Writer, params [][]byte) {
 				c.WriteTo(nil, num, "#%s %s %s %s",
 				          ch.Name(), p, setBy, setTime)
 			})
-			c.WriteTo(nil, endnum, "#%s :End of mode list.",
-				  ch.Name())
+			if valid {
+				c.WriteTo(nil, endnum, "#%s :End of mode list.",
+				          ch.Name())
+			} else {
+				badmodes += string(mode)
+			}
 		}
 		if badmodes != "" {
 			if badmodes != string(params[1]) {
