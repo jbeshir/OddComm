@@ -6,6 +6,7 @@ GOFILES=\
 	command.go\
 	parse.go\
 	modes.go\
+	modeparse.go\
 	modeprefixes.go\
 	usercmds.go\
 	cmapper.go
