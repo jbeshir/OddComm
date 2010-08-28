@@ -31,7 +31,7 @@ func init() {
 	Flags.Add('t', "topic")
 	Flags.Add('v', "mark")
 	Flags.Add('c', "viewflags")
-	Flags.Add('d', "viewbans")
+	Flags.Add('d', "viewdata")
 
 	// Extend op mode.
 	client.ChanModes.ExtendModeToData('o', func(adding bool, e core.Extensible, param string) *core.DataChange {

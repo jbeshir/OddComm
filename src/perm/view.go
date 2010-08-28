@@ -59,7 +59,7 @@ func CheckChanViewDataPerm(u *core.User, ch *core.Channel, name string) (int, os
 
 	list := checkChanViewData[ch.Type()]
 	if list != nil {
-		return (*list).run(f, true)
+		return (*list).run(f, false)
 	}
 	return -1, os.NewError("You do not have permission to view channel hidden data.")
 }
@@ -84,7 +84,7 @@ func CheckMemberViewDataPerm(u *core.User, m *core.Membership, name string) (int
 
 	list := checkMemberViewData[m.Channel().Type()]
 	if list != nil {
-		return (*list).run(f, true)
+		return (*list).run(f, false)
 	}
 	return -1, os.NewError("You do not have permission to view this member's flags.")
 }

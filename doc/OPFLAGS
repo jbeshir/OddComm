@@ -11,5 +11,5 @@ msg (D): Override restrictions on messaging the channel.
 topic (D): Override restrictions on setting the topic.
 op (D): Op/deop users.
 mark (D): Mark and unmark (inc. voice) users.
-viewbans (D): View bans and unrestrictions on the channel.
+viewdata (D): View hidden channel data, such as ban exceptions and unrestricts.
 viewflags (D): View chanop flags in the channel.

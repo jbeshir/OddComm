@@ -16,7 +16,7 @@ func init() {
 // This is really only permitted because IRC requires it, and there's no sense
 // extending permissions there which aren't allowed elsewhere.
 func viewChanBans(u *core.User, ch *core.Channel, name string) (int, os.Error) {
-	if len(name) > 4 && name[0:4] == "ban " && ch.GetMember(u) != nil {
+	if name == "ban" && ch.GetMember(u) != nil {
 		return 100, nil
 	}
 	return 0, nil

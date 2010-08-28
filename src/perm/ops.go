@@ -19,7 +19,7 @@ func init() {
 	AddChanDefOpFlag("topic")     // Override topic-setting restrictions.
 	AddChanDefOpFlag("op")        // Op/deop users.
 	AddChanDefOpFlag("mark")      // Mark and unmark (inc. voice) users.
-	AddChanDefOpFlag("viewbans")  // View bans and unrestrictions.
+	AddChanDefOpFlag("viewdata")  // View hidden channel data.
 	AddChanDefOpFlag("viewflags") // View chanop flags on the channel.
 
 	// Add the core default server op flags.
