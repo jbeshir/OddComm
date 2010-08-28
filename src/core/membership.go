@@ -152,7 +152,7 @@ func (m *Membership) DataRange(prefix string, f func(name, value string)) {
 
 // Remove removes this membership entry; the user is removed from the channel.
 // The specified source is responsible. It may be nil.
-func (m *Membership) Remove(source *User) {
+func (m *Membership) Remove(source *User, message string) {
 	wait := make(chan bool)
 	corechan <- func() {
 		if m.cprev == nil {
@@ -177,7 +177,7 @@ func (m *Membership) Remove(source *User) {
 	}
 	<-wait
 
-	runChanUserRemoveHooks(m.c.t, source, m.u, m.c)
+	runChanUserRemoveHooks(m.c.t, source, m.u, m.c, message)
 
 	return
 }

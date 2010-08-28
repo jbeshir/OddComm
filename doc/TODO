@@ -2,8 +2,9 @@ NOT FINISHED YET:
 
 - Permissions: Channel creation needs adding.
 
-- KICK/PART: Needs reason, and KICK needs to prevent rejoin for three seconds.
+- KICK: Needs to prevent rejoin for three seconds.
 
+- O* commands: Need to actually check for oper privs, have permission checks vs -1000000 or lower.
 
 COMMANDS:
 
@@ -19,8 +20,6 @@ COMMANDS:
 
 
 FEATURES:
-
-- A better, configurable build system. Movement of src/irc and src/perm to lib/, where a config parser will eventually also go. Renaming to oddcomm. Probably best all done at once, given the changes are in many of the same places.
 
 - Logging scheme being implemented, and messages being added in appropriate places.
 

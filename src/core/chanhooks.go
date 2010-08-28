@@ -73,9 +73,10 @@ func HookChanUserJoin(t string, f func(*User, *Channel)) {
 
 // HookChanUserRemove adds a hook on a user being removed from a channel.
 // t is the type of channel to hook. "" is default.
-// The hook receives the source of the removal, the user, and the channel.
+// The hook receives the source of the removal, the user, the channel, and the
+// message associated with the removal.
 // It must be prepared for source to be nil.
-func HookChanUserRemove(t string, f func(*User, *User, *Channel)) {
+func HookChanUserRemove(t string, f func(*User, *User, *Channel, string)) {
 	h := new(hook)
 	h.f = f
 	h.next = hookChanUserRemove[t]
@@ -123,10 +124,10 @@ func runChanUserJoinHooks(t string, u *User, ch *Channel) {
 	}
 }
 
-func runChanUserRemoveHooks(t string, source *User, u *User, ch *Channel) {
+func runChanUserRemoveHooks(t string, source *User, u *User, ch *Channel, message string) {
 	for h := hookChanUserRemove[t]; h != nil; h = h.next {
-		if f := h.f.(func(*User, *User, *Channel)); f != nil {
-			f(source, u, ch)
+		if f := h.f.(func(*User, *User, *Channel, string)); f != nil {
+			f(source, u, ch, message)
 		}
 	}
 }

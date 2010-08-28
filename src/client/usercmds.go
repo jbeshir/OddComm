@@ -59,7 +59,7 @@ func init() {
 	c = new(irc.Command)
 	c.Handler = cmdPart
 	c.Minargs = 1
-	c.Maxargs = 1
+	c.Maxargs = 2
 	Commands.Add("PART", c)
 	
 	c = new(irc.Command)
@@ -217,7 +217,11 @@ func cmdPart(u *core.User, w io.Writer, params [][]byte) {
 		}
 
 		if ch := core.FindChannel("", channame); ch != nil {
-			ch.Remove(u, u)
+			var message string
+			if len(params) > 1 {
+				message = string(params[1])
+			}
+			ch.Remove(u, u, message)
 		}
 	}
 }
@@ -241,7 +245,11 @@ func cmdKick(u *core.User, w io.Writer, params [][]byte) {
 			continue
 		}
 		if ok, err := perm.CheckRemove(u, target, ch); ok {
-			ch.Remove(u, target)
+			var message string
+			if len(params) > 2 {
+				message = string(params[2])
+			}
+			ch.Remove(u, target, message)
 		} else {
 			c.WriteTo(nil, "482", "#%s :%s", ch.Name(), err)
 		}

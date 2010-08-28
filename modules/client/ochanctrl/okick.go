@@ -32,5 +32,9 @@ func cmdOkick(u *core.User, w io.Writer, params [][]byte) {
 		return
 	}
 
-	ch.Remove(nil, target)
+	var message string
+	if len(params) > 2 {
+		message = string(params[2])
+	}
+	ch.Remove(nil, target, message)
 }

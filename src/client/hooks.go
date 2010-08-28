@@ -124,7 +124,7 @@ func init() {
 	})
 
 	core.HookChanUserRemove("", func(source, u *core.User,
-	                                 ch *core.Channel) {
+	                                 ch *core.Channel, message string) {
 		// If the user doesn't exist anymore (quit, for example),
 		// don't bother to show their removal, we'll already have
 		// shown the quit.
@@ -135,10 +135,11 @@ func init() {
 		// Send a PART or KICK to the user themselves.
 		if c := GetClient(u); c != nil {
 			if source == u {
-				c.WriteFrom(u, "PART #%s", ch.Name())
+				c.WriteFrom(u, "PART #%s :%s", ch.Name(),
+				            message)
 			} else {
-				c.WriteFrom(source, "KICK #%s %s :", ch.Name(),
-				            u.Nick())
+				c.WriteFrom(source, "KICK #%s %s :%s",
+				            ch.Name(), u.Nick(), message)
 			}
 		}
 
@@ -146,10 +147,12 @@ func init() {
 		for m := ch.Users(); m != nil; m = m.ChanNext() {
 			if c := GetClient(m.User()); c != nil {
 				if source == u {
-					c.WriteFrom(u, "PART #%s", ch.Name())
+					c.WriteFrom(u, "PART #%s :%s",
+					            ch.Name(), message)
 				} else {
-					c.WriteFrom(source, "KICK #%s %s :",
-					            ch.Name(), u.Nick())
+					c.WriteFrom(source, "KICK #%s %s :%s",
+					            ch.Name(), u.Nick(),
+					            message)
 				}
 			}
 		}

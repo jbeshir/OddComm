@@ -55,19 +55,13 @@ func FindChannel(t, name string) (ch *Channel) {
 
 
 // Name returns the channel's name.
-func (ch *Channel) Name() (name string) {
-	wait := make(chan bool)
-	corechan <- func() {
-		name = ch.name
-		wait <- true
-	}
-	<-wait
-
-	return
+func (ch *Channel) Name() string {
+	// This cannot change after the channel has been created.
+	return ch.name
 }
 
 // Type returns the channel's type. This may be "", for default.
-func (ch *Channel) Type() (t string) {
+func (ch *Channel) Type() string {
 	// This cannot change after the channel has been created.
 	// No need to bother the core goroutine with synchronisation.
 	return ch.t
@@ -327,7 +321,7 @@ func (ch *Channel) Join(u *User) {
 // source may be nil, indicating that they are being removed by the server.
 // This iterates the user list, and then calls Remove() on the Membership
 // struct, as a convienience function.
-func (ch *Channel) Remove(source, u *User) {
+func (ch *Channel) Remove(source, u *User, message string) {
 
 	// Unregistered users may not join channels OR remove other users.
 	if (source != nil && !source.Registered()) || !u.Registered() {
@@ -337,7 +331,7 @@ func (ch *Channel) Remove(source, u *User) {
 	// Search for them, remove them if we find them.
 	for it := ch.Users(); it != nil; it = it.ChanNext() {
 		if it.User() == u {
-			it.Remove(source)
+			it.Remove(source, message)
 		}
 	}
 }
