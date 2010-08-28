@@ -1,6 +1,9 @@
 package irc
 
+import "strings"
+
 import "oddircd/src/core"
+
 
 var currentID uint64
 
@@ -136,6 +139,42 @@ func (p *ModeParser) ExtendDataToMode(name string, nameToMode func(core.Extensib
 // the parser.
 func (p *ModeParser) ExtendGetSet(mode int, getSet func(core.Extensible) string) {
 	p.getExt[mode] = getSet
+}
+
+
+// GetName returns the base name for the metadata corresponding to the given
+// mode, permitting it to be used for permission checks and messages.
+// As converting modes (and parameters) into metadata is complex, this should
+// not be used in place of ParseModeLine.
+// If the mode does not exist, returns "".
+func (p *ModeParser) GetName(mode int) string {
+	if v, ok := p.simple[mode]; ok { return v }
+	if v, ok := p.parametered[mode]; ok { return v }
+	if v, ok := p.list[mode]; ok { return v }
+	if v, ok := p.membership[mode]; ok { return v }
+	return ""
+}
+
+// GetMode returns the mode letter corresponding to the given metadata's name,
+// permitting it to be used for permission checks and messages.
+// As converting metadata into modes (and parameters) is complex, this should
+// not be used in place of ParseChanges.
+// If the mode does not exist, returns 0.
+func (p *ModeParser) GetMode(name string) int {
+	for {
+		if v, ok := p.nameToSimple[name]; ok { return v }
+		if v, ok := p.nameToParametered[name]; ok { return v }
+		if v, ok := p.nameToList[name]; ok { return v }
+		if v, ok := p.nameToMembership[name]; ok { return v }
+
+		// Keep searching for modes matching a space-separated prefix.
+		if v := strings.LastIndex(name, " "); v != -1 {
+			name = name[0:v]
+		} else {
+			break
+		}
+	}
+	return 0
 }
 
 

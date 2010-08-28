@@ -284,7 +284,13 @@ func cmdMode(u *core.User, w io.Writer, params [][]byte) {
 
 		var badmodes string
 		for _, mode := range string(params[1]) {
-			if ok, err := perm.CheckChanViewData(u, ch, string(mode)); !ok {
+			name := ChanModes.GetName(mode)
+			if name == "" {
+				badmodes += string(mode)
+				continue
+			}
+
+			if ok, err := perm.CheckChanViewData(u, ch, name); !ok {
 				c.WriteTo(nil, "482", "#%s :%s", ch.Name(), err)
 				return
 			}
@@ -298,8 +304,7 @@ func cmdMode(u *core.User, w io.Writer, params [][]byte) {
 			case 'I': num = "346"; endnum = "347"
 			}
 
-			valid := ChanModes.ListMode(ch, int(mode),
-			                   func(p, v string) {
+			ChanModes.ListMode(ch, int(mode), func(p, v string) {
 				var setTime string = "0"
 				var setBy string = "Server.name"
 				words := strings.Fields(v)
@@ -317,13 +322,8 @@ func cmdMode(u *core.User, w io.Writer, params [][]byte) {
 				c.WriteTo(nil, num, "#%s %s %s %s",
 				          ch.Name(), p, setBy, setTime)
 			})
-			if valid {
-				c.WriteTo(nil, endnum,
-				          "#%s :End of mode list.",
-				          ch.Name())
-			} else {
-				badmodes += string(mode)
-			}
+			c.WriteTo(nil, endnum, "#%s :End of mode list.",
+				  ch.Name())
 		}
 		if badmodes != "" {
 			if badmodes != string(params[1]) {
@@ -348,7 +348,9 @@ func cmdMode(u *core.User, w io.Writer, params [][]byte) {
 		for cha := changes; cha != nil; cha = cha.Next {
 			ok, err := perm.CheckUserData(u, u, cha.Name, cha.Data)
 			if !ok {
-				c.WriteTo(nil, "482", "%s %s: %s", u.Nick(), cha.Name, err)
+				m := UserModes.GetMode(cha.Name)
+				c.WriteTo(nil, "482", "%s %c: %s", u.Nick(), m,
+				          err)
 				(*prev) = cha.Next
 			} else {
 				prev = &cha.Next
@@ -375,7 +377,8 @@ func cmdMode(u *core.User, w io.Writer, params [][]byte) {
 			if cha.Member != nil {
 				ok, err := perm.CheckMemberData(u, cha.Member, cha.Name, cha.Data)
 				if !ok {
-					c.WriteTo(nil, "482", "#%s %s: %s", ch.Name(), cha.Name, err)
+					m := ChanModes.GetMode(cha.Name)
+					c.WriteTo(nil, "482", "#%s %c: %s", ch.Name(), m, err)
 					(*prev) = cha.Next
 				} else {
 					prev = &cha.Next
@@ -383,7 +386,8 @@ func cmdMode(u *core.User, w io.Writer, params [][]byte) {
 			} else {
 				ok, err := perm.CheckChanData(u, ch, cha.Name, cha.Data)
 				if !ok {
-					c.WriteTo(nil, "482", "#%s %s: %s", ch.Name(), cha.Name, err)
+					m := ChanModes.GetMode(cha.Name)
+					c.WriteTo(nil, "482", "#%s %c: %s", ch.Name(), m, err)
 					(*prev) = cha.Next
 				} else {
 					prev = &cha.Next
