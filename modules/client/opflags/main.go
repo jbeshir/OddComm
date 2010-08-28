@@ -34,15 +34,13 @@ func init() {
 	Flags.Add('d', "viewbans")
 
 	// Extend op mode.
-	client.ChanModes.AddExtMode('o', "op",
-	                     func(adding bool, e core.Extensible,
-	                          param string) *core.DataChange {
+	client.ChanModes.ExtendModeToData('o', func(adding bool, e core.Extensible, param string) *core.DataChange {
 		ch, ok := e.(*core.Channel)
 		if !ok {
 			return nil
 		}
 		return processOp(adding, ch, param)
-	}, nil , nil)
+	})
 
 	// Block colons from use in nicks.
 	perm.HookCheckNick(func(_ *core.User, nick string) (int, os.Error) {

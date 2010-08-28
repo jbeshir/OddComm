@@ -122,51 +122,45 @@ func (p *ModeParser) AddMembership(mode int, metadata string) {
 	p.nameToMembership[metadata] = mode
 }
 
-// AddExtMode extends an already added mode, attaching hooks to mapping the
-// mode to metadata, its metadata to modes, and generating a list of set modes
-// on a user. It permits modes which require additional logic specific to that
-// mode.
-// The name will be treated as a prefix; both it directly, and all subentries,
-// will be fed to the nameToMode function when parsing changes.
+// ExtendModeToData extends the conversion of changes to the given mode to
+// metadata. The modeToName function should expect a boolean indicating whether
+// the mode is being added or removed, and the user/channel being changed
+// followed by the mode's parameter. It must return a list of DataChange
+// objects to apply, which may be empty.
 //
-// The mode must already have been added to one of the other types; this will
-// determine whether its hooks receive a parameter on set (parametered),
-// set and unset (list), or never (simple). It also determines whether the
-// getSet hook will be called (simple or parametered only), and whether it may
-// return a parameter to be listed.
+// XXX: Doesn't work well enough for multiple extban/opflag changes in a line.
+// API changes under consideration.
+func (p *ModeParser) ExtendModeToData(mode int, modeToName func(bool, core.Extensible, string) (*core.DataChange)) {
+	p.extended[mode] = modeToName
+}
 
-// It is legal to have the metadata name be nil, in which case the mode will
-// not map to any specific name, and nameToMode will never be called and may
-// be nil. A placeholder metadata name must still be given while adding it as
-// one of the normal types.
-//
-// The modeToName function should expect a boolean indicating whether the mode
-// is being added or removed, and the user/channel being changed followed by
-// the mode's parameter. It must return a list of DataChange objects to apply,
-// which may be empty.
-//
+// ExtendDataToMode extends the conversion of the given data into a mode.
 // The nameToMode function shuld expect the user/channel being changed
 // followed by the metadata item's full name, its previous value, and its
 // current value. It should return a slice of added mode characters and
 // another of removed mode characters, and a slice of added mode parameters
-// and another of removed mode parameters. Any of these may be empty, and the
-// added or removed mode characters may include modes other than the mode
-// which corresponds to this name if and only if the previous value is not "".
-// This function will also be called to convert existing metadata into list
-// mode entries, with a previous value of "".
+// and another of removed mode parameters. Any of these may be empty.
 //
-// The getSet function should expect a user or channel, and return a value for
-// the mode, which may be "" to indicate it is unset, or any other value to
-// indicate it is set, and for parametered modes, with that as the parameter.
+// The added or removed mode characters may include modes other than the mode
+// which corresponds to this name if and only if the previous value is not "".
+//
+// For list modes, this function will also be called to convert existing
+// metadata into list mode entries, with a previous value of "", which is the
+// reason for the above restriction.
+func (p *ModeParser) ExtendDataToMode(name string, nameToMode func(core.Extensible, string, string, string) ([]int, []string, []int, []string)) {
+	p.nameToExt[name] = nameToMode
+}
+
+// ExtendGetSet extends checks on the current state of a simple or parametered
+// mode. The getSet function should expect a user or channel, and return a
+// value for the mode, which may be "" to indicate it is unset, or any other
+// value to indicate it is set, and for parametered modes, with that as the
+// parameter.
 //
 // This method cannot be called concurrently with itself, or any lookups on
 // the parser.
-func (p *ModeParser) AddExtMode(mode int, name string, modeToName func(bool, core.Extensible, string) (*core.DataChange), nameToMode func(core.Extensible, string, string, string) ([]int, []string, []int, []string), getSet func(core.Extensible) string) {
-	p.extended[mode] = modeToName
+func (p *ModeParser) ExtendGetSet(mode int, getSet func(core.Extensible) string) {
 	p.getExt[mode] = getSet
-	if name != "" {
-		p.nameToExt[name] = nameToMode
-	}
 }
 
 
@@ -522,4 +516,42 @@ func (p* ModeParser) ListMode(e core.Extensible, char int, f func(param, value s
 		return true
 	}
 	return false
+}
+
+
+// Clears all references to the given mode pair. Used when a mode is added, to
+// delete any remaining bits of a previous added mode.
+func (p *ModeParser) clearPair(mode int, name string) {
+
+	if v, ok := p.simple[mode]; ok { p.clearName(v) }
+	if v, ok := p.parametered[mode]; ok { p.clearName(v) }
+	if v, ok := p.list[mode]; ok { p.clearName(v) }
+	if v, ok := p.membership[mode]; ok { p.clearName(v) }
+
+	if v, ok := p.nameToSimple[name]; ok { p.clearMode(v) }
+	if v, ok := p.nameToParametered[name]; ok { p.clearMode(v) }
+	if v, ok := p.nameToList[name]; ok { p.clearMode(v) }
+	if v, ok := p.nameToMembership[name]; ok { p.clearMode(v) }
+
+	p.clearMode(mode)
+	p.clearName(name)
+}
+
+// Clears any reference to the given mode letter.
+func (p *ModeParser) clearMode(mode int) {
+	p.simple[mode] = "", false
+	p.parametered[mode] = "", false
+	p.list[mode] = "", false
+	p.membership[mode] = "", false
+	p.extended[mode] = nil, false
+	p.getExt[mode] = nil, false
+}
+
+// Clears any reference to the given metadata name.
+func (p *ModeParser) clearName(name string) {
+	p.nameToSimple[name] = 0, false
+	p.nameToParametered[name] = 0, false
+	p.nameToList[name] = 0, false
+	p.nameToMembership[name] = 0, false
+	p.nameToExt[name] = nil, false
 }

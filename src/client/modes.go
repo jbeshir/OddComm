@@ -22,20 +22,22 @@ func init() {
 	ChanModes = irc.NewModeParser(false)
 
 	// Fake an always-on +i on users.
-	UserModes.AddSimple('i', "__placeholder__")
-	UserModes.AddExtMode('i', "", func(_ bool, _ core.Extensible,
-	                                   _ string) *core.DataChange {
+	UserModes.AddSimple('i', "placeholder i")
+	UserModes.ExtendModeToData('i', func(_ bool, _ core.Extensible,
+	                                     _ string) *core.DataChange {
 		return nil
-	}, nil, func(_ core.Extensible) string {
+	})
+	UserModes.ExtendGetSet('i', func(_ core.Extensible) string {
 		return "on"
 	})
 
 	// Fake an always-on +n on channels.
-	ChanModes.AddSimple('n', "__placeholder__")
-	ChanModes.AddExtMode('n', "", func(_ bool, _ core.Extensible,
-	                                    _ string) *core.DataChange {
+	ChanModes.AddSimple('n', "placeholder n")
+	ChanModes.ExtendModeToData('n', func(_ bool, _ core.Extensible,
+	                                     _ string) *core.DataChange {
 		return nil
-	}, nil, func(_ core.Extensible) string {
+	})
+	ChanModes.ExtendGetSet('m', func(_ core.Extensible) string {
 		return "on"
 	})
 

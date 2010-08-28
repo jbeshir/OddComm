@@ -40,46 +40,39 @@ func init() {
 	ExtBanRestrict.Add('n', "nick")
 
 	// Add ban, ban exception, and unrestrict/invex modes on channels.
-	// Override the core channel modes.
+	// This immediately overrides the core channel modes.
 	client.ChanModes.AddList('b', "ban")
 	client.ChanModes.AddList('e', "banexception")
 	client.ChanModes.AddList('I', "unrestrict")
 	
 	// Extend ban mode.
-	client.ChanModes.AddExtMode('b', "ban",
-	                     func(adding bool, e core.Extensible,
-	                          param string) *core.DataChange {
-		return processBan("ban", perm.DefaultBan(), adding, e,
-		                  param)
-	}, func (e core.Extensible, name, oldvalue,
-	         newvalue string) ([]int, []string, []int, []string) {
+	client.ChanModes.ExtendModeToData('b', func(adding bool, e core.Extensible, param string) *core.DataChange {
+		return processBan("ban", perm.DefaultBan(), adding, e, param)
+	})
+	client.ChanModes.ExtendDataToMode("ban", func (e core.Extensible, name, oldvalue, newvalue string) ([]int, []string, []int, []string) {
 		return makeBan('b', perm.DefaultBan(), e, name, oldvalue,
 		               newvalue)
-	} , nil)
+	})
 
 	// Extend ban exception mode.
-	client.ChanModes.AddExtMode('e', "banexception",
-	                     func(adding bool, e core.Extensible,
-	                          param string) *core.DataChange {
-		return processBan("banexception", perm.DefaultBan(),
-		                  adding, e, param)
-	}, func (e core.Extensible, name, oldvalue,
-	         newvalue string) ([]int, []string, []int, []string) {
+	client.ChanModes.ExtendModeToData('e', func(adding bool, e core.Extensible, param string) *core.DataChange {
+		return processBan("banexception", perm.DefaultBan(), adding, e,
+		                  param)
+	})
+	client.ChanModes.ExtendDataToMode("banexception", func (e core.Extensible, name, oldvalue, newvalue string) ([]int, []string, []int, []string) {
 		return makeBan('e', perm.DefaultBan(), e, name, oldvalue,
 		               newvalue)
-	} , nil)
+	})
 
 	// Extend unrestrict (invex) mode.
-	client.ChanModes.AddExtMode('I', "unrestrict",
-	                     func(adding bool, e core.Extensible,
-	                          param string) *core.DataChange {
-		return processBan("unrestrict", perm.DefaultUnrestrict(),
-		                  adding, e, param)
-	}, func (e core.Extensible, name, oldvalue,
-	         newvalue string) ([]int, []string, []int, []string) {
-		return makeBan('I', perm.DefaultUnrestrict(), e, name,
-		               oldvalue, newvalue)
-	} , nil)
+	client.ChanModes.ExtendModeToData('I', func(adding bool, e core.Extensible, param string) *core.DataChange {
+		return processBan("unrestrict", perm.DefaultBan(), adding, e,
+		                  param)
+	})
+	client.ChanModes.ExtendDataToMode("unrestrict", func (e core.Extensible, name, oldvalue, newvalue string) ([]int, []string, []int, []string) {
+		return makeBan('I', perm.DefaultBan(), e, name, oldvalue,
+		               newvalue)
+	})
 	
 	// Block colons from use in nicks and idents.
 	perm.HookCheckNick(func(_ *core.User, nick string) (int, os.Error) {
