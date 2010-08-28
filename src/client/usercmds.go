@@ -251,9 +251,9 @@ func cmdKick(u *core.User, w io.Writer, params [][]byte) {
 func cmdMode(u *core.User, w io.Writer, params [][]byte) {
 	c := w.(*Client)
 
-	// If we're viewing the modes of a user or channel...
+	// If we're viewing the modes of ourselves or a channel...
 	if len(params) < 2 {
-		if strings.ToUpper(c.u.Nick()) == strings.ToUpper(string(params[0])) {
+		if strings.ToUpper(u.Nick()) == strings.ToUpper(string(params[0])) {
 			modeline := UserModes.GetModes(u)
 			c.WriteTo(nil, "221", ":+%s", modeline)
 			return
@@ -284,6 +284,11 @@ func cmdMode(u *core.User, w io.Writer, params [][]byte) {
 
 		var badmodes string
 		for _, mode := range string(params[1]) {
+			if ok, err := perm.CheckChanViewData(u, ch, string(mode)); !ok {
+				c.WriteTo(nil, "482", "#%s :%s", ch.Name(), err)
+				return
+			}
+
 			// Different, fixed numerics for different
 			// modes. Stupid protocol.
 			num := "941"; endnum := "940"
@@ -332,7 +337,7 @@ func cmdMode(u *core.User, w io.Writer, params [][]byte) {
 		}
 	}
 
-
+	// If we're setting modes on ourselves...
 	if strings.ToUpper(c.u.Nick()) == strings.ToUpper(string(params[0])) {
 		changes, err := UserModes.ParseModeLine(u, u, params[1], params[2:])
 		if err != nil {

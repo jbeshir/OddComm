@@ -4,10 +4,12 @@ TARG=oddircd/src/perm
 GOFILES=\
 	main.go\
 	hooklist.go\
+	view.go\
 	nick.go\
 	data.go\
 	join.go\
 	message.go\
+	defaultview.go\
 	defaultdata.go\
 	defaultjoin.go\
 	defaultmsg.go\

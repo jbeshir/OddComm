@@ -1,6 +1,6 @@
 NOT FINISHED YET:
 
-- Permissions: Nick needs redoing, mode list viewing needs adding, user removal and channel creation needs adding.
+- Permissions: Mode list viewing needs adding, user removal and channel creation needs adding.
 
 - KICK/PART: Needs reason, and KICK needs to prevent rejoin for three seconds.
 
