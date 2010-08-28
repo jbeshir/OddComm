@@ -5,7 +5,7 @@ package account
 
 import "strings"
 
-import "oddircd/src/core"
+import "oddcomm/src/core"
 
 var MODULENAME string = "modules/oper/account"
 

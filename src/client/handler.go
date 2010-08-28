@@ -2,7 +2,7 @@ package client
 
 import "os"
 
-import "oddircd/src/irc"
+import "oddcomm/lib/irc"
 
 
 // Primary goroutine function for a client.

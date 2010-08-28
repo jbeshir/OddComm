@@ -4,7 +4,7 @@ import "os"
 import "strings"
 import "unicode"
 
-import "oddircd/src/core"
+import "oddcomm/src/core"
 
 
 func init() {

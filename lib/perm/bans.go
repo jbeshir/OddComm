@@ -5,7 +5,7 @@ package perm
 
 import "strings"
 
-import "oddircd/src/core"
+import "oddcomm/src/core"
 
 
 var banTypes map[string]func(u *core.User, mask string)bool

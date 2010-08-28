@@ -2,7 +2,7 @@ package irc
 
 import "strconv"
 
-import "oddircd/src/core"
+import "oddcomm/src/core"
 
 
 type prefix struct {

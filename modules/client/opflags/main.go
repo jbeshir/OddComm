@@ -7,10 +7,10 @@ package opflags
 import "os"
 import "strings"
 
-import "oddircd/src/client"
-import "oddircd/src/core"
-import "oddircd/src/irc"
-import "oddircd/src/perm"
+import "oddcomm/src/client"
+import "oddcomm/src/core"
+import "oddcomm/lib/irc"
+import "oddcomm/lib/perm"
 
 var MODULENAME string = "modules/client/opflags"
 

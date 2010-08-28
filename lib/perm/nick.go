@@ -2,7 +2,7 @@ package perm
 
 import "os"
 
-import "oddircd/src/core"
+import "oddcomm/src/core"
 
 
 var checkNick *hook

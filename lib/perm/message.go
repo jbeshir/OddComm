@@ -2,7 +2,7 @@ package perm
 
 import "os"
 
-import "oddircd/src/core"
+import "oddcomm/src/core"
 
 
 var checkUserMsg map[string]**hook
@@ -15,6 +15,13 @@ func init() {
 	checkUserMsg = make(map[string]**hook)
 	checkChanMsg = make(map[string]map[string]**hook)
 	checkChanMsgAll = make(map[string]**hook)
+
+	// Add the core permissions for speaking in channels.
+	HookChanMsg(true, "", "", externalMsg)
+	HookChanMsg(true, "", "", muteBanned)
+	HookChanMsg(true, "", "", moderated) 
+	HookChanMsg(true, "", "", voiceOverride) 
+	HookChanMsg(true, "", "", opMsgOverride)
 }
 
 

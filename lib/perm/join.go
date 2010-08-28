@@ -2,7 +2,7 @@ package perm
 
 import "os"
 
-import "oddircd/src/core"
+import "oddcomm/src/core"
 
 
 var checkJoin map[string]**hook
@@ -12,6 +12,15 @@ var checkRemove map[string]**hook
 func init() {
 	checkJoin = make(map[string]**hook)
 	checkRemove = make(map[string]**hook)
+	
+	// Add the core permissions for joining channels.
+	HookJoin("", joinBanned) 
+	HookJoin("", inviteOnly)
+
+	// Add the core permissions for removing users from channels.
+	HookRemove("", selfOverride)
+	HookRemove("", opKickImmune)
+	HookRemove("", opKickOverride)
 }
 
 

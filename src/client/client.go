@@ -4,7 +4,7 @@ import "fmt"
 import "net"
 import "os"
 
-import "oddircd/src/core"
+import "oddcomm/src/core"
 
 
 // Handle a client connection.

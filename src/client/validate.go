@@ -3,8 +3,8 @@ package client
 import "os"
 import "strings"
 
-import "oddircd/src/core"
-import "oddircd/src/perm"
+import "oddcomm/src/core"
+import "oddcomm/lib/perm"
 
 func init() {
 	// Impose the IRC client module's limitations on nicks.

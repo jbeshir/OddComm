@@ -2,7 +2,7 @@ package irc
 
 import "strings"
 
-import "oddircd/src/core"
+import "oddcomm/src/core"
 
 
 var currentID uint64

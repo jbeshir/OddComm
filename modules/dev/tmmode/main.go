@@ -5,7 +5,7 @@
 */
 package tmmode
 
-import "oddircd/src/client"
+import "oddcomm/src/client"
 
 
 // Must be set, must be unique.

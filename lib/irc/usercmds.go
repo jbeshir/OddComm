@@ -3,7 +3,7 @@ package irc
 import "io"
 import "fmt"
 
-import "oddircd/src/core"
+import "oddcomm/src/core"
 
 
 // QUIT command; removes the user.

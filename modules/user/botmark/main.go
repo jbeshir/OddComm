@@ -5,8 +5,8 @@ package botmark
 
 import "os"
 
-import "oddircd/src/core"
-import "oddircd/src/perm"
+import "oddcomm/src/core"
+import "oddcomm/lib/perm"
 
 
 var MODULENAME string = "modules/user/botmark"

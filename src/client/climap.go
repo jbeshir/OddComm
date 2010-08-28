@@ -1,6 +1,6 @@
 package client
 
-import "oddircd/src/core"
+import "oddcomm/src/core"
 
 
 // Contains the current client objects. When empty, we don't have any anymore.

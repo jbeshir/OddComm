@@ -5,7 +5,7 @@ import "os"
 import "strings"
 import "time"
 
-import "oddircd/src/core"
+import "oddcomm/src/core"
 
 
 // ParseModeLine parses a line of mode changes into core.DataChange structs.

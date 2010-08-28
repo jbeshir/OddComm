@@ -1,6 +1,6 @@
 package perm
 
-import "oddircd/src/core"
+import "oddcomm/src/core"
 
 
 func init() {

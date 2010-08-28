@@ -1,6 +1,6 @@
 package botmark
 
-import "oddircd/src/client"
+import "oddcomm/src/client"
 
 func init() {
 	client.UserModes.AddSimple('B', "bot")

@@ -6,20 +6,20 @@
 */
 package main
 
-import "oddircd/src/core"
-import "oddircd/src/client"
+import "oddcomm/src/core"
+import "oddcomm/src/client"
 
-import modules_user_botmark "oddircd/modules/user/botmark"
-import modules_client_extbans "oddircd/modules/client/extbans"
-import modules_client_login "oddircd/modules/client/login"
-import modules_client_ochanctrl "oddircd/modules/client/ochanctrl"
-import modules_client_opermode "oddircd/modules/client/opermode"
-import modules_client_opflags "oddircd/modules/client/opflags"
-import modules_oper_account "oddircd/modules/oper/account"
-import modules_oper_pmoverride "oddircd/modules/oper/pmoverride"
-import modules_dev_catserv "oddircd/modules/dev/catserv"
-import modules_dev_horde "oddircd/modules/dev/horde"
-import modules_dev_tmmode "oddircd/modules/dev/tmmode"
+import modules_user_botmark "oddcomm/modules/user/botmark"
+import modules_client_extbans "oddcomm/modules/client/extbans"
+import modules_client_login "oddcomm/modules/client/login"
+import modules_client_ochanctrl "oddcomm/modules/client/ochanctrl"
+import modules_client_opermode "oddcomm/modules/client/opermode"
+import modules_client_opflags "oddcomm/modules/client/opflags"
+import modules_oper_account "oddcomm/modules/oper/account"
+import modules_oper_pmoverride "oddcomm/modules/oper/pmoverride"
+import modules_dev_catserv "oddcomm/modules/dev/catserv"
+import modules_dev_horde "oddcomm/modules/dev/horde"
+import modules_dev_tmmode "oddcomm/modules/dev/tmmode"
 
 func main() {
 	// Makes modules be permitted to link in.
@@ -42,7 +42,7 @@ func main() {
 	// Start client subsystem.
 	msg, exit = client.Start()
 	if msg != nil {
-		core.AddPackage("oddircd/src/client", msg)
+		core.AddPackage("oddcomm/src/client", msg)
 	}
 	exitList[0] = exit
 

@@ -2,7 +2,7 @@ package perm
 
 import "strings"
 
-import "oddircd/src/core"
+import "oddcomm/src/core"
 
 
 // Stores the default powers for channel and server op flags.

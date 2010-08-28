@@ -3,7 +3,7 @@ package irc
 import "io"
 import "strings"
 
-import "oddircd/src/core"
+import "oddcomm/src/core"
 
 
 // Command structure; contains the handler and information for a command.

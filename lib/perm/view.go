@@ -2,7 +2,7 @@ package perm
 
 import "os"
 
-import "oddircd/src/core"
+import "oddcomm/src/core"
 
 
 var checkChanViewData map[string]**hook
@@ -11,6 +11,12 @@ var checkMemberViewData map[string]**hook
 func init() {
 	checkChanViewData = make(map[string]**hook)
 	checkMemberViewData = make(map[string]**hook)
+
+	// Add core view restrictions/permissions.
+	HookCheckChanViewData("", viewChanBans)
+	HookCheckChanViewData("", viewChanOpOverride)
+	HookCheckMemberViewData("", viewMemberOpOverride)
+	HookCheckMemberViewData("", viewSelfOverride)
 }
 
 

@@ -3,7 +3,7 @@ package perm
 import "os"
 import "strings"
 
-import "oddircd/src/core"
+import "oddcomm/src/core"
 
 
 var checkUserData map[string]**hook

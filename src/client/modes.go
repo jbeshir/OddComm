@@ -1,7 +1,7 @@
 package client
 
-import "oddircd/src/core"
-import "oddircd/src/irc"
+import "oddcomm/src/core"
+import "oddcomm/lib/irc"
 
 
 // UserModes is the mode parser for user modes.

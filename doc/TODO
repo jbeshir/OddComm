@@ -1,6 +1,6 @@
 NOT FINISHED YET:
 
-- Permissions: User removal and channel creation needs adding.
+- Permissions: Channel creation needs adding.
 
 - KICK/PART: Needs reason, and KICK needs to prevent rejoin for three seconds.
 
@@ -36,6 +36,8 @@ FEATURES:
 - Fakelag.
 
 - Proper examination of buffer size, ability to grow/set buffer size up to some defined limit. Look at how other IRCDs do it.
+
+- Cloaking.
 
 - A linking module.
 

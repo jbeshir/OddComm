@@ -7,7 +7,7 @@
 */
 package opermode
 
-import "oddircd/src/client"
+import "oddcomm/src/client"
 
 
 var MODULENAME = "modules/client/opermode"

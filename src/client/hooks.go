@@ -2,7 +2,7 @@ package client
 
 import "fmt"
 
-import "oddircd/src/core"
+import "oddcomm/src/core"
 
 
 func init() {

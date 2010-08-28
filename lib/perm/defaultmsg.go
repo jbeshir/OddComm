@@ -2,17 +2,8 @@ package perm
 
 import "os"
 
-import "oddircd/src/core"
+import "oddcomm/src/core"
 
-
-func init() {
-	// Add the core permissions for speaking in channels.
-	HookChanMsg(true, "", "", externalMsg)
-	HookChanMsg(true, "", "", muteBanned)
-	HookChanMsg(true, "", "", moderated) 
-	HookChanMsg(true, "", "", voiceOverride) 
-	HookChanMsg(true, "", "", opMsgOverride)
-}
 
 // If a user is not in the channel, they don't get to message it.
 func externalMsg(source *core.User, target *core.Channel, msg []byte) (int, os.Error) {

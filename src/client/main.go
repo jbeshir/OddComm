@@ -10,7 +10,7 @@ package client
 import "fmt"
 import "net"
 
-import "oddircd/src/core"
+import "oddcomm/src/core"
 
 
 // Channel to send requests to run something from a client's goroutine to.

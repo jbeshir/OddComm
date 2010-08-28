@@ -6,9 +6,9 @@ package login
 import "io"
 import "strings"
 
-import "oddircd/src/client"
-import "oddircd/src/core"
-import "oddircd/src/irc"
+import "oddcomm/src/client"
+import "oddcomm/src/core"
+import "oddcomm/lib/irc"
 
 
 var MODULENAME = "modules/client/account"

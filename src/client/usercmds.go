@@ -3,9 +3,9 @@ package client
 import "io"
 import "strings"
 
-import "oddircd/src/core"
-import "oddircd/src/perm"
-import "oddircd/src/irc"
+import "oddcomm/src/core"
+import "oddcomm/lib/perm"
+import "oddcomm/lib/irc"
 
 
 // Add core user commands.

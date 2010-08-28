@@ -1,5 +1,3 @@
-.fuse*
-*.6
-_obj
-src/main/oddircd
-oddircd
+pkg
+src/main/oddcomm
+oddcomm

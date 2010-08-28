@@ -2,9 +2,9 @@ package ochanctrl
 
 import "io"
 
-import "oddircd/src/client"
-import "oddircd/src/core"
-import "oddircd/src/irc"
+import "oddcomm/src/client"
+import "oddcomm/src/core"
+import "oddcomm/lib/irc"
 
 
 // Add command.

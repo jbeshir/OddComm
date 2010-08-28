@@ -2,19 +2,8 @@ package perm
 
 import "os"
 
-import "oddircd/src/core"
+import "oddcomm/src/core"
 
-
-func init() {
-	// Add the core permissions for joining channels.
-	HookJoin("", joinBanned) 
-	HookJoin("", inviteOnly)
-
-	// Add the core permissions for removing users from channels.
-	HookRemove("", selfOverride)
-	HookRemove("", opKickImmune)
-	HookRemove("", opKickOverride)
-}
 
 // If a user has a ban with the join restriction, they don't get to join.
 func joinBanned(source* core.User, target *core.Channel) (int, os.Error) {

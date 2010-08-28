@@ -1,6 +1,6 @@
 package client
 
-import "oddircd/src/irc"
+import "oddcomm/lib/irc"
 
 // Commands is the client command dispatcher.
 // Commands can be added to this during init() only, to add commands to the

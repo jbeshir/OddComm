@@ -8,7 +8,7 @@ import "fmt"
 import "rand"
 import "time"
 
-import "oddircd/src/core"
+import "oddcomm/src/core"
 
 
 // Must be set, must be unique.
@@ -26,7 +26,7 @@ func addHorde() {
 
 	// Add the horde.
 	for i := 0; i < 500; i++ {
-		u := core.NewUser("oddircd/modules/dev/horde", true, "")
+		u := core.NewUser("oddcomm/modules/dev/horde", true, "")
 		u.SetNick(fmt.Sprintf("horde-%d", rng.Int() % 1000000))
 		u.SetData(u, "ident", fmt.Sprintf("horde-%d", rng.Int() % 1000000))
 		u.SetData(nil, "ip", fmt.Sprintf("%d.%d.%d.%d", rng.Int() % 255, rng.Int() % 255, rng.Int() % 255, rng.Int() % 255))

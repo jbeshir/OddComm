@@ -5,7 +5,7 @@ package catserv
 
 import "strings"
 
-import "oddircd/src/core"
+import "oddcomm/src/core"
 
 
 // Must be set, must be unique.
@@ -16,7 +16,7 @@ var cat *core.User
 
 func init() {
 	// Don't show my psuedoclient until I'm done adding myself.
-	core.RegistrationHold("oddircd/modules/dev/catserv")
+	core.RegistrationHold("oddcomm/modules/dev/catserv")
 
 	// Join the server on startup.
 	core.HookStart(addCat)
@@ -57,7 +57,7 @@ func init() {
 
 func addCat() {
 	// Add CatServ!
-	cat = core.NewUser("oddircd/modules/catserv", true, "")
+	cat = core.NewUser("oddcomm/modules/catserv", true, "")
 
 	// If I suffer a collision, quit for now; I will return when they go
 	// away.

@@ -3,10 +3,10 @@ package ochanctrl
 import "io"
 import "strings"
 
-import "oddircd/src/core"
-import "oddircd/src/client"
-import "oddircd/src/irc"
-import "oddircd/src/perm"
+import "oddcomm/src/core"
+import "oddcomm/src/client"
+import "oddcomm/lib/irc"
+import "oddcomm/lib/perm"
 
 func init() {
 	c := new(irc.Command)

@@ -2,15 +2,8 @@ package perm
 
 import "os"
 
-import "oddircd/src/core"
+import "oddcomm/src/core"
 
-
-func init() {
-	HookCheckChanViewData("", viewChanBans)
-	HookCheckChanViewData("", viewChanOpOverride)
-	HookCheckMemberViewData("", viewMemberOpOverride)
-	HookCheckMemberViewData("", viewSelfOverride)
-}
 
 // Permit all users in a channel to view the ban list.
 // This is really only permitted because IRC requires it, and there's no sense

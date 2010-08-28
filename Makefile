@@ -1,60 +1,54 @@
-DESTDIR=.
+DESTDIR := .
+PKGROOT := $(CURDIR)/pkg
+PKGSEARCH := $(PKGROOT)/$(GOOS)_$(GOARCH)
+PKGDIR := $(PKGSEARCH)/oddcomm
 
-all:	clean install
+SUBSYSTEMS := $(patsubst %, $(PKGDIR)/src/%.a, $(shell cat subsystems.conf))
+MODULES := $(patsubst %, $(PKGDIR)/modules/%.a, $(shell cat modules.conf))
 
-install: build
-	install src/main/oddircd $(DESTDIR)
+ARCH:= 6
+GOCMD := $(ARCH)g -I $(PKGSEARCH)
+LDCMD := $(ARCH)l -L $(PKGSEARCH)
 
-build: 
-	cd src/core && make install
-	cd src/perm && make install
-	cd src/irc && make install
-	cd src/client && make install
-	cd modules/user/botmark && make install
-	cd modules/client/extbans && make install
-	cd modules/client/login && make install
-	cd modules/client/ochanctrl && make install
-	cd modules/client/opermode && make install
-	cd modules/client/opflags && make install
-	cd modules/oper/account && make install
-	cd modules/oper/pmoverride && make install
-	cd modules/dev/catserv && make install
-	cd modules/dev/horde && make install
-	cd modules/dev/tmmode && make install
-	cd src/main && make
+.PHONY:	all install clean
+
+
+all:	install
+
+install: src/main/oddcomm
+	install src/main/oddcomm $(DESTDIR)
 
 clean:
-	cd src/core && make clean
-	cd src/perm && make clean
-	cd src/irc && make clean
-	cd src/client && make clean
-	cd modules/user/botmark && make clean
-	cd modules/client/extbans && make clean
-	cd modules/client/login && make clean
-	cd modules/client/ochanctrl && make clean
-	cd modules/client/opermode && make clean
-	cd modules/client/opflags && make clean
-	cd modules/oper/account && make clean
-	cd modules/oper/pmoverride && make clean
-	cd modules/dev/catserv && make clean
-	cd modules/dev/horde && make clean
-	cd modules/dev/tmmode && make clean
-	cd src/main && make clean
+	rm -rf $(PKGROOT)
 
-nuke:
-	cd src/core && make nuke
-	cd src/perm && make nuke
-	cd src/irc && make nuke
-	cd src/client && make nuke
-	cd modules/user/botmark && make nuke
-	cd modules/client/extbans && make nuke
-	cd modules/client/login && make nuke
-	cd modules/client/ochanctrl && make nuke
-	cd modules/client/opermode && make nuke
-	cd modules/client/opflags && make nuke
-	cd modules/oper/account && make nuke
-	cd modules/oper/pmoverride && make nuke
-	cd modules/dev/catserv && make nuke
-	cd modules/dev/horde && make nuke
-	cd modules/dev/tmmode && make nuke
-	cd src/main && make nuke
+src/main/oddcomm: $(SUBSYSTEMS) $(MODULES) $(PKGDIR)/src/core.a src/main/*.go
+	$(GOCMD) -o src/main/_go_.$(ARCH) $(wildcard src/main/*.go)
+	rm -f src/main/oddcomm
+	$(LDCMD) -o src/main/oddcomm src/main/_go_.6
+	rm -f src/main/_go_.$(ARCH)
+
+$(PKGDIR)/modules/%.a: $(SUBSYSTEMS) $(PKGDIR)/src/core.a modules/%/*.go
+	$(GOCMD) -o modules/$*/_go_.$(ARCH) $(wildcard modules/$*/*.go)
+	mkdir -p $(PKGDIR)/modules/$*
+	rmdir $(PKGDIR)/modules/$*
+	gopack grc $(PKGDIR)/modules/$*.a modules/$*/_go_.6
+	rm -f modules/$*/_go_.$(ARCH)
+
+$(PKGDIR)/src/client.a: $(PKGDIR)/src/core.a $(PKGDIR)/lib/irc.a $(PKGDIR)/lib/perm.a src/client/*.go
+	$(GOCMD) -o src/client/_go_.$(ARCH) $(wildcard src/client/*.go)
+	mkdir -p $(PKGDIR)/src
+	gopack grc $(PKGDIR)/src/client.a src/client/_go_.6
+	rm -f src/client/_go_.$(ARCH)
+
+$(PKGDIR)/lib/%.a: $(PKGDIR)/src/core.a lib/%/*go
+	$(GOCMD) -o lib/$*/_go_.$(ARCH) $(wildcard lib/$*/*.go)
+	mkdir -p $(PKGDIR)/lib
+	gopack grc $(PKGDIR)/lib/$*.a lib/$*/_go_.6
+	rm -f lib/$*/_go_.$(ARCH)
+
+$(PKGDIR)/src/core.a: src/core/*.go
+	$(GOCMD) -o src/core/_go_.$(ARCH) $(wildcard src/core/*.go)
+	mkdir -p $(PKGDIR)/src
+	rm -f $(PKGDIR)/src/core.a
+	gopack grc $(PKGDIR)/src/core.a src/core/_go_.6
+	rm -f src/core/_go_.$(ARCH)
