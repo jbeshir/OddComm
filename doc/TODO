@@ -11,8 +11,11 @@ COMMANDS:
 - LIST
 - KILL
 - VERSION
+- WHOIS
 
 - OPFLAGS: Displays the flags of a channel operator. Can always be used on oneself, and with viewflags, others.
+
+Not implementing WHOWAS. It's better provided by a service with some real memory, and the ability to identify people by better things than nick. Such as NS INFO.
 
 
 FEATURES:
@@ -43,10 +46,13 @@ FEATURES:
 - Webclient module.
 -- Whiteboard module.
 
+- TLS.
 
 MODULES:
 
 - client/waitpong, make clients wait until they've responded to ping to connect.
+
+- client/check, view user/channel data as an oper.
 
 - user/blockunreg, do not permit unchecked users to complete registration until they are logged in to some kind of account.
 

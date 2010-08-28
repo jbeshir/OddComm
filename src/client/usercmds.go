@@ -11,6 +11,9 @@ import "oddcomm/lib/irc"
 // Add core user commands.
 func init() {
 	var c *irc.Command
+	if Commands == nil {
+		Commands = irc.NewCommandDispatcher()
+	}
 
 	c = new(irc.Command)
 	c.Name = "USER"; c.Handler = cmdUser
@@ -36,38 +39,8 @@ func init() {
 	Commands.Add(c)
 
 	c = new(irc.Command)
-	c.Name = "WHO"; c.Handler = cmdWho
-	c.Minargs = 1; c.Maxargs = 1
-	Commands.Add(c)
-
-	c = new(irc.Command)
-	c.Name = "NAMES"; c.Handler = cmdNames
-	c.Minargs = 1; c.Maxargs = 1
-	Commands.Add(c)
-
-	c = new(irc.Command)
-	c.Name = "JOIN"; c.Handler = cmdJoin
-	c.Minargs = 1; c.Maxargs = 1
-	Commands.Add(c)
-
-	c = new(irc.Command)
-	c.Name = "PART"; c.Handler = cmdPart
-	c.Minargs = 1; c.Maxargs = 2
-	Commands.Add(c)
-	
-	c = new(irc.Command)
-	c.Name = "KICK"; c.Handler = cmdKick
-	c.Minargs = 2; c.Maxargs = 3
-	Commands.Add(c)
-	
-	c = new(irc.Command)
 	c.Name = "MODE"; c.Handler = cmdMode
 	c.Minargs = 1; c.Maxargs = 42
-	Commands.Add(c)
-
-	c = new(irc.Command)
-	c.Name = "TOPIC"; c.Handler = cmdTopic
-	c.Minargs = 1; c.Maxargs = 2
 	Commands.Add(c)
 
 	c = new(irc.Command)
@@ -78,12 +51,6 @@ func init() {
 	c = new(irc.Command)
 	c.Name = "NOTICE"; c.Handler = cmdNotice
 	c.Minargs = 2; c.Maxargs = 2
-	Commands.Add(c)
-	
-	c = new(irc.Command)
-	c.Name = "OPERFLAGS"; c.Handler = cmdOperflags
-	c.Minargs = 1; c.Maxargs = 1
-	c.OperFlag = "viewflags"
 	Commands.Add(c)
 }
 
@@ -133,127 +100,6 @@ func cmdPing(u *core.User, w io.Writer, params [][]byte) {
 	c := w.(*Client)
 	c.WriteFrom(nil, "PONG %s :%s", "Server.name", params[0])
 	
-}
-
-func cmdWho(u *core.User, w io.Writer, params [][]byte) {
-	c := w.(*Client)
-	channame := string(params[0])
-	if channame[0] == '#' {
-		channame = channame[1:]
-	}
-
-	if ch := core.FindChannel("", channame); ch != nil {
-		for it := ch.Users(); it != nil; it = it.ChanNext() {
-			user := it.User()
-			var prefixes string
-			if user.Data("away") == "" {
-				prefixes += "H"
-			} else {
-				prefixes += "G"
-			}
-			if user.Data("op") != "" {
-				prefixes += "*"
-			}
-			prefixes += ChanModes.GetPrefixes(it)
-			c.WriteTo(nil, "352", "#%s %s %s %s %s %s :0 %s",
-			          channame, user.GetIdent(),
-			          user.GetHostname(), "Server.name",
-			          user.Nick(), prefixes, user.Data("realname"))
-		}
-		c.WriteTo(nil, "315", "#%s :End of /WHO list.", channame)
-	}
-}
-
-func cmdNames(u *core.User, w io.Writer, params [][]byte) {
-	c := w.(*Client)
-	channame := string(params[0])
-	if channame[0] == '#' {
-		channame = channame[1:]
-	}
-
-	if ch := core.FindChannel("", channame); ch != nil {
-		var names string
-		for it := ch.Users(); it != nil; it = it.ChanNext() {
-			names += " " + ChanModes.GetPrefixes(it)
-			names += it.User().Nick()
-		}
-
-		var myprefix string
-		if m := ch.GetMember(u); m != nil {
-			myprefix = ChanModes.GetPrefixes(m)
-		}
-		if myprefix == "" {
-			myprefix = "="
-		}
-		c.WriteTo(nil, "353", "%s #%s :%s", myprefix, channame, names)
-		c.WriteTo(nil, "366", "#%s :End of /NAMES list", channame)
-	}
-}
-
-func cmdJoin(u *core.User, w io.Writer, params [][]byte) {
-	c := w.(*Client)
-
-	chans := strings.Split(string(params[0]), ",", -1)
-	for _, channame := range chans {
-		if channame[0] == '#' {
-			channame = channame[1:]
-		}
-	
-		ch := core.GetChannel("", channame)
-		if ok, err := perm.CheckJoin(u, ch); ok {
-			ch.Join(u)
-		} else {
-			c.WriteTo(nil, "495", "#%s :%s", ch.Name(), err)
-		}
-	}
-}
-
-func cmdPart(u *core.User, w io.Writer, params [][]byte) {
-	chans := strings.Split(string(params[0]), ",", -1)
-	for _, c := range chans {
-		channame := c
-		if channame[0] == '#' {
-			channame = channame[1:]
-		}
-
-		if ch := core.FindChannel("", channame); ch != nil {
-			var message string
-			if len(params) > 1 {
-				message = string(params[1])
-			}
-			ch.Remove(u, u, message)
-		}
-	}
-}
-
-func cmdKick(u *core.User, w io.Writer, params [][]byte) {
-	c := w.(*Client)
-
-	var ch *core.Channel
-	channame := string(params[0])
-	if channame[0] == '#' {
-		channame = channame[1:]
-	}
-	if ch = core.FindChannel("", channame); ch == nil {
-		return
-	}
-
-	nicks := strings.Split(string(params[1]), ",", -1)
-	for _, nick := range nicks {
-		target := core.GetUserByNick(nick)
-		if target == nil {
-			continue
-		}
-		if ok, err := perm.CheckRemove(u, target, ch); ok {
-			var message string
-			if len(params) > 2 {
-				message = string(params[2])
-			}
-			ch.Remove(u, target, message)
-		} else {
-			c.WriteTo(nil, "482", "#%s :%s", ch.Name(), err)
-		}
-	}
 }
 
 func cmdMode(u *core.User, w io.Writer, params [][]byte) {
@@ -480,64 +326,4 @@ func cmdNotice(u *core.User, w io.Writer, params [][]byte) {
 
 		c.WriteTo(nil, "404", "%s :%s", t, "No such nick or channel.")
 	}
-}
-
-func cmdTopic(u *core.User, w io.Writer, params [][]byte) {
-	c := w.(*Client)
-
-	var ch *core.Channel
-	if params[0][0] == '#' {
-		channame := string(params[0][1:])
-		ch = core.FindChannel("", channame)
-	}
-	if ch == nil {
-		c.WriteTo(nil, "404", "%s %s :No such channel.", u.Nick(),
-		          params[0])
-		return
-	}
-
-	// If we're displaying the topic...
-	if len(params) < 2 {
-		topic, setby, setat := ch.GetTopic()
-		if topic != "" {
-			c.WriteTo(nil, "332", "#%s :%s", ch.Name(), topic)
-			c.WriteTo(nil, "333", "#%s %s %s", ch.Name(), setby,
-			          setat)
-		} else {
-			c.WriteTo(nil, "331", "#%s :No topic is set.",
-				  ch.Name())
-		}
-		return
-	}
-
-	// Otherwise, we're setting the topic.
-	ch.SetTopic(u, string(params[1]))
-}
-
-func cmdOperflags(u *core.User, w io.Writer, params [][]byte) {
-	c := w.(*Client)
-
-	var target *core.User
-	if target = core.GetUserByNick(string(params[0])); target == nil {
-		c.WriteTo(nil, "404", "%s %s :No such user.", u.Nick(),
-		          params[0])
-		return
-	}
-
-	var flags string
-	if flags = target.Data("op"); flags == "" {
-		c.WriteTo(nil, "304", ":%s has no server operator flags.", target.Nick())
-		return
-	}
-
-	if flags == "on" {
-		flags = perm.DefaultServerOp()
-	}	
-	c.WriteTo(nil, "304", ":%s has server operator flags: %s", target.Nick(), flags)
-
-	var commands string
-	if commands = target.Data("opcommands"); commands == "" {
-		return
-	}
-	c.WriteTo(nil, "304", ":%s also has the following specific commands: %s", target.Nick(), commands)
 }
