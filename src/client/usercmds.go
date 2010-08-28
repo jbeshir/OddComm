@@ -13,91 +13,78 @@ func init() {
 	var c *irc.Command
 
 	c = new(irc.Command)
-	c.Handler = cmdUser
-	c.Minargs = 4
-	c.Maxargs = 4
+	c.Name = "USER"; c.Handler = cmdUser
+	c.Minargs = 4;	c.Maxargs = 4
 	c.Unregged = 2
-	Commands.Add("USER", c)
+	Commands.Add(c)
 
 	c = new(irc.Command)
-	c.Handler = cmdNick
-	c.Minargs = 1
+	c.Name = "NICK"; c.Handler = cmdNick
+	c.Minargs = 1;c.Maxargs = 1
+	c.Unregged = 1
+	Commands.Add(c)
+
+	c = new(irc.Command)
+	c.Name = "QUIT"; c.Handler = irc.CmdQuit
 	c.Maxargs = 1
 	c.Unregged = 1
-	Commands.Add("NICK", c)
+	Commands.Add(c)
 
 	c = new(irc.Command)
-	c.Handler = irc.CmdQuit
-	c.Maxargs = 1
-	c.Unregged = 1
-	Commands.Add("QUIT", c)
+	c.Name = "PING"; c.Handler = cmdPing
+	c.Minargs = 1; c.Maxargs = 1
+	Commands.Add(c)
 
 	c = new(irc.Command)
-	c.Handler = cmdPing
-	c.Minargs = 1
-	c.Maxargs = 1
-	Commands.Add("PING", c)
+	c.Name = "WHO"; c.Handler = cmdWho
+	c.Minargs = 1; c.Maxargs = 1
+	Commands.Add(c)
 
 	c = new(irc.Command)
-	c.Handler = cmdWho
-	c.Minargs = 1
-	c.Maxargs = 1
-	Commands.Add("WHO", c)
+	c.Name = "NAMES"; c.Handler = cmdNames
+	c.Minargs = 1; c.Maxargs = 1
+	Commands.Add(c)
 
 	c = new(irc.Command)
-	c.Handler = cmdNames
-	c.Minargs = 1
-	c.Maxargs = 1
-	Commands.Add("NAMES", c)
+	c.Name = "JOIN"; c.Handler = cmdJoin
+	c.Minargs = 1; c.Maxargs = 1
+	Commands.Add(c)
 
 	c = new(irc.Command)
-	c.Handler = cmdJoin
-	c.Minargs = 1
-	c.Maxargs = 1
-	Commands.Add("JOIN", c)
-
-	c = new(irc.Command)
-	c.Handler = cmdPart
-	c.Minargs = 1
-	c.Maxargs = 2
-	Commands.Add("PART", c)
+	c.Name = "PART"; c.Handler = cmdPart
+	c.Minargs = 1; c.Maxargs = 2
+	Commands.Add(c)
 	
 	c = new(irc.Command)
-	c.Handler = cmdKick
-	c.Minargs = 2
-	c.Maxargs = 3
-	Commands.Add("KICK", c)
+	c.Name = "KICK"; c.Handler = cmdKick
+	c.Minargs = 2; c.Maxargs = 3
+	Commands.Add(c)
 	
 	c = new(irc.Command)
-	c.Handler = cmdMode
-	c.Minargs = 1
-	c.Maxargs = 42
-	Commands.Add("MODE", c)
+	c.Name = "MODE"; c.Handler = cmdMode
+	c.Minargs = 1; c.Maxargs = 42
+	Commands.Add(c)
 
 	c = new(irc.Command)
-	c.Handler = cmdTopic
-	c.Minargs = 1
-	c.Maxargs = 2
-	Commands.Add("TOPIC", c)
+	c.Name = "TOPIC"; c.Handler = cmdTopic
+	c.Minargs = 1; c.Maxargs = 2
+	Commands.Add(c)
 
 	c = new(irc.Command)
-	c.Handler = cmdPrivmsg
-	c.Minargs = 2
-	c.Maxargs = 2
-	Commands.Add("PRIVMSG", c)
+	c.Name = "PRIVMSG"; c.Handler = cmdPrivmsg
+	c.Minargs = 2; c.Maxargs = 2
+	Commands.Add(c)
 
 	c = new(irc.Command)
-	c.Handler = cmdNotice
-	c.Minargs = 2
-	c.Maxargs = 2
-	Commands.Add("NOTICE", c)
+	c.Name = "NOTICE"; c.Handler = cmdNotice
+	c.Minargs = 2; c.Maxargs = 2
+	Commands.Add(c)
 	
 	c = new(irc.Command)
-	c.Handler = cmdOperflags
-	c.Minargs = 1
-	c.Maxargs = 1
-	Commands.Add("OPERFLAGS", c)
-
+	c.Name = "OPERFLAGS"; c.Handler = cmdOperflags
+	c.Minargs = 1; c.Maxargs = 1
+	c.OperFlag = "viewflags"
+	Commands.Add(c)
 }
 
 func cmdNick(u *core.User, w io.Writer, params [][]byte) {
@@ -519,11 +506,6 @@ func cmdTopic(u *core.User, w io.Writer, params [][]byte) {
 
 func cmdOperflags(u *core.User, w io.Writer, params [][]byte) {
 	c := w.(*Client)
-
-	if !perm.HasOperCommand(u, "operflags", "viewflags") {
-		c.WriteTo(nil, "481", ":You do not have the appropriate privileges to use this command.")
-		return
-	}
 
 	var target *core.User
 	if target = core.GetUserByNick(string(params[0])); target == nil {

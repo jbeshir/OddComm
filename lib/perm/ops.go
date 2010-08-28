@@ -125,7 +125,7 @@ func HasOpFlag(u *core.User, ch *core.Channel, flag string) bool {
 // run the given command, as we extend the ability to adjust who has access to
 // commands to the server administration via configuration instead of modules
 // in the case of oper commands.
-func HasOperCommand(u *core.User, command, flag string) bool {
+func HasOperCommand(u *core.User, flag, command string) bool {
 	var words []string
 
 	// Check commands.

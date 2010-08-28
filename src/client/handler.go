@@ -3,6 +3,7 @@ package client
 import "os"
 
 import "oddcomm/lib/irc"
+import "oddcomm/lib/perm"
 
 
 // Primary goroutine function for a client.
@@ -192,7 +193,13 @@ func input(c *Client) {
 
 			// If we successfully got a command, run it.
 			if command != nil {
-				command.Handler(c.u, c, params)
+
+				// If it's an oper command, check permissions.
+				if command.OperFlag != "" && !perm.HasOperCommand(c.u, command.OperFlag, command.Name) {
+					c.WriteTo(nil, "481", ":You do not have the appropriate privileges to use this command.")
+				} else {
+					command.Handler(c.u, c, params)
+				}
 			} else if perr != nil {
 
 				// The IRC protocol is stupid.

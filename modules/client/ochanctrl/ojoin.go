@@ -10,10 +10,10 @@ import "oddcomm/lib/irc"
 // Add command.
 func init() {
 	c := new(irc.Command)
-	c.Handler = cmdOjoin
-	c.Minargs = 1
-	c.Maxargs = 1
-	client.Commands.Add("OJOIN", c)
+	c.Name = "OJOIN"; c.Handler = cmdOjoin
+	c.Minargs = 1; c.Maxargs = 1
+	c.OperFlag = "chanctrl"
+	client.Commands.Add(c)
 }
 
 func cmdOjoin(u *core.User, w io.Writer, params [][]byte) {

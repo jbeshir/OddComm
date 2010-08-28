@@ -10,10 +10,10 @@ import "oddcomm/lib/perm"
 
 func init() {
 	c := new(irc.Command)
-	c.Handler = cmdOmode
-	c.Minargs = 2
-	c.Maxargs = 42
-	client.Commands.Add("OMODE", c)
+	c.Name = "OMODE"; c.Handler = cmdOmode
+	c.Minargs = 2; c.Maxargs = 42
+	c.OperFlag = "chanctrl"
+	client.Commands.Add(c)
 }
 
 

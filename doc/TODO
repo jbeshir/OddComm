@@ -1,6 +1,6 @@
 NOT FINISHED YET:
 
-- Permissions: Channel creation needs adding.
+- Permissions: Channel creation needs adding. Users being unable to message channels they aren't in needs moving into permissions, not core, for compatibility with other servers.
 
 - KICK: Needs to prevent rejoin for three seconds.
 
@@ -16,10 +16,10 @@ COMMANDS:
 
 - OPFLAGS: Displays the flags of a channel operator. Can always be used on oneself, and with viewflags, others.
 
-- OPERFLAGS: Displays the operflags of an operator. Can always be used on yourself, and with viewflags, others.
-
 
 FEATURES:
+
+- Hook run list, with hooks for actions caused by another action always happening after the first action's hooks- but, with ability to wait until all first-level hooks have been executed before continuing, so the caller can assume the next action it attempts is after the effects of its first have taken effect.
 
 - Logging scheme being implemented, and messages being added in appropriate places.
 

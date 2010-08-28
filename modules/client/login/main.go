@@ -22,11 +22,10 @@ func init() {
 
 	// Add login command.
 	c := new(irc.Command)
-	c.Handler = cmdLogin
-	c.Minargs = 1
-	c.Maxargs = 2
+	c.Name = "LOGIN"; c.Handler = cmdLogin
+	c.Minargs = 1; c.Maxargs = 2
 	c.Unregged = 1
-	client.Commands.Add("LOGIN", c)
+	client.Commands.Add(c)
 
 	// We would load from config here.
 	passwords["NAMEGDUF"] = "supertest"

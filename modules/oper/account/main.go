@@ -23,7 +23,7 @@ func init() {
 	// Here, we would load things in from the config.
 	operType["NAMEGDUF"] = "Uberdude"
 	operFlags["NAMEGDUF"] = "on"
-	operCommands["NAMEGDUF"] = "ojoin omode"
+	operCommands["NAMEGDUF"] = "OJOIN OMODE"
 
 	// Oper people when they login to their account.
 	core.HookUserDataChange("account", func(source, target *core.User, oldvalue, newvalue string) {

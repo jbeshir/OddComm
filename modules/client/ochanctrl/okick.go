@@ -10,10 +10,10 @@ import "oddcomm/lib/irc"
 // Add command.
 func init() {
 	c := new(irc.Command)
-	c.Handler = cmdOkick
-	c.Minargs = 2
-	c.Maxargs = 3
-	client.Commands.Add("OKICK", c)
+	c.Name = "OKICK"; c.Handler = cmdOkick
+	c.Minargs = 2; c.Maxargs = 3
+	c.OperFlag = "chanctrl"
+	client.Commands.Add(c)
 }
 
 func cmdOkick(u *core.User, w io.Writer, params [][]byte) {
