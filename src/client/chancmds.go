@@ -111,7 +111,7 @@ func cmdTopic(u *core.User, w io.Writer, params [][]byte) {
 		ch = core.FindChannel("", channame)
 	}
 	if ch == nil {
-		c.WriteTo(nil, "404", "%s %s :No such channel.", u.Nick(),
+		c.WriteTo(nil, "403", "%s %s :No such channel.", u.Nick(),
 		          params[0])
 		return
 	}

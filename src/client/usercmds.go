@@ -266,7 +266,7 @@ func cmdMode(u *core.User, w io.Writer, params [][]byte) {
 		return
 	}
 
-	c.WriteTo(nil, "501", "%s %s :%s", u.Nick(), params[0],
+	c.WriteTo(nil, "401", "%s %s :%s", u.Nick(), params[0],
 		  "No such nick or channel.")
 }
 
@@ -302,7 +302,7 @@ func cmdPrivmsg(u *core.User, w io.Writer, params [][]byte) {
 			}
 		}
 
-		c.WriteTo(nil, "404", "%s :%s", t, "No such nick or channel.")
+		c.WriteTo(nil, "401", "%s :%s", t, "No such nick or channel.")
 	}
 }
 
@@ -335,7 +335,7 @@ func cmdNotice(u *core.User, w io.Writer, params [][]byte) {
 			}
 		}
 
-		c.WriteTo(nil, "404", "%s :%s", t, "No such nick or channel.")
+		c.WriteTo(nil, "401", "%s :%s", t, "No such nick or channel.")
 	}
 }
 

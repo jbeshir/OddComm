@@ -44,7 +44,7 @@ func cmdWho(u *core.User, w io.Writer, params [][]byte) {
 
 	var ch *core.Channel
 	if ch = core.FindChannel("", channame); ch == nil {
-		c.WriteTo(nil, "404", "#%s :No such channel.", channame)
+		c.WriteTo(nil, "403", "#%s :No such channel.", channame)
 		return
 	}	
 
@@ -86,7 +86,7 @@ func cmdNames(u *core.User, w io.Writer, params [][]byte) {
 
 	var ch *core.Channel
 	if ch = core.FindChannel("", channame); ch == nil {
-		c.WriteTo(nil, "404", "#%s :No such channel.", channame)
+		c.WriteTo(nil, "403", "#%s :No such channel.", channame)
 		return
 	}
 
@@ -125,7 +125,7 @@ func cmdOpflags(u *core.User, w io.Writer, params [][]byte) {
 
 	var ch *core.Channel
 	if ch = core.FindChannel("", channame); ch == nil {
-		c.WriteTo(nil, "404", "#%s :No such channel.", channame)
+		c.WriteTo(nil, "403", "#%s :No such channel.", channame)
 		return
 	}
 
@@ -140,7 +140,7 @@ func cmdOpflags(u *core.User, w io.Writer, params [][]byte) {
 
 	var target *core.User
 	if target = core.GetUserByNick(string(params[1])); target == nil {
-		c.WriteTo(nil, "404", "%s :No such user.", params[1])
+		c.WriteTo(nil, "401", "%s :No such user.", params[1])
 		return
 	}
 
@@ -171,7 +171,7 @@ func cmdOperflags(u *core.User, w io.Writer, params [][]byte) {
 
 	var target *core.User
 	if target = core.GetUserByNick(string(params[0])); target == nil {
-		c.WriteTo(nil, "404", "%s %s :No such user.", u.Nick(),
+		c.WriteTo(nil, "401", "%s %s :No such user.", u.Nick(),
 		          params[0])
 		return
 	}

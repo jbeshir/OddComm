@@ -1,3 +1,6 @@
+MILESTONE 1: All IRC client commands functional.
+MILESTONE 2: Stable linking.
+
 NOT FINISHED YET:
 
 - (O)KICK: Needs to prevent rejoin for three seconds.
@@ -25,6 +28,8 @@ Not implementing link-related commands until a stable linking module exists, in 
 
 
 FEATURES:
+
+- Notices on account login/opering up.
 
 - Channel creation getting permission checks, hooks. Required for oponcreate, restricting channel creation to server ops, logging uses.
 
@@ -80,6 +85,10 @@ MODULES:
 BUGS/CLEANUP:
 
 - Solve "multiple extban changes in one line" problem.
+-- Send all changes to parser at once.
+-- Add "merging" hook. Slower? More complicated or simpler?
+
+- Messages to the user on going away/unaway should be sent in response to the metadata being set, not the command being successful. Minor.
 
 
 OPTIMISATIONS:
