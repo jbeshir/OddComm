@@ -25,7 +25,7 @@ func viewChanOpOverride(u *core.User, ch *core.Channel, _ string) (int, os.Error
 
 // Permit chanops to view the flags of members.
 func viewMemberOpOverride(u *core.User, m *core.Membership, _ string) (int, os.Error) {
-	if HasOpFlag(u, m.Channel(), "viewmembers") {
+	if HasOpFlag(u, m.Channel(), "viewflags") {
 		return 10000, nil
 	}
 	return 0, nil

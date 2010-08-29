@@ -12,8 +12,7 @@ COMMANDS:
 - KILL
 - VERSION
 - WHOIS
-
-- OPFLAGS: Displays the flags of a channel operator. Can always be used on oneself, and with viewflags, others.
+- CHECK
 
 Not implementing WHOWAS. It's better provided by a service with some real memory, and the ability to identify people by better things than nick. Such as NS INFO.
 
@@ -63,3 +62,10 @@ MODULES:
 - chan/hierarchy, implementing metadata which restricts deopping, and can be added or removed by anyone with the op privilege and a higher hierarchy metadata value. Plus client code to add the metadata as a user-specified list of prefix modes. Implements hierarchy markers which can mark any levels the channel admins wish to.
 
 - oper/filter, filter on messages.
+
+
+OPTIMISATIONS:
+
+- Switch core to using Mutexes. Less fighting over the same stuff.
+
+- Profile it.
