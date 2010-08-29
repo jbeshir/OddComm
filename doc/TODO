@@ -19,6 +19,8 @@ Not implementing WHOWAS. It's better provided by a service with some real memory
 
 FEATURES:
 
+- Build system: Only build files containing a _ if a module/subsystem corresponding to the start of the name is being built. Improve module/subsystem files to be able to include comments (use configuration system?).
+
 - Hook run list, with hooks for actions caused by another action always happening after the first action's hooks- but, with ability to wait until all first-level hooks have been executed before continuing, so the caller can assume the next action it attempts is after the effects of its first have taken effect.
 
 - Configuration system. Default settings for EVERYTHING.

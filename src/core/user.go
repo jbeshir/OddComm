@@ -196,7 +196,7 @@ func (u *User) Registered() bool {
 // Setting it to "" unsets it.
 func (u *User) SetData(source *User, name string, value string) {
 	var oldvalue string
-
+	
 	wait := make(chan bool)
 	corechan <- func() {
 		var old interface{}
@@ -212,7 +212,7 @@ func (u *User) SetData(source *User, name string, value string) {
 		wait <- true
 	}
 	<-wait
-
+	
 	// If nothing changed, don't call hooks.
 	if oldvalue == value {
 		return

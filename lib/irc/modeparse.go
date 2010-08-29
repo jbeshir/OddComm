@@ -263,7 +263,7 @@ func (p *ModeParser) ParseChanges(e core.Extensible, c *core.DataChange,
 			continue
 		}
 
-		var subentry = strings.IndexRune(it.Name, ' ') + 1
+		var subentry = strings.LastIndex(it.Name, " ") + 1
 		for subentry > 2 {
 			if v, ok := p.nameToExt[it.Name[0:subentry-1]]; ok &&
 					v != nil {
@@ -289,8 +289,8 @@ func (p *ModeParser) ParseChanges(e core.Extensible, c *core.DataChange,
 				}
 				break
 			}
-			subentry = strings.IndexRune(it.Name[subentry:], ' ') +
-			           subentry + 1
+			subentry = strings.LastIndex(it.Name[subentry:], " ") +
+			           1
 		}
 	}
 

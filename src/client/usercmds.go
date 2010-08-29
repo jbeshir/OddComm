@@ -1,7 +1,9 @@
 package client
 
 import "io"
+import "strconv"
 import "strings"
+import "time"
 
 import "oddcomm/src/core"
 import "oddcomm/lib/perm"
@@ -23,8 +25,13 @@ func init() {
 
 	c = new(irc.Command)
 	c.Name = "NICK"; c.Handler = cmdNick
-	c.Minargs = 1;c.Maxargs = 1
+	c.Minargs = 1; c.Maxargs = 1
 	c.Unregged = 1
+	Commands.Add(c)
+
+	c = new(irc.Command)
+	c.Name = "AWAY"; c.Handler = cmdAway
+	c.Maxargs = 1
 	Commands.Add(c)
 
 	c = new(irc.Command)
@@ -325,5 +332,24 @@ func cmdNotice(u *core.User, w io.Writer, params [][]byte) {
 		}
 
 		c.WriteTo(nil, "404", "%s :%s", t, "No such nick or channel.")
+	}
+}
+
+func cmdAway(u *core.User, w io.Writer, params [][]byte) {
+	c := w.(*Client)
+
+	var message string
+	if len(params) != 0 {
+		message = string(params[0])
+	}
+
+	if message == "" {
+		u.SetData(u, "away", "")
+		u.SetData(u, "away time", "")
+		c.WriteTo(nil, "305", ":You are no longer marked as being away.")
+	} else {
+		u.SetData(u, "away", message)
+		u.SetData(u, "away time", strconv.Itoa64(time.Seconds()))
+		c.WriteTo(nil, "306", ":You have been marked as being away.")
 	}
 }
