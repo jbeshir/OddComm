@@ -1,9 +1,5 @@
 NOT FINISHED YET:
 
-- Permissions: Channel creation needs adding. Users being unable to message channels they aren't in needs moving into permissions, not core, for compatibility with other servers.
-
-- AWAY: Needs to be checked and result in notification in appropriate places.
-
 - (O)KICK: Needs to prevent rejoin for three seconds.
 
 COMMANDS:
@@ -13,12 +9,26 @@ COMMANDS:
 - KILL
 - VERSION
 - WHOIS
+- USERHOST
+- ISON
 - CHECK
+- STATS
+- TIME
+- ADMIN
+- INFO
+- RESTART
+- DIE
 
 Not implementing WHOWAS. It's better provided by a service with some real memory, and the ability to identify people by better things than nick. Such as NS INFO.
 
+Not implementing link-related commands until a stable linking module exists, in which case they will need to be in a module.
+
 
 FEATURES:
+
+- Channel creation getting permission checks, hooks. Required for oponcreate, restricting channel creation to server ops, logging uses.
+
+- Automatic pinging of idle clients.
 
 - Build system: Only build files containing a _ if a module/subsystem corresponding to the start of the name is being built. Improve module/subsystem files to be able to include comments (use configuration system?).
 
@@ -67,8 +77,18 @@ MODULES:
 - oper/filter, filter on messages.
 
 
+BUGS/CLEANUP:
+
+- Solve "multiple extban changes in one line" problem.
+
+
 OPTIMISATIONS:
 
 - Switch core to using Mutexes. Less fighting over the same stuff.
 
-- Profile it.
+- Profile it before doing anything else.
+
+- Mode parser is kinda nasty and creates a map. Look for improvements here.
+-- Extban parsing is nasty, too.
+
+- Switch to using a trie in more places?

@@ -1,5 +1,5 @@
 /*
-	Permits logging into accounts via configuration-defined passwords.
+	Provides a command for password-based authentication to an account.
 */
 package login
 
@@ -9,50 +9,64 @@ import "strings"
 import "oddcomm/src/client"
 import "oddcomm/src/core"
 import "oddcomm/lib/irc"
+import "oddcomm/lib/perm"
 
 
 var MODULENAME = "modules/client/account"
 
-var passwords map[string]string
-var names map[string]string
 
 func init() {
-	passwords = make(map[string]string)
-	names = make(map[string]string)
+	var c *irc.Command
 
 	// Add login command.
-	c := new(irc.Command)
+	c = new(irc.Command)
 	c.Name = "LOGIN"; c.Handler = cmdLogin
 	c.Minargs = 1; c.Maxargs = 2
 	c.Unregged = 1
 	client.Commands.Add(c)
 
-	// We would load from config here.
-	passwords["NAMEGDUF"] = "supertest"
-	names["NAMEGDUF"] = "Namegduf"
+	// Add pass command, just an alias.
+	c = new(irc.Command)
+	c.Name = "PASS"; c.Handler = cmdLogin
+	c.Minargs = 1; c.Maxargs = 2
+	c.Unregged = 1
+	client.Commands.Add(c)
+
+	// Add identify command, just an alias.
+	c = new(irc.Command)
+	c.Name = "IDENTIFY"; c.Handler = cmdLogin
+	c.Minargs = 1; c.Maxargs = 2
+	c.Unregged = 1
+	client.Commands.Add(c)
 }
 
 func cmdLogin(u *core.User, w io.Writer, params [][]byte) {
-	var account string
-	var password string
+	c := w.(*client.Client)
 
-	// If we only got one parameter, use their nick as the account name.
+	var account string
+	var pass string
+
+	// If we've only got one parameter, if it has a colon, split it there
+	// and take the prefix as an account name, and if it lacks one, take
+	// their nick as the account name.
 	if len(params) == 1 {
-		account = u.Nick()
-		password = string(params[0])
+		pass = string(params[0])
+		colon := strings.IndexRune(pass, ':')
+		if colon != -1 && colon < len(pass) - 1 {
+			account = pass[0:colon]
+			pass = pass[colon+1:]
+		} else {
+			account = u.Nick()
+		}
 	} else {
 		account = string(params[0])
-		password = string(params[1])
+		pass = string(params[1])
 	}
-
-	// To uppercase!
-	account = strings.ToUpper(account)
-
+	
 	// Try to log them in.
-	if v, ok := passwords[account]; ok && v == password {
-		u.SetData(nil, "account", names[account])
+	if ok, err := perm.CheckLogin(u, account, "password", pass); ok {
+		u.SetData(nil, "account", err.String())
 	} else {
-		u.Message(nil, []byte("Invalid username or password."),
-		          "noreply")
+		c.WriteTo(nil, "491", ":%s", err)
 	}
 }

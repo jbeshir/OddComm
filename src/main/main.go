@@ -19,6 +19,7 @@ import modules_oper_account "oddcomm/modules/oper/account"
 import modules_oper_pmoverride "oddcomm/modules/oper/pmoverride"
 import modules_dev_catserv "oddcomm/modules/dev/catserv"
 import modules_dev_horde "oddcomm/modules/dev/horde"
+import modules_dev_testaccount "oddcomm/modules/dev/testaccount"
 import modules_dev_tmmode "oddcomm/modules/dev/tmmode"
 
 func main() {
@@ -33,6 +34,7 @@ func main() {
 	_ = modules_oper_pmoverride.MODULENAME
 	_ = modules_dev_catserv.MODULENAME
 	_ = modules_dev_horde.MODULENAME
+	_ = modules_dev_testaccount.MODULENAME
 	_ = modules_dev_tmmode.MODULENAME
 
 	var exitList [1]chan int
