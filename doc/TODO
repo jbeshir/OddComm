@@ -2,12 +2,13 @@ NOT FINISHED YET:
 
 - Permissions: Channel creation needs adding. Users being unable to message channels they aren't in needs moving into permissions, not core, for compatibility with other servers.
 
+- AWAY: Needs to be checked and result in notification in appropriate places.
+
 - (O)KICK: Needs to prevent rejoin for three seconds.
 
 COMMANDS:
 
 - INVITE
-- AWAY
 - LIST
 - KILL
 - VERSION

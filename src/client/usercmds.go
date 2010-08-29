@@ -277,6 +277,10 @@ func cmdPrivmsg(u *core.User, w io.Writer, params [][]byte) {
 	for _, t := range targets {
 		if target := core.GetUserByNick(string(t)); target != nil {
 			if ok, err := perm.CheckUserMsg(u, target, params[1], ""); ok {
+				if v := target.Data("away"); v != "" {
+					c.WriteTo(nil, "301", "%s :%s",
+					          target.Nick(), v)
+				}
 				target.Message(u, params[1], "")
 			} else {
 				c.WriteTo(nil, "404", "%s :%s", target.Nick(), err)
