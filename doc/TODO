@@ -1,7 +1,10 @@
 MILESTONE 1: All IRC client commands functional.
-MILESTONE 2: Stable linking.
+MILESTONE 2: All IRC client functionality known bugs removed.
+MILESTONE 3: Stable linking without known bugs.
 
 NOT FINISHED YET:
+
+- (Conditional) channel deletion on emptying is missing. Should probably be a permission check on PART.
 
 - (O)KICK: Needs to prevent rejoin for three seconds.
 

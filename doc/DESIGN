@@ -1,4 +1,4 @@
-Working name, GoIRCD, but I want to change this at some point.
+OddComm - An experimental IRCD.
 
 Goals:
 
@@ -34,9 +34,9 @@ Design guidelines:
 
 PACKAGES:
 
-To build GoIRCD, a file containing a list of packages to build in will be created. These packages are conceptually split into subsystems and modules.
+To build OddComm, a file containing a list of packages to build in will be created. These packages are conceptually split into subsystems and modules.
 
-Subsystems implement part of GoIRCD itself, including client or other server communication, or an important service to other packages such as permission checks or message filtering, parts which would generally be considered part of the "core" of an IRCD. They must not include assumptions about other loaded subsystems and cannot import modules. They are included as top-level directories.
+Subsystems implement part of OddComm itself, including client or other server communication, or an important service to other packages such as permission checks or message filtering, parts which would generally be considered part of the "core" of an IRCD. They must not include assumptions about other loaded subsystems and cannot import modules. They are included as top-level directories.
 
 Modules implement a small block of functionality via hooks. They can import other modules, and may provide functionality, including protocol-specific functionality, to other modules. They generally shouldn't be central to the understanding of the system.
 
