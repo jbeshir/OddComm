@@ -6,6 +6,8 @@ NOT FINISHED YET:
 
 - (Conditional) channel deletion on emptying is missing. Should probably be a permission check on PART.
 
+- INVITE message handling, as opposed to sending.
+
 - (O)KICK: Needs to prevent rejoin for three seconds.
 
 COMMANDS:

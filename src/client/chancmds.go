@@ -33,6 +33,11 @@ func init() {
 	c.Name = "TOPIC"; c.Handler = cmdTopic
 	c.Minargs = 1; c.Maxargs = 2
 	Commands.Add(c)
+	
+	c = new(irc.Command)
+	c.Name = "INVITE"; c.Handler = cmdInvite
+	c.Minargs = 2; c.Maxargs = 2
+	Commands.Add(c)
 }
 
 
@@ -132,4 +137,40 @@ func cmdTopic(u *core.User, w io.Writer, params [][]byte) {
 
 	// Otherwise, we're setting the topic.
 	ch.SetTopic(u, string(params[1]))
+}
+
+func cmdInvite(u *core.User, w io.Writer, params [][]byte) {
+	c := w.(*Client)
+
+	if len(params[1]) < 2 || params[1][0] != '#' {
+		c.WriteTo(nil, "403", "%s :%s", params[1], "No such channel.")
+		return
+	}
+
+	ch := core.FindChannel("", string(params[1][1:]))
+	if ch == nil {
+		c.WriteTo(nil, "403", "%s :%s", params[1], "No such channel.")
+		return
+	}
+
+	targets := strings.Split(string(params[0]), ",", -1)
+	for _, t := range targets {
+		target := core.GetUserByNick(string(t))
+		if target == nil {
+			c.WriteTo(nil, "401", "%s :%s", t, "No such nick.")
+			continue
+		}
+
+		if ok, err := perm.CheckUserMsg(u, target, []byte(ch.Name()),
+		                                "invite"); ok {
+			if v := target.Data("away"); v != "" {
+				c.WriteTo(nil, "301", "%s :%s",
+				          target.Nick(), v)
+			}
+			target.Message(u, []byte(ch.Name()), "invite")
+		} else {
+			c.WriteTo(nil, "404", "%s :%s", target.Nick(), err)
+		}
+		continue
+	}
 }

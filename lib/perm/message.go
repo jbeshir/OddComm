@@ -16,6 +16,10 @@ func init() {
 	checkChanMsg = make(map[string]map[string]**hook)
 	checkChanMsgAll = make(map[string]**hook)
 
+	// Are the core permissions for sending messages to users.
+	HookUserMsg(false, "invite", externalInvite)
+	HookUserMsg(false, "invite", stupidInvite)
+
 	// Add the core permissions for speaking in channels.
 	HookChanMsg(true, "", "", externalMsg)
 	HookChanMsg(true, "", "", muteBanned)
