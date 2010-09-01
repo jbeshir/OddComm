@@ -6,8 +6,6 @@ NOT FINISHED YET:
 
 - (Conditional) channel deletion on emptying is missing. Should probably be a permission check on PART.
 
-- INVITE message handling, as opposed to sending.
-
 - (O)KICK: Needs to prevent rejoin for three seconds.
 
 COMMANDS:
@@ -95,6 +93,7 @@ BUGS/CLEANUP:
 
 - Messages to the user on going away/unaway should be sent in response to the metadata being set, not the command being successful. Minor.
 
+- Invites are currently hardcoded for the default channel type only. Not too hard to fix, mostly an internal representation thing, whether it needs changing is a good question.
 
 OPTIMISATIONS:
 

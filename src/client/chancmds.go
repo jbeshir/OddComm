@@ -168,6 +168,9 @@ func cmdInvite(u *core.User, w io.Writer, params [][]byte) {
 				          target.Nick(), v)
 			}
 			target.Message(u, []byte(ch.Name()), "invite")
+			ch.Message(u, []byte(target.Nick()), "invite")
+			c.WriteTo(nil, "341", "%s #%s", target.Nick(),
+			          ch.Name())
 		} else {
 			c.WriteTo(nil, "404", "%s :%s", target.Nick(), err)
 		}

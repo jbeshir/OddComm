@@ -73,6 +73,13 @@ func init() {
 		}
 	})
 
+	core.HookUserMessage("invite",
+	                func(source, target *core.User, message []byte) {
+		if c := GetClient(target); c != nil {
+			c.WriteTo(source, "INVITE", ":#%s", message)
+		}
+	})
+
 	core.HookChanUserJoin("", func(u *core.User, ch *core.Channel) {
 
 		// Send the JOIN to all clients in the same channel.
@@ -181,6 +188,16 @@ func init() {
 			if c := GetClient(m.User()); c != nil {
 				c.WriteFrom(source, "NOTICE #%s :%s",
 				            ch.Name(), message)
+			}
+		}
+	})
+
+	core.HookChanMessage("", "invite",
+	                     func(source *core.User, ch *core.Channel,
+			     message []byte) {
+		for m := ch.Users(); m != nil; m = m.ChanNext() {
+			if c := GetClient(m.User()); c != nil {
+				c.WriteFrom(nil, "NOTICE #%s :*** INVITE: %s invited %s into the channel.", ch.Name(), source.Nick(), message)
 			}
 		}
 	})
