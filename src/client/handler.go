@@ -90,7 +90,6 @@ func input(c *Client) {
 
 	b := make([]byte, 1024)
 	var count int
-	var clipline bool
 	for {
 		n, err := c.conn.Read(b[count:1024])
 		if err != nil {
@@ -103,55 +102,14 @@ func input(c *Client) {
 		b = b[0:count]
 
 		for {
-			// If we're still waiting for the end of a clipped
-			// line, see if we've reached it.
-			if clipline {
-
-				// Find the end of the first set of EOL
-				// characters, eating as many as possible.
-				eol := -1
-				for i := range b {
-					if b[i] == '\r' || b[i] == '\n' {
-						eol = i
-					} else if b[i] == 0 {
-						eol = i
-					} else if eol != -1 {
-						break
-					}
-				}
-				if eol != -1 {
-					clipline = false
-				}
-
-				// If we reached the end of the line to clip
-				// and had remaining input, move it down.
-				// Otherwise, clear the buffer and break.
-				if eol != -1 && len(b)-eol-1 >= 0 {
-					for i := 0; i < len(b)-eol-1; i++ {
-						b[i] = b[eol+1+i]
-					}
-					b = b[0 : len(b)-eol-1]
-				} else {
-					b = b[0:0]
-					break
-				}
-
-				continue
-			}
-
 			// Search for an end of line, then keep going until we
 			// stop finding eol characters, to eat as many as
-			// possible in the same operation. If the line is more
-			// than 512 bytes long, clip the line there.
+			// possible in the same operation.
 			eol := -1
 			for i := range b {
 				if b[i] == '\r' || b[i] == '\n' || b[i] == 0 {
 					eol = i
 				} else if eol != -1 {
-					break
-				} else if i >= 512 {
-					clipline = true
-					eol = i
 					break
 				}
 			}
