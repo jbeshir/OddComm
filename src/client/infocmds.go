@@ -15,6 +15,11 @@ func init() {
 	}
 
 	c = new(irc.Command)
+	c.Name = "USERHOST"; c.Handler = cmdUserhost
+	c.Minargs = 1; c.Maxargs = 1
+	Commands.Add(c)
+
+	c = new(irc.Command)
 	c.Name = "ISON"; c.Handler = cmdIsOn
 	c.Minargs = 1; c.Maxargs = 1
 	Commands.Add(c)
@@ -39,6 +44,37 @@ func init() {
 	c.Minargs = 1; c.Maxargs = 1
 	c.OperFlag = "viewflags"
 	Commands.Add(c)
+}
+
+func cmdUserhost(u *core.User, w io.Writer, params [][]byte) {
+	c := w.(*Client)
+
+	nicks := strings.Fields(string(params[0]))
+	var replyline string
+	for _, nick := range nicks {
+		var user *core.User
+		if user = core.GetUserByNick(nick); user == nil {
+			continue
+		}
+
+		if replyline != "" {
+			replyline += " "
+		}
+
+		replyline += nick
+		if user.Data("op") != "" {
+			replyline += "*"
+		}
+		replyline += "="
+		if user.Data("away") != "" {
+			replyline += "-"
+		} else {
+			replyline += "+"
+		}
+		replyline += user.GetHostname()
+	}
+
+	c.WriteTo(nil, "302", ":%s", replyline)
 }
 
 func cmdIsOn(u *core.User, w io.Writer, params [][]byte) {
