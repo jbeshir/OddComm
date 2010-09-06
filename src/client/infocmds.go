@@ -2,6 +2,7 @@ package client
 
 import "io"
 import "strings"
+import "time"
 
 import "oddcomm/src/core"
 import "oddcomm/lib/irc"
@@ -32,6 +33,10 @@ func init() {
 	c = new(irc.Command)
 	c.Name = "NAMES"; c.Handler = cmdNames
 	c.Minargs = 1; c.Maxargs = 1
+	Commands.Add(c)
+	
+	c = new(irc.Command)
+	c.Name = "TIME"; c.Handler = cmdTime
 	Commands.Add(c)
 	
 	c = new(irc.Command)
@@ -173,6 +178,11 @@ func cmdNames(u *core.User, w io.Writer, params [][]byte) {
 	}
 	c.WriteTo(nil, "353", "%s #%s :%s", myprefix, channame, names)
 	c.WriteTo(nil, "366", "#%s :End of /NAMES list", channame)
+}
+
+func cmdTime(u *core.User, w io.Writer, params [][]byte) {
+	c := w.(*Client)
+	c.WriteTo(nil, "391", ":%s", time.UTC().Format(time.RFC1123))
 }
 
 func cmdOpflags(u *core.User, w io.Writer, params [][]byte) {
