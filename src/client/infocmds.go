@@ -1,6 +1,7 @@
 package client
 
 import "io"
+import "strings"
 
 import "oddcomm/src/core"
 import "oddcomm/lib/irc"
@@ -12,6 +13,11 @@ func init() {
 	if Commands == nil {
 		Commands = irc.NewCommandDispatcher()
 	}
+
+	c = new(irc.Command)
+	c.Name = "ISON"; c.Handler = cmdIsOn
+	c.Minargs = 1; c.Maxargs = 1
+	Commands.Add(c)
 
 	c = new(irc.Command)
 	c.Name = "WHO"; c.Handler = cmdWho
@@ -33,6 +39,23 @@ func init() {
 	c.Minargs = 1; c.Maxargs = 1
 	c.OperFlag = "viewflags"
 	Commands.Add(c)
+}
+
+func cmdIsOn(u *core.User, w io.Writer, params [][]byte) {
+	c := w.(*Client)
+
+	nicks := strings.Fields(string(params[0]))
+	var replyline string
+	for _, nick := range nicks {
+		if core.GetUserByNick(nick) != nil {
+			if replyline != "" {
+				replyline += " "
+			}
+			replyline += nick
+		}
+	}
+
+	c.WriteTo(nil, "303", ":%s", replyline)
 }
 
 func cmdWho(u *core.User, w io.Writer, params [][]byte) {
