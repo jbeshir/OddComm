@@ -52,9 +52,9 @@ func main() {
 	core.RunStartHooks()
 
 	// Wait until every package goroutine returns.
-	for i := range exitList {
-		if exitList[i] != nil {
-			<-exitList[i]
+	for _, exit := range exitList {
+		if exit != nil {
+			<-exit
 		}
 	}
 }

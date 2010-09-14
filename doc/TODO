@@ -19,7 +19,6 @@ COMMANDS:
 - ADMIN
 - INFO
 - RESTART
-- DIE
 
 Not implementing WHOWAS. It's better provided by a service with some real memory, and the ability to identify people by better things than nick. Such as NS INFO.
 

@@ -23,7 +23,7 @@ func init() {
 	// Here, we would load things in from the config.
 	operType["TESTACCOUNT"] = "Uberdude"
 	operFlags["TESTACCOUNT"] = "on"
-	operCommands["TESTACCOUNT"] = "OJOIN OMODE"
+	operCommands["TESTACCOUNT"] = "OJOIN OMODE DIE"
 
 	// Oper people when they login to their account.
 	core.HookUserDataChange("account", func(source, target *core.User, oldvalue, newvalue string) {
