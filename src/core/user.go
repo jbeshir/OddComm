@@ -372,7 +372,8 @@ func (u *User) Message(source *User, message []byte, t string) {
 // Delete deletes the user from the server.
 // They are removed from all channels they are in first.
 // The given message is recorded as the reason why.
-func (u *User) Delete(message string) {
+// Source may be nil, to indicate a deletion by the server.
+func (u *User) Delete(source *User, message string) {
 	var chans *Membership
 
 	deleted := make(chan bool)
@@ -414,6 +415,6 @@ func (u *User) Delete(message string) {
 			runChanUserRemoveHooks(it.c.t, u, u, it.c, message)
 		}
 
-		runUserDeleteHooks(u, message)
+		runUserDeleteHooks(source, u, message)
 	}
 }

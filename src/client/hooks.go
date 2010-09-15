@@ -202,8 +202,23 @@ func init() {
 		}
 	})
 
-	core.HookUserDelete(func(u *core.User, message string) {
+	core.HookUserDelete(func(source, u *core.User, message string) {
 		sent := make(map[*Client]bool)
+
+		// Send a KILL message to the user, if they were deleted by
+		// another user and are our client.
+		if c := GetClient(u); c != nil {
+			if source != nil && source != u {
+				c.WriteTo(source, "KILL", "%s (%s)", source.Nick(), message)
+			}
+		}
+
+		// Add text to the message to indicate its source.
+		if source == u {
+			message = "Quit: " + message
+		} else if source != nil {
+			message = "Killed by " + source.Nick() + ": " + message
+		}
 
 		// If this is our client, delete them.
 		if c := GetClient(u); c != nil {

@@ -32,7 +32,7 @@ func (c *Client) delete(message string) {
 	c.write([]byte(fmt.Sprintf("ERROR :Closing link: (%s@%s) [%s]\r\n", username, c.u.Data("hostname"), message)))
 
 	// If the user has not already been deleted, delete it.
-	c.u.Delete(message)
+	c.u.Delete(nil, message)
 
 	c.disconnecting = true
 }

@@ -127,8 +127,10 @@ func HookUserMessage(t string, f func(*User, *User, []byte)) {
 }
 
 // HookUserDelete adds a hook called whenever a user is deleted.
+// The hook receives the source, removed user, and message as parameters, and
+// must be prepared for the source to be nil.
 // If unregged is false, it is not called for unregistered users.
-func HookUserDelete(f func(*User, string), unregged bool) {
+func HookUserDelete(f func(*User, *User, string), unregged bool) {
 	hookUserDelete.add(f, unregged)
 }
 
@@ -165,10 +167,10 @@ func runUserDataChangesHooks(source, target *User, changes *DataChange, olddata 
 	}, target.Registered())
 }
 
-func runUserDeleteHooks(u *User, message string) {
+func runUserDeleteHooks(source, u *User, message string) {
 	hookUserDelete.run(func(f interface{}) {
-		if h, ok := f.(func(*User, string)); ok && h != nil {
-			h(u, message)
+		if h, ok := f.(func(*User, *User, string)); ok && h != nil {
+			h(source, u, message)
 		}
 	}, u.Registered())
 }
