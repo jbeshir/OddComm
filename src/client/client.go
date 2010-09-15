@@ -21,11 +21,18 @@ type Client struct {
 // it is being called from the client goroutine.
 func (c *Client) delete(message string) {
 
+	// Remove this client from our live client lists.
+	killClient(c)
+
+	// Send them a goodbye message.
 	username := c.u.Data("ident")
 	if username == "" {
 		username = "unknown"
 	}
 	c.write([]byte(fmt.Sprintf("ERROR :Closing link: (%s@%s) [%s]\r\n", username, c.u.Data("hostname"), message)))
+
+	// If the user has not already been deleted, delete it.
+	c.u.Delete(message)
 
 	c.disconnecting = true
 }
@@ -44,10 +51,11 @@ func (c *Client) write(line []byte) {
 
 		// If we've overflowed our output buffer, kill the client.
 		if cap(c.outbuf)-len(c.outbuf) < len(line) {
-			if (c.u != nil) {
-				c.u.Delete("SendQ exceeded.")
-			}
+			// Mark it as disconnecting before calling the delete
+			// method to suppress the quit message.
 			c.disconnecting = true
+			c.delete("Output Buffer Exceeded")
+			c.outbuf = nil
 			return false
 		}
 
@@ -66,15 +74,18 @@ func (c *Client) write(line []byte) {
 		// Try to write.
 		n, err := c.conn.Write(line)
 		if err != nil && err.(net.Error).Timeout() == false {
+			// Mark it as disconnecting before calling the delete
+			// method to suppress the quit message.
 			c.disconnecting = true
+			c.delete(err.String())
+			c.outbuf = nil
 			return
 		}
 
 		// If it takes too long or we can't write it all, make an
 		// output buffer and switch to buffered I/O.
 		if n != len(line) {
-			c.outbuf = make([]byte, 4096)
-			c.outbuf = c.outbuf[0:0]
+			c.outbuf = make([]byte, 0, 4096)
 			if !appendfunc(line[n:len(line)]) {
 				return
 			}

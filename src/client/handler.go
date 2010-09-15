@@ -80,21 +80,35 @@ func input(c *Client) {
 	//}()
 
 	// Defer marking ourselves as done, so the client goroutine can
-	// terminate. We also disconnect the client if input fails early.
+	// terminate.
 	defer func() {
 		makeDirectRequest(c, func() {
-			c.disconnecting = true
 			c.inputDone = true
 		})
 	}()
 
-	b := make([]byte, 1024)
+	b := make([]byte, 2096)
 	var count int
 	for {
-		n, err := c.conn.Read(b[count:1024])
+		// If we have no room in our input buffer to read, the user
+		// has overrun their input buffer.
+		if count == cap(b) {
+			makeDirectRequest(c, func() {
+				c.delete("Input Buffer Exceeded")
+			})
+			break
+		}
+
+		// Try to read from the user.
+		n, err := c.conn.Read(b[count:cap(b)])
 		if err != nil {
 			makeDirectRequest(c, func() {
-				c.disconnecting = true
+				// This happens if the user is disconnected
+				// by other code. We only need to delete them
+				// here if they aren't already being deleted.
+				if !c.disconnecting {
+					c.delete(err.String())
+				}
 			})
 			break
 		}

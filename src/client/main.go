@@ -69,7 +69,7 @@ func clientMain(msg chan string, exit chan int) {
 				var r clientRequest
 				var c *Client
 				r.f = func() {
-					c.delete("Server terminating.")
+					c.delete("Server Terminating")
 				}
 				r.done = make(chan bool)
 				for c = range climap {

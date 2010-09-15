@@ -281,7 +281,7 @@ func (ch *Channel) Join(u *User) {
 	corechan <- func() {
 
 		// Unregistered users may not join channels.
-		if u.regcount != 0 {
+		if u.regstate != 0 {
 			wait <- true
 			return
 		}
@@ -357,7 +357,7 @@ func (ch *Channel) Delete() {
 }
 
 // GetTopic gets the topic, the topic setter string, and the time it was set.
-func (ch *Channel) GetTopic() (topic, setby, setat string){
+func (ch *Channel) GetTopic() (topic, setby, setat string) {
 	wait := make(chan bool)
 	corechan <- func() {
 		setby = "Server.name"

@@ -9,7 +9,7 @@ type User struct {
 	id   string
 	nick string
 	checked bool
-	regcount int
+	regstate int
 	chans *Membership
 	data *Trie
 }
@@ -36,9 +36,9 @@ func NewUser(creator string, checked bool, forceid string) (u *User) {
 
 		u = new(User)
 		u.checked = checked
-		u.regcount = holdRegistration[creator]
+		u.regstate = holdRegistration[creator]
 		if (!checked) {
-			u.regcount += holdRegistration[""]
+			u.regstate += holdRegistration[""]
 		}
 
 		if forceid != "" {
@@ -162,31 +162,32 @@ func (u *User) Nick() (nick string) {
 func (u *User) PermitRegistration() {
 	c := make(chan bool)
 	corechan <- func() {
-		if u.regcount <= 0 {
+		
+			if u.regstate <= 0 {
 			c <- false
 			return
 		}
 
-		u.regcount--
+		u.regstate--
 
-		if u.regcount == 0 {
+		if u.regstate == 0 {
 			c <- true
 		} else {
 			c <- false
 		}
 	}
-	registered := <-c
 
-	if registered {
+	if <-c {
 		runUserRegisterHooks(u)
 	}
 }
 
 // Registered returns whether the user is registered or not.
+// Deleted users also count as unregistered.
 func (u *User) Registered() bool {
 	c := make(chan bool)
 	corechan <- func() {
-		c <- (u.regcount == 0)
+		c <- (u.regstate == 0)
 	}
 	return <-c
 }
@@ -374,11 +375,15 @@ func (u *User) Message(source *User, message []byte, t string) {
 func (u *User) Delete(message string) {
 	var chans *Membership
 
-	wait := make(chan bool)
+	deleted := make(chan bool)
 	corechan <- func() {
 		// Delete the user from the user tables.
+		// If they are not in the user tables, return immediately.
 		if users[u.id] == u {
 			users[u.id] = nil, false
+		} else {
+			deleted <- false
+			return
 		}
 		NICK := strings.ToUpper(u.nick)
 		if usersByNick[NICK] == u {
@@ -398,13 +403,17 @@ func (u *User) Delete(message string) {
 			}
 		}
 
-		wait <- true
-	}
-	<-wait
+		// Mark the user as deleted.
+		u.regstate = -1
 
-	for it := chans; it != nil; it = it.UserNext() {
-		runChanUserRemoveHooks(it.c.t, u, u, it.c, message)
+		deleted <- true
 	}
 
-	runUserDeleteHooks(u, message)
+	if <-deleted {
+		for it := chans; it != nil; it = it.UserNext() {
+			runChanUserRemoveHooks(it.c.t, u, u, it.c, message)
+		}
+
+		runUserDeleteHooks(u, message)
+	}
 }
