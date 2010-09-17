@@ -35,6 +35,11 @@ func Start() (msg chan string, exit chan int) {
 // Owns the client map.
 func clientMain(msg chan string, exit chan int) {
 
+	// Generate the version string.
+	for hook := supportHooks; hook != nil; hook = hook.next {
+		supportLine += hook.h()
+	}
+
 	// Right now, we just bind to a fixed IP/port.
 	// No config parsing.
 	var addr net.TCPAddr

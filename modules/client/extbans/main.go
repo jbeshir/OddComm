@@ -87,6 +87,11 @@ func init() {
 		}
 		return 0, nil
 	})
+
+	// Add extbans to ISUPPORT.
+	client.AddSupportHook(func() string {
+		return " EXTBAN=," + ExtBanType.All() + ExtBanRestrict.All()
+	}) 
 }
 
 // Function handling processing of ban syntax into metadata.

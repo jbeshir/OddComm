@@ -4,14 +4,16 @@ MILESTONE 3: Stable linking without known bugs.
 
 NOT FINISHED YET:
 
-- (Conditional) channel deletion on emptying is missing. Should probably be a permission check on PART.
+- (Conditional) channel deletion on emptying is missing. Should probably be a permission check on PART; this makes channels with fake users who leave as soon as the last real user does feasible.
 
 - (O)KICK: Needs to prevent rejoin for three seconds.
+
+- INVITE: Needs to override join restrictions with a permission level of 10000 or the inviter's ability to join, whichever is higher, if the inviter is an op and has the invite flag. Needs to refuse to invite if the user would be unable to join.
+
 
 COMMANDS:
 
 - LIST
-- VERSION
 - WHOIS
 - CHECK
 - STATS
@@ -26,6 +28,22 @@ Not implementing link-related commands until a stable linking module exists, in 
 
 
 FEATURES:
+
+- Limits on the length of all user-settable metadata items and names. Examples include those corresponding to the given ISUPPORT names, which should be setup right once the limits are added.
+  CHANLIMIT/MAXCHANNELS
+  NICKLEN
+  MAXLIST/MAXBANS
+  TOPICLEN
+  KICKLEN
+  CHANNELLEN
+  AWAYLEN
+
+- The following ISUPPORT tokens are omitted due to their features not yet being supported, or should be set differently/have multiple possible settings once supported:
+  CASEMAPPING
+  KNOCK
+  USERIP
+  WATCH
+  CALLERID/ACCEPT
 
 - Notices on account login/opering up.
 
@@ -42,8 +60,6 @@ FEATURES:
 - Logging scheme being implemented, and messages being added in appropriate places.
 
 - Filter subsystem, calls into it from PRIVMSG and NOTICE, permitting colours to be stripped, auditorium mode, implementation of FILTER and SILENCE... unavoidably slow, though.
-
-- On-connect messages.
 
 - MOTD
 

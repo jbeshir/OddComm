@@ -14,6 +14,10 @@ func init() {
 	if Commands == nil {
 		Commands = irc.NewCommandDispatcher()
 	}
+	
+	c = new(irc.Command)
+	c.Name = "VERSION"; c.Handler = cmdVersion
+	Commands.Add(c)
 
 	c = new(irc.Command)
 	c.Name = "USERHOST"; c.Handler = cmdUserhost
@@ -49,6 +53,14 @@ func init() {
 	c.Minargs = 1; c.Maxargs = 1
 	c.OperFlag = "viewflags"
 	Commands.Add(c)
+}
+
+
+func cmdVersion(u *core.User, w io.Writer, params [][]byte) {
+	c := w.(*Client)
+
+	c.WriteTo(nil, "351", "OddComm-%s Server.name", core.Version)
+	c.WriteTo(nil, "351", "%s :are supported by this server", supportLine)
 }
 
 func cmdUserhost(u *core.User, w io.Writer, params [][]byte) {

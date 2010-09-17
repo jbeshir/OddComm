@@ -47,7 +47,7 @@ func init() {
 
 	c = new(irc.Command)
 	c.Name = "MODE"; c.Handler = cmdMode
-	c.Minargs = 1; c.Maxargs = 42
+	c.Minargs = 1; c.Maxargs = 3
 	Commands.Add(c)
 
 	c = new(irc.Command)
@@ -204,7 +204,11 @@ func cmdMode(u *core.User, w io.Writer, params [][]byte) {
 
 	// If we're setting modes on ourselves...
 	if strings.ToUpper(c.u.Nick()) == strings.ToUpper(string(params[0])) {
-		changes, err := UserModes.ParseModeLine(u, u, params[1], params[2:])
+		var mpars []string
+		if len(params) == 3 {
+			mpars = strings.Fields(string(params[2]))
+		}
+		changes, err := UserModes.ParseModeLine(u, u, params[1], mpars)
 		if err != nil {
 			c.WriteTo(nil, "501", "%s", err)
 		}
@@ -233,7 +237,12 @@ func cmdMode(u *core.User, w io.Writer, params [][]byte) {
 		if ch == nil {
 			return
 		}
-		changes, err := ChanModes.ParseModeLine(u, ch, params[1], params[2:])
+
+		var mpars []string
+		if len(params) == 3 {
+			mpars = strings.Fields(string(params[2]))
+		}
+		changes, err := ChanModes.ParseModeLine(u, ch, params[1], mpars)
 		if err != nil {
 			c.WriteTo(nil, "501", "%s", err)
 		}

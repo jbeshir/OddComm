@@ -33,3 +33,11 @@ func (m *CMapper) Str(char int) string {
 func (m *CMapper) Char(str string) int {
 	return m.strToChar[str]
 }
+
+// All returns a list of all characters.
+func (m *CMapper) All() (list string) {
+	for char := range m.charToStr {
+		list += string(char)
+	}
+	return
+}

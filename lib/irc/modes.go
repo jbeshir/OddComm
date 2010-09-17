@@ -178,6 +178,39 @@ func (p *ModeParser) GetMode(name string) int {
 }
 
 
+// AllSimple returns a list of all simple modes known by this mode parser.
+func (p *ModeParser) AllSimple() (list string) {
+	for mode := range p.simple {
+		list += string(mode)
+	}
+	return
+}
+
+// AllParametered returns a list of all simple modes known by this mode parser.
+func (p *ModeParser) AllParametered() (list string) {
+	for mode := range p.parametered {
+		list += string(mode)
+	}
+	return
+}
+
+// AllList returns a list of all list modes known by this mode parser.
+func (p *ModeParser) AllList() (list string) {
+	for mode := range p.list {
+		list += string(mode)
+	}
+	return
+}
+
+// AllMembership returns a list of all simple modes known by this mode parser.
+func (p *ModeParser) AllMembership() (list string) {
+	for mode := range p.membership {
+		list += string(mode)
+	}
+	return
+}
+
+
 // Clears all references to the given mode pair. Used when a mode is added, to
 // delete any remaining bits of a previous added mode.
 func (p *ModeParser) clearPair(mode int, name string) {

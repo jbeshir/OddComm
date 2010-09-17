@@ -13,15 +13,16 @@ import "oddcomm/src/core"
 // An error is returned if unknown modes are encountered, or modes are dropped
 // due to missing parameters. The remainder of the modes are still parsed.
 // e is the user or channel being changed.
-func (p *ModeParser) ParseModeLine(source *core.User, e core.Extensible, modeline []byte, params [][]byte) (*core.DataChange, os.Error) {
+func (p *ModeParser) ParseModeLine(source *core.User, e core.Extensible, modeline []byte, params []string) (*core.DataChange, os.Error) {
 	var adding bool = true
 	var unknown string
 	var missing string
 	var param int
 	modes := string(modeline)
-	changes := make (map[string]*core.DataChange)
+	changes := make(map[string]*core.DataChange)
 
 	for _, char := range modes {
+
 		if char == '+' {
 			adding = true
 			continue
@@ -29,7 +30,7 @@ func (p *ModeParser) ParseModeLine(source *core.User, e core.Extensible, modelin
 			adding = false
 			continue
 		}
-	
+
 		if v, ok := p.simple[char]; ok {
 			if v, ok := p.extended[char]; ok {
 				newchanges := v(adding, e, "")
@@ -58,7 +59,7 @@ func (p *ModeParser) ParseModeLine(source *core.User, e core.Extensible, modelin
 				}
 
 				if v, ok := p.extended[char]; ok {
-					newchanges := v(adding, e, string(params[param]))
+					newchanges := v(adding, e, params[param])
 					param++
 					for it := newchanges; it != nil
 							it = it.Next {
@@ -69,7 +70,7 @@ func (p *ModeParser) ParseModeLine(source *core.User, e core.Extensible, modelin
 
 				change = new(core.DataChange)
 				change.Name = v
-				change.Data = string(params[param])
+				change.Data = params[param]
 				param++
 			} else {
 				if v, ok := p.extended[char]; ok {
@@ -95,7 +96,7 @@ func (p *ModeParser) ParseModeLine(source *core.User, e core.Extensible, modelin
 				continue
 			}
 			change := new(core.DataChange)
-			cparam := string(params[param])
+			cparam := params[param]
 			param++
 
 			if v, ok := p.extended[char]; ok {
@@ -130,7 +131,7 @@ func (p *ModeParser) ParseModeLine(source *core.User, e core.Extensible, modelin
 				missing += string(char)
 				continue
 			}
-			par := string(params[param])
+			par := params[param]
 			param++
 
 			if v, ok := p.extended[char]; ok {
@@ -341,7 +342,7 @@ func (p* ModeParser) GetModes(e core.Extensible) string {
 }
 
 
-// GetModeList calls the given function for every entry in the list mode,
+// ListMode calls the given function for every entry in the list mode,
 // with the parameter of this mode list entry, and its metadata value. If
 // there are none, it will not be called.
 func (p* ModeParser) ListMode(e core.Extensible, char int, f func(param, value string)) bool {

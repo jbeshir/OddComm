@@ -53,9 +53,14 @@ func init() {
 
 	core.HookUserRegister(func(u *core.User) {
 		if c := GetClient(u); c != nil {
-			c.WriteTo(nil, "001", ":Welcome to IRC")
+			c.WriteTo(nil, "001", ":Welcome to the %s IRC Network %s!%s@%s", "Testnet", u.Nick(), u.GetIdent(), u.GetHostname())
+			c.WriteTo(nil, "002", "Your host is %s, running version OddComm-%s", "Server.name", core.Version)
+			c.WriteTo(nil, "004", "%s OddComm-%s %s%s%s %s %s%s%s", "Server.name", core.Version, UserModes.AllSimple(), UserModes.AllParametered(), UserModes.AllList(), ChanModes.AllSimple(), ChanModes.AllParametered(), ChanModes.AllList(), ChanModes.AllMembership())
+			c.WriteTo(nil, "005", "%s :are supported by this server", supportLine)
+			c.WriteTo(nil, "005", "%s :your unique ID", u.ID())
 			modeline := UserModes.GetModes(u)
 			c.WriteTo(u, "MODE", "+%s", modeline)
+		
 		}
 	})
 

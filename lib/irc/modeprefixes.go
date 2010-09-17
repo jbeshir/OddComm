@@ -39,6 +39,24 @@ func (p *ModeParser) AddPrefix(prefixchar int, metadata string, level int) {
 	})
 }
 
+
+// AllPrefixes returns a list of all the prefixes, and their corresponding
+// mode. Prefixes whose corresponding metadata does not have a mode are
+// skipped; these should not exist anyway. Prefixes will appear in order of
+// rank, from highest to lowest.
+func (p *ModeParser) AllPrefixes() (prefixes string, modes string) {
+	for it := p.prefixes; it != nil; it = it.next {
+		m, ok := p.nameToMembership[it.metadata]
+		if !ok {
+			continue
+		}
+
+		prefixes += string(it.prefix)
+		modes += string(m)
+	}
+	return
+}
+
 // GetPrefixes returns the prefixes for a membership entry.
 func (p *ModeParser) GetPrefixes (m *core.Membership) string {
 	return m.Data(strconv.Uitoa64(p.id) + " prefixes")

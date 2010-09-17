@@ -6,6 +6,9 @@
 */
 package core
 
+// Sets the server version strinhg.
+var Version string = "0.0.1"
+
 
 // The main users by ID map to look up users.
 var users map[string]*User

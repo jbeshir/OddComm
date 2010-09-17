@@ -11,7 +11,7 @@ import "oddcomm/lib/perm"
 func init() {
 	c := new(irc.Command)
 	c.Name = "OMODE"; c.Handler = cmdOmode
-	c.Minargs = 2; c.Maxargs = 42
+	c.Minargs = 2; c.Maxargs = 3
 	c.OperFlag = "chanctrl"
 	client.Commands.Add(c)
 }
@@ -105,8 +105,11 @@ func cmdOmode(u *core.User, w io.Writer, params [][]byte) {
 	}
 
 	// Otherwise, we're setting modes.
-	changes, err := client.ChanModes.ParseModeLine(u, ch, params[1],
-	                                               params[2:])
+	var mpars []string
+	if len(params) == 3 {
+		mpars = strings.Fields(string(params[2]))
+	}
+	changes, err := client.ChanModes.ParseModeLine(u, ch, params[1], mpars)
 	if err != nil {
 		c.WriteTo(nil, "501", "%s", err)
 	}
