@@ -86,6 +86,56 @@ func (m *Membership) SetData(source *User, name string, value string) {
 	runChanDataChangesHooks(m.c.Type(), source, m.c, c, old)
 }
 
+// SetDataList performs the given list of metadata changes on the membership
+// entry. This is equivalent to lots of SetData calls, except hooks for all
+// data changes will receive it as a single list, and it is cheaper.
+// source may be nil, in which case the metadata is set by the server.
+func (m *Membership) SetDataList(source *User, c *DataChange) {
+	var oldvalues *OldData
+	wait := make(chan bool)
+	corechan <- func() {
+		var lasthook *DataChange
+		var lastold **OldData = &oldvalues
+		for it := c; it != nil; it = it.Next {
+
+			// Make the change.
+			var old interface{}
+			var oldvalue string
+			if it.Data != "" {
+				old = TrieAdd(&m.data, it.Name, it.Data)
+			} else {
+				old = TrieDel(&m.data, it.Name)
+			}
+			if old != nil {
+				oldvalue = old.(string)
+			}
+
+			// If this was a do-nothing change, cut it out.
+			if oldvalue == it.Data {
+				if lasthook != nil {
+					lasthook.Next = it.Next
+				} else {
+					c = it.Next
+				}
+				continue
+			}
+
+			olddata := new(OldData)
+			olddata.Data = oldvalue
+			*lastold = olddata
+			lasthook = it
+			lastold = &olddata.Next
+		}
+
+		wait <- true
+	}
+	<-wait
+
+	for it, old := c, oldvalues; it != nil && old != nil; it, old = it.Next, old.Next {
+		runMemberDataChangeHooks(m.c.Type(), source, m, it.Name, old.Data, it.Data)
+	}
+	runChanDataChangesHooks(m.c.Type(), source, m.c, c, oldvalues)
+}
 
 // Data retrieves the requested piece of metadata from this membership entry.
 // It returns "" if no such piece of metadata exists.

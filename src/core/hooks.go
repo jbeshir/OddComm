@@ -4,6 +4,7 @@ package core
 type Extensible interface {
 	Data(name string) string
 	SetData(source *User, name, value string)
+	SetDataList(source *User, c *DataChange)
 	DataRange(prefix string, f func(name, value string))
 }
 

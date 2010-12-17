@@ -359,14 +359,14 @@ func makeBan(char int, def string, e core.Extensible, name, oldvalue, newvalue s
 	// If we have a new ban, set it.
 	if newparam != "" {
 		add = []int{char}
-		addparam = new([1]string)
+		addparam = new([1]string)[:]
 		addparam[0] = newparam
 	}
 
 	// If we had an old ban, unset it.
 	if oldparam != "" {
 		rem = []int{char}
-		remparam = new([1]string)
+		remparam = new([1]string)[:]
 		remparam[0] = oldparam
 	}
 

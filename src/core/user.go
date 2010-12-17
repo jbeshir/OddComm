@@ -275,7 +275,7 @@ func (u *User) SetDataList(source *User, c *DataChange) {
 	<-wait
 
 	for it, old := c, oldvalues; it != nil && old != nil; it, old = it.Next, old.Next {
-		runUserDataChangeHooks(source, u, c.Name, old.Data, c.Data)
+		runUserDataChangeHooks(source, u, c.Name, old.Data, it.Data)
 	}
 	runUserDataChangesHooks(source, u, c, oldvalues)
 }

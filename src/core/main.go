@@ -6,7 +6,7 @@
 */
 package core
 
-// Sets the server version strinhg.
+// Sets the server version string.
 var Version string = "0.0.1"
 
 

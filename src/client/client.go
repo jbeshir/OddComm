@@ -121,10 +121,10 @@ func (c *Client) WriteTo(u *core.User, cmd string, format string,
 	if u != nil {
 		fmt.Fprintf(c, ":%s!%s@%s %s %s %s\r\n", u.Nick(),
 		            u.GetIdent(), u.GetHostname(), cmd,
-		            c.u.Nick(), fmt.Sprintf(format, args))
+		            c.u.Nick(), fmt.Sprintf(format, args...))
 	} else {
 		fmt.Fprintf(c, ":%s %s %s %s\r\n", "Server.name", cmd,
-		            c.u.Nick(), fmt.Sprintf(format, args))
+		            c.u.Nick(), fmt.Sprintf(format, args...))
 	}
 }
 
@@ -135,9 +135,9 @@ func (c *Client) WriteFrom(u *core.User, format string, args ...interface{}) {
 	if u != nil {
 		fmt.Fprintf(c, ":%s!%s@%s %s\r\n", u.Nick(),
 		            u.GetIdent(), u.GetHostname(),
-		            fmt.Sprintf(format, args))
+		            fmt.Sprintf(format, args...))
 	} else {
 		fmt.Fprintf(c, ":%s %s\r\n", "Server.name",
-		            fmt.Sprintf(format, args))
+		            fmt.Sprintf(format, args...))
 	}
 }
