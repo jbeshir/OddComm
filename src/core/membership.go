@@ -136,7 +136,7 @@ func (m *Membership) Data(name string) (value string) {
 	return
 }
 
-// DataRange calls the given function for every piece of metadata with the
+// DataRnge calls the given function for every piece of metadata with the
 // given prefix. If none are found, the function is never called. Metadata
 // items added while this function is running may or may not be missed.
 func (m *Membership) DataRange(prefix string, f func(name, value string)) {

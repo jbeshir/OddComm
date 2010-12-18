@@ -275,28 +275,30 @@ func (ch *Channel) Join(u *User) {
 				alreadyJoined = true
 			}
 		}
-	}
 
-	if !alreadyJoined {
-		m := new(Membership)
-		m.c = ch
-		m.u = u
-		m.unext = u.chans
-		m.cnext = ch.users
-		u.chans = m
-		ch.users = m
-		if m.unext != nil {
-			m.unext.uprev = m
+		if !alreadyJoined {
+			m := new(Membership)
+			m.c = ch
+			m.u = u
+			m.unext = u.chans
+			m.cnext = ch.users
+			u.chans = m
+			ch.users = m
+			if m.unext != nil {
+				m.unext.uprev = m
+			}
+
+			u.mutex.Unlock()
+
+			if m.cnext != nil {
+				m.cnext.u.mutex.Lock()
+				m.cnext.cprev = m
+				m.cnext.u.mutex.Unlock()
+			}
+			joined = true
+		} else {
+			u.mutex.Unlock()
 		}
-
-		u.mutex.Unlock()
-
-		if m.cnext != nil {
-			m.cnext.u.mutex.Lock()
-			m.cnext.cprev = m
-			m.cnext.u.mutex.Unlock()
-		}
-		joined = true
 	} else {
 		u.mutex.Unlock()
 	}
@@ -314,6 +316,7 @@ func (ch *Channel) Join(u *User) {
 // This behaves as iterates the user list, and then calling Remove() on the
 // Membership struct would, but is faster.
 func (ch *Channel) Remove(source, u *User, message string) {
+	var m *Membership
 
 	// Unregistered users may not remove other users.
 	if source != nil && !source.Registered() {
@@ -324,23 +327,41 @@ func (ch *Channel) Remove(source, u *User, message string) {
 	u.mutex.Lock()
 
 	// Unregistered users may not join channels in the first place.
-	if !u.Registered() {
-		return
-	}
+	if u.regstate == 0 {
+		
+		// Search for them, remove them if we find them.
+		for it := ch.users; it != nil; it = it.cnext {
+			if it.u == u {
+				if it.cprev == nil {
+					it.c.users = it.cnext
+				} else {
+					it.cprev.cnext = it.cnext
+				}
+				if it.cnext != nil {
+					it.cnext.cprev = it.cprev
+				}
 
-	// Search for them, remove them if we find them.
-	for it := ch.users; it != nil; it = it.cnext {
-		if it.u == u {
-			// FIXME FIXME FIXME BUG
-			// This must be replaced by the contents of it.Remove()
-			// As we are holding mutexes it will attempt to lock.
-			// This call WILL lock up.
-			it.Remove(source, message)
+				if it.uprev == nil {
+					it.u.chans = it.unext
+				} else {
+					it.uprev.unext = it.unext
+				}
+				if it.unext != nil {
+					it.unext.uprev = it.uprev
+				}
+
+				m = it
+				break	
+			}
 		}
 	}
 
 	u.mutex.Unlock()
 	ch.mutex.Unlock()
+
+	if m != nil {
+		runChanUserRemoveHooks(m.c.t, source, m.u, m.c, message)
+	}
 }
 
 // Message sends a message to the channel.

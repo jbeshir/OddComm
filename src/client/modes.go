@@ -35,7 +35,7 @@ func init() {
 	ChanModes.ExtendModeToData('n', func(_ bool, _ core.Extensible, _ string) *core.DataChange {
 		return nil
 	})
-	ChanModes.ExtendGetSet('m', func(_ core.Extensible) string {
+	ChanModes.ExtendGetSet('n', func(_ core.Extensible) string {
 		return "on"
 	})
 
