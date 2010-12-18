@@ -28,16 +28,14 @@ func (u *User) GetHostname() (hostname string) {
 func (u *User) GetSetBy() (setby string) {
 	wait := make(chan bool)
 	corechan <- func() {
-		if v := u.data.Get("account"); v != nil {
-			setby = v.(string)
-		} else {
-			ident := "-"
-			if v := u.data.Get("ident"); v != nil {
-				ident = v.(string)
+		if setby = u.data.Get("account"); setby == ""{
+			ident := u.data.Get("ident")
+			if ident == "" {
+				ident = "-"
 			}
-			hostname := "Server.name"
-			if v := u.data.Get("hostname"); v != nil {
-				hostname = v.(string)
+			hostname := u.data.Get("hostname")
+			if hostname == "" {
+				hostname = "Server.name"
 			}
 			setby = u.nick + "!" + ident + "@" + hostname
 		}

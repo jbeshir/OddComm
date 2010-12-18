@@ -10,7 +10,7 @@ type Membership struct {
 	uprev *Membership // Next membership entry for the user.
 	cprev *Membership // Previous membership entry for the channel.
 	cnext *Membership // Next membership entry for the channel.
-	data  trie.Trie
+	data  trie.StringTrie
 }
 
 // Channel returns the channel that this membership entry is for.
@@ -57,17 +57,11 @@ func (m *Membership) SetData(source *User, name string, value string) {
 
 	wait := make(chan bool)
 	corechan <- func() {
-
-		var old interface{}
 		if value != "" {
-			old = m.data.Add(name, value)
+			oldvalue = m.data.Add(name, value)
 		} else {
-			old = m.data.Del(name)
+			oldvalue = m.data.Del(name)
 		}
-		if old != nil {
-			oldvalue = old.(string)
-		}
-
 		wait <- true
 	}
 	<-wait
@@ -101,15 +95,11 @@ func (m *Membership) SetDataList(source *User, c *DataChange) {
 		for it := c; it != nil; it = it.Next {
 
 			// Make the change.
-			var old interface{}
 			var oldvalue string
 			if it.Data != "" {
-				old = m.data.Add(it.Name, it.Data)
+				oldvalue = m.data.Add(it.Name, it.Data)
 			} else {
-				old = m.data.Del(it.Name)
-			}
-			if old != nil {
-				oldvalue = old.(string)
+				oldvalue = m.data.Del(it.Name)
 			}
 
 			// If this was a do-nothing change, cut it out.
@@ -144,10 +134,7 @@ func (m *Membership) SetDataList(source *User, c *DataChange) {
 func (m *Membership) Data(name string) (value string) {
 	wait := make(chan bool)
 	corechan <- func() {
-		val := m.data.Get(name)
-		if val != nil {
-			value = val.(string)
-		}
+		value = m.data.Get(name)
 		wait <- true
 	}
 	<-wait
@@ -161,7 +148,7 @@ func (m *Membership) Data(name string) (value string) {
 func (m *Membership) DataRange(prefix string, f func(name, value string)) {
 	var dataArray [50]DataChange
 	var data []DataChange = dataArray[0:0]
-	var root, it trie.Trie
+	var root, it trie.StringTrie
 	wait := make(chan bool)
 
 	// Get an iterator pointing to our first value.
@@ -181,10 +168,8 @@ func (m *Membership) DataRange(prefix string, f func(name, value string)) {
 		// Get up to 50 values from this subtrie.
 		corechan <- func() {
 			for i := 0; i < cap(data); i++ {
-				var val interface{}
 				data = data[0 : i+1]
-				data[i].Name, val = it.Value()
-				data[i].Data = val.(string)
+				data[i].Name, data[i].Data = it.Value()
 				it = it.Next(root)
 				if it.Empty() {
 					break

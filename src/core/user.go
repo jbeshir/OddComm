@@ -13,7 +13,7 @@ type User struct {
 	checked  bool
 	regstate int
 	chans    *Membership
-	data     trie.Trie
+	data     trie.StringTrie
 }
 
 
@@ -202,16 +202,11 @@ func (u *User) SetData(source *User, name string, value string) {
 
 	wait := make(chan bool)
 	corechan <- func() {
-		var old interface{}
 		if value != "" {
-			old = u.data.Add(name, value)
+			oldvalue = u.data.Add(name, value)
 		} else {
-			old = u.data.Del(name)
+			oldvalue = u.data.Del(name)
 		}
-		if old != nil {
-			oldvalue = old.(string)
-		}
-
 		wait <- true
 	}
 	<-wait
@@ -244,15 +239,11 @@ func (u *User) SetDataList(source *User, c *DataChange) {
 		for it := c; it != nil; it = it.Next {
 
 			// Make the change.
-			var old interface{}
 			var oldvalue string
 			if it.Data != "" {
-				old = u.data.Add(it.Name, it.Data)
+				oldvalue = u.data.Add(it.Name, it.Data)
 			} else {
-				old = u.data.Del(it.Name)
-			}
-			if old != nil {
-				oldvalue = old.(string)
+				oldvalue = u.data.Del(it.Name)
 			}
 
 			// If this was a do-nothing change, cut it out.
@@ -287,10 +278,7 @@ func (u *User) SetDataList(source *User, c *DataChange) {
 func (u *User) Data(name string) (value string) {
 	wait := make(chan bool)
 	corechan <- func() {
-		val := u.data.Get(name)
-		if val != nil {
-			value = val.(string)
-		}
+		value = u.data.Get(name)
 		wait <- true
 	}
 	<-wait
@@ -304,7 +292,7 @@ func (u *User) Data(name string) (value string) {
 func (u *User) DataRange(prefix string, f func(name, value string)) {
 	var dataArray [50]DataChange
 	var data []DataChange = dataArray[0:0]
-	var root, it trie.Trie
+	var root, it trie.StringTrie
 	wait := make(chan bool)
 
 	// Get an iterator pointing to our first value.
@@ -324,10 +312,8 @@ func (u *User) DataRange(prefix string, f func(name, value string)) {
 		// Get up to 50 values from this subtrie.
 		corechan <- func() {
 			for i := 0; i < cap(data); i++ {
-				var val interface{}
 				data = data[0 : i+1]
-				data[i].Name, val = it.Value()
-				data[i].Data = val.(string)
+				data[i].Name, data[i].Data = it.Value()
 				it = it.Next(root)
 				if it.Empty() {
 					break

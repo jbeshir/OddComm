@@ -13,7 +13,7 @@ type Channel struct {
 	t     string
 	ts    int64
 	users *Membership
-	data  trie.Trie
+	data  trie.StringTrie
 }
 
 
@@ -89,14 +89,10 @@ func (ch *Channel) SetData(source *User, name string, value string) {
 	wait := make(chan bool)
 	corechan <- func() {
 
-		var old interface{}
 		if value != "" {
-			old = ch.data.Add(name, value)
+			oldvalue = ch.data.Add(name, value)
 		} else {
-			old = ch.data.Del(name)
-		}
-		if old != nil {
-			oldvalue = old.(string)
+			oldvalue = ch.data.Del(name)
 		}
 
 		wait <- true
@@ -138,15 +134,11 @@ func (ch *Channel) SetDataList(source *User, c *DataChange) {
 			}
 
 			// Make the change.
-			var old interface{}
 			var oldvalue string
 			if it.Data != "" {
-				old = t.Add(it.Name, it.Data)
+				oldvalue = t.Add(it.Name, it.Data)
 			} else {
-				old = t.Del(it.Name)
-			}
-			if old != nil {
-				oldvalue = old.(string)
+				oldvalue = t.Del(it.Name)
 			}
 
 			// If this was a do-nothing change, cut it out.
@@ -189,10 +181,7 @@ func (ch *Channel) SetDataList(source *User, c *DataChange) {
 func (ch *Channel) Data(name string) (value string) {
 	wait := make(chan bool)
 	corechan <- func() {
-		val := ch.data.Get(name)
-		if val != nil {
-			value = val.(string)
-		}
+		value = ch.data.Get(name)
 		wait <- true
 	}
 	<-wait
@@ -206,7 +195,7 @@ func (ch *Channel) Data(name string) (value string) {
 func (ch *Channel) DataRange(prefix string, f func(name, value string)) {
 	var dataArray [50]DataChange
 	var data []DataChange = dataArray[0:0]
-	var root, it trie.Trie
+	var root, it trie.StringTrie
 	wait := make(chan bool)
 
 	// Get an iterator pointing to our first value.
@@ -226,10 +215,8 @@ func (ch *Channel) DataRange(prefix string, f func(name, value string)) {
 		// Get up to 50 values from this subtrie.
 		corechan <- func() {
 			for i := 0; i < cap(data); i++ {
-				var val interface{}
 				data = data[0 : i+1]
-				data[i].Name, val = it.Value()
-				data[i].Data = val.(string)
+				data[i].Name, data[i].Data = it.Value()
 				it = it.Next(root)
 				if it.Empty() {
 					break
@@ -362,16 +349,14 @@ func (ch *Channel) Delete() {
 func (ch *Channel) GetTopic() (topic, setby, setat string) {
 	wait := make(chan bool)
 	corechan <- func() {
-		setby = "Server.name"
-		setat = "0"
-		if v := ch.data.Get("topic"); v != nil {
-			topic = v.(string)
+		topic = ch.data.Get("topic")
+		setby = ch.data.Get("topic setby")
+		setat = ch.data.Get("topic setat")
+		if setby == "" {
+			setby = "Server.name"
 		}
-		if v := ch.data.Get("topic setby"); v != nil {
-			setby = v.(string)
-		}
-		if v := ch.data.Get("topic setat"); v != nil {
-			setat = v.(string)
+		if setat == "" {
+			setat = "0"
 		}
 		wait <- true
 	}
