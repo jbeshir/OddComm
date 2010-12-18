@@ -1,6 +1,6 @@
 package trie
 
-// If this file is not called template.notgo, it is an automatically generated
+// If this file is not called base.go, it is an automatically generated
 // variation on it, in which case you should not edit directly nor commit it.
 
 // Iterator safety: Thanks to garbage collection, we get 90% of this for free.
@@ -165,7 +165,7 @@ func (t *Trie) Add(key string, value interface{}) (old interface{}) {
 		n.down = newn
 		n.nodekey = n.nodekey[0:i]
 		n.key = ""
-		n.value = nu
+		n.value = interface{}(nil)
 
 		// If none of our name is left, then the first parent node
 		// above matches it. Otherwise, we need to add ourselves as a
@@ -263,7 +263,7 @@ func (t *Trie) Del(key string) (old interface{}) {
 					c := n.down
 					if c.next != n || c.down != nil {
 						n.key = ""
-						n.value = nu
+						n.value = interface{}(nil)
 						return
 					}
 
@@ -293,7 +293,7 @@ func (t *Trie) Del(key string) (old interface{}) {
 					// Otherwise, recurse up, deleting
 					// parents without children or values.
 					n.key = ""
-					n.value = nu
+					n.value = interface{}(nil)
 					for ; n != nil; n = n.next {
 						// If we have a value, stop.
 						if n.key != "" {

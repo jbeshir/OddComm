@@ -1,4 +1,3 @@
-lib/trie/base.go
 lib/trie/string.go
 pkg
 src/main/oddcomm
