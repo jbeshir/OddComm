@@ -14,43 +14,57 @@ func init() {
 	if Commands == nil {
 		Commands = irc.NewCommandDispatcher()
 	}
-	
+
 	c = new(irc.Command)
-	c.Name = "VERSION"; c.Handler = cmdVersion
+	c.Name = "VERSION"
+	c.Handler = cmdVersion
 	Commands.Add(c)
 
 	c = new(irc.Command)
-	c.Name = "USERHOST"; c.Handler = cmdUserhost
-	c.Minargs = 1; c.Maxargs = 1
+	c.Name = "USERHOST"
+	c.Handler = cmdUserhost
+	c.Minargs = 1
+	c.Maxargs = 1
 	Commands.Add(c)
 
 	c = new(irc.Command)
-	c.Name = "ISON"; c.Handler = cmdIsOn
-	c.Minargs = 1; c.Maxargs = 1
+	c.Name = "ISON"
+	c.Handler = cmdIsOn
+	c.Minargs = 1
+	c.Maxargs = 1
 	Commands.Add(c)
 
 	c = new(irc.Command)
-	c.Name = "WHO"; c.Handler = cmdWho
-	c.Minargs = 1; c.Maxargs = 1
+	c.Name = "WHO"
+	c.Handler = cmdWho
+	c.Minargs = 1
+	c.Maxargs = 1
 	Commands.Add(c)
 
 	c = new(irc.Command)
-	c.Name = "NAMES"; c.Handler = cmdNames
-	c.Minargs = 1; c.Maxargs = 1
+	c.Name = "NAMES"
+	c.Handler = cmdNames
+	c.Minargs = 1
+	c.Maxargs = 1
 	Commands.Add(c)
-	
+
 	c = new(irc.Command)
-	c.Name = "TIME"; c.Handler = cmdTime
+	c.Name = "TIME"
+	c.Handler = cmdTime
 	Commands.Add(c)
-	
+
 	c = new(irc.Command)
-	c.Name = "OPFLAGS"; c.Handler = cmdOpflags
-	c.Minargs = 2; c.Maxargs = 2
+	c.Name = "OPFLAGS"
+	c.Handler = cmdOpflags
+	c.Minargs = 2
+	c.Maxargs = 2
 	Commands.Add(c)
-	
+
 	c = new(irc.Command)
-	c.Name = "OPERFLAGS"; c.Handler = cmdOperflags
-	c.Minargs = 1; c.Maxargs = 1
+	c.Name = "OPERFLAGS"
+	c.Handler = cmdOperflags
+	c.Minargs = 1
+	c.Maxargs = 1
 	c.OperFlag = "viewflags"
 	Commands.Add(c)
 }
@@ -122,7 +136,7 @@ func cmdWho(u *core.User, w io.Writer, params [][]byte) {
 	if ch = core.FindChannel("", channame); ch == nil {
 		c.WriteTo(nil, "403", "#%s :No such channel.", channame)
 		return
-	}	
+	}
 
 	// If the user isn't on the channel, don't let them check unless they
 	// can view private channel data.
@@ -146,9 +160,9 @@ func cmdWho(u *core.User, w io.Writer, params [][]byte) {
 		}
 		prefixes += ChanModes.GetPrefixes(it)
 		c.WriteTo(nil, "352", "#%s %s %s %s %s %s :0 %s",
-		          channame, user.GetIdent(),
-		          user.GetHostname(), "Server.name",
-		          user.Nick(), prefixes, user.Data("realname"))
+			channame, user.GetIdent(),
+			user.GetHostname(), "Server.name",
+			user.Nick(), prefixes, user.Data("realname"))
 	}
 	c.WriteTo(nil, "315", "#%s :End of /WHO list.", channame)
 }
@@ -243,7 +257,7 @@ func cmdOpflags(u *core.User, w io.Writer, params [][]byte) {
 
 	if flags == "on" {
 		flags = perm.DefaultChanOp()
-	}	
+	}
 	c.WriteTo(nil, "304", ":OPFLAGS #%s: %s has channel op flags: %s", ch.Name(), target.Nick(), flags)
 }
 
@@ -253,7 +267,7 @@ func cmdOperflags(u *core.User, w io.Writer, params [][]byte) {
 	var target *core.User
 	if target = core.GetUserByNick(string(params[0])); target == nil {
 		c.WriteTo(nil, "401", "%s %s :No such user.", u.Nick(),
-		          params[0])
+			params[0])
 		return
 	}
 
@@ -265,7 +279,7 @@ func cmdOperflags(u *core.User, w io.Writer, params [][]byte) {
 
 	if flags == "on" {
 		flags = perm.DefaultServerOp()
-	}	
+	}
 	c.WriteTo(nil, "304", ":OPERFLAGS: %s has server oper flags: %s", target.Nick(), flags)
 
 	var commands string

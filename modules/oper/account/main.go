@@ -37,5 +37,6 @@ func init() {
 				target.SetData(nil, "opcommands", v)
 			}
 		}
-	}, true)
+	},
+		true)
 }

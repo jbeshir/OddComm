@@ -39,14 +39,14 @@ func (p *ModeParser) ParseModeLine(source *core.User, e core.Extensible, modelin
 				}
 				continue
 			}
-	
+
 			change := new(core.DataChange)
 			change.Name = v
 			if adding {
 				change.Data = "on"
 			}
 
-			changes[change.Name] = change	
+			changes[change.Name] = change
 			continue
 		}
 
@@ -61,8 +61,7 @@ func (p *ModeParser) ParseModeLine(source *core.User, e core.Extensible, modelin
 				if v, ok := p.extended[char]; ok {
 					newchanges := v(adding, e, params[param])
 					param++
-					for it := newchanges; it != nil
-							it = it.Next {
+					for it := newchanges; it != nil; it = it.Next {
 						changes[it.Name] = it
 					}
 					continue
@@ -75,8 +74,7 @@ func (p *ModeParser) ParseModeLine(source *core.User, e core.Extensible, modelin
 			} else {
 				if v, ok := p.extended[char]; ok {
 					newchanges := v(adding, e, "")
-					for it := newchanges; it != nil
-							it = it.Next {
+					for it := newchanges; it != nil; it = it.Next {
 						changes[it.Name] = it
 					}
 					continue
@@ -89,7 +87,7 @@ func (p *ModeParser) ParseModeLine(source *core.User, e core.Extensible, modelin
 			changes[change.Name] = change
 			continue
 		}
-		
+
 		if v, ok := p.list[char]; ok {
 			if param >= len(params) {
 				missing += string(char)
@@ -138,7 +136,7 @@ func (p *ModeParser) ParseModeLine(source *core.User, e core.Extensible, modelin
 				newchanges := v(adding, e, par)
 				for it := newchanges; it != nil; it = it.Next {
 					if it.Member != nil {
-						changes["m" + it.Member.User().ID() + " " + it.Name] = it
+						changes["m"+it.Member.User().ID()+" "+it.Name] = it
 					} else {
 						changes[it.Name] = it
 					}
@@ -156,7 +154,7 @@ func (p *ModeParser) ParseModeLine(source *core.User, e core.Extensible, modelin
 			if m = ch.GetMember(u); m == nil {
 				continue
 			}
-			
+
 			change := new(core.DataChange)
 			change.Name = v
 			change.Member = m
@@ -165,7 +163,7 @@ func (p *ModeParser) ParseModeLine(source *core.User, e core.Extensible, modelin
 				change.Data = "on"
 			}
 
-			changes["m" + change.Member.User().ID() + " " + change.Name] = change
+			changes["m"+change.Member.User().ID()+" "+change.Name] = change
 			continue
 		}
 
@@ -201,8 +199,7 @@ func (p *ModeParser) ParseModeLine(source *core.User, e core.Extensible, modelin
 // ParseChanges parses a list of mode changes into a line of mode changes and
 // parameters. Changes which do not correspond to a mode are dropped.
 // e is the user or channel being changed.
-func (p *ModeParser) ParseChanges(e core.Extensible, c *core.DataChange,
-                                  old *core.OldData) (modeline string) {
+func (p *ModeParser) ParseChanges(e core.Extensible, c *core.DataChange, old *core.OldData) (modeline string) {
 	var addmodes string
 	var remmodes string
 	var addparams string
@@ -221,7 +218,7 @@ func (p *ModeParser) ParseChanges(e core.Extensible, c *core.DataChange,
 			}
 			continue
 		}
-	
+
 		if v, ok := p.nameToSimple[it.Name]; ok {
 			if it.Data != "" {
 				addmodes += string(v)
@@ -267,7 +264,7 @@ func (p *ModeParser) ParseChanges(e core.Extensible, c *core.DataChange,
 		var subentry = strings.LastIndex(it.Name, " ") + 1
 		for subentry > 2 {
 			if v, ok := p.nameToExt[it.Name[0:subentry-1]]; ok &&
-					v != nil {
+				v != nil {
 				add, addpar, rem, rempar := v(e, it.Name, o.Data, it.Data)
 				addmodes += string(add)
 				remmodes += string(rem)
@@ -291,7 +288,7 @@ func (p *ModeParser) ParseChanges(e core.Extensible, c *core.DataChange,
 				break
 			}
 			subentry = strings.LastIndex(it.Name[subentry:], " ") +
-			           1
+				1
 		}
 	}
 
@@ -309,7 +306,7 @@ func (p *ModeParser) ParseChanges(e core.Extensible, c *core.DataChange,
 // GetModes gets the modeline associated with a user or channel.
 // It caches its result via metadata on the user, using the mode parser's
 // mode ID to disambiguate it from other mode parsers.
-func (p* ModeParser) GetModes(e core.Extensible) string {
+func (p *ModeParser) GetModes(e core.Extensible) string {
 	var modes string
 	var params string
 
@@ -345,10 +342,10 @@ func (p* ModeParser) GetModes(e core.Extensible) string {
 // ListMode calls the given function for every entry in the list mode,
 // with the parameter of this mode list entry, and its metadata value. If
 // there are none, it will not be called.
-func (p* ModeParser) ListMode(e core.Extensible, char int, f func(param, value string)) bool {
+func (p *ModeParser) ListMode(e core.Extensible, char int, f func(param, value string)) bool {
 	prefix := p.list[char]
 	if prefix != "" {
-		e.DataRange(prefix + " ", func(name, value string) {
+		e.DataRange(prefix+" ", func(name, value string) {
 			if v, ok := p.nameToExt[prefix]; ok {
 				_, addpar, _, _ := v(e, name, "", value)
 				for _, par := range addpar {

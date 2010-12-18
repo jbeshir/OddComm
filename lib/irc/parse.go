@@ -34,7 +34,7 @@ func Parse(d CommandDispatcher, line []byte, regged bool) (origin []byte, comman
 
 	// If it begins with a ':', it's an origin.
 	// Note it aside and step on to the next word.
-	if (len(word) > 0 && word[0] == ':') {
+	if len(word) > 0 && word[0] == ':' {
 		origin = word[1:]
 
 		nextword()
@@ -70,30 +70,30 @@ func Parse(d CommandDispatcher, line []byte, regged bool) (origin []byte, comman
 	for len(params) < 50 {
 
 		// If the line is empty, break.
-		if (len(line) == 0) {
+		if len(line) == 0 {
 			break
 		}
 
 		// If it begins with a colon, the rest of the line after that
 		// point is the final parameter.
-		if (line[0] == ':') {
+		if line[0] == ':' {
 			param_array[len(params)] = line[1:]
-			params = params[0:len(params)+1]
+			params = params[0 : len(params)+1]
 			break
 		}
 
 		// If we've hit the limit for parameters, the whole rest of the
 		// line is one large final parameter.
-		if len(params) == command.Maxargs - 1 || len(params) == 49 {
+		if len(params) == command.Maxargs-1 || len(params) == 49 {
 			param_array[len(params)] = line
-			params = params[0:len(params)+1]
+			params = params[0 : len(params)+1]
 			break
 		}
 
 		// Otherwise, this parameter runs up to the next space.
 		nextword()
 		param_array[len(params)] = word
-		params = params[0:len(params)+1]
+		params = params[0 : len(params)+1]
 	}
 
 	// If we don't have enough parameters, treat it as a failed dispatch.
@@ -109,7 +109,7 @@ func Parse(d CommandDispatcher, line []byte, regged bool) (origin []byte, comman
 
 // Represents an error parsing a line.
 type ParseError struct {
-	Num int
+	Num     int
 	CmdName string
 }
 
@@ -125,10 +125,14 @@ const (
 // It also makes ParseError meet the os.Error interface.
 func (err *ParseError) String() string {
 	switch err.Num {
-		case CmdNotFound: return "Unknown command."
-		case CmdForRegistered: return "You have not registered."
-		case CmdForUnregistered: return "You may not reregister."
-		case CmdTooFewParams: return "Not enough parameters."
+	case CmdNotFound:
+		return "Unknown command."
+	case CmdForRegistered:
+		return "You have not registered."
+	case CmdForUnregistered:
+		return "You may not reregister."
+	case CmdTooFewParams:
+		return "Not enough parameters."
 	}
 
 	// We don't really know what happened, so bullshit them.

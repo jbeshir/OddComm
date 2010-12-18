@@ -16,13 +16,16 @@ func init() {
 	}
 
 	c = new(irc.Command)
-	c.Name = "KILL"; c.Handler = cmdKill
-	c.Minargs = 2; c.Maxargs = 2
+	c.Name = "KILL"
+	c.Handler = cmdKill
+	c.Minargs = 2
+	c.Maxargs = 2
 	c.OperFlag = "ban"
 	Commands.Add(c)
 
 	c = new(irc.Command)
-	c.Name = "DIE"; c.Handler = cmdDie
+	c.Name = "DIE"
+	c.Handler = cmdDie
 	c.OperFlag = "shutdown"
 	Commands.Add(c)
 }

@@ -24,7 +24,7 @@ func externalInvite(source, target *core.User, msg []byte) (int, os.Error) {
 // If the target is already in a channel, you can't invite them.
 // This is deliberately weaker than externalInvite, so external users cannot
 // use invites to see whether a user is in the channel.
-func stupidInvite(source, target *core.User, msg[] byte) (int, os.Error) {
+func stupidInvite(source, target *core.User, msg []byte) (int, os.Error) {
 	var ch *core.Channel
 	if ch = core.FindChannel("", string(msg)); ch == nil {
 		return -100, os.NewError("No such channel.")

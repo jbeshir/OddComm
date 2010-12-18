@@ -76,8 +76,7 @@ func CheckUserData(source, target *core.User, name, value string) (bool, os.Erro
 // CheckUserDataPerm returns the full permissions value for CheckUserData.
 func CheckUserDataPerm(source, target *core.User, name, value string) (int, os.Error) {
 	f := func(f interface{}) (int, os.Error) {
-		h, ok := f.(func(*core.User, *core.User, string,
-		                 string) (int, os.Error))
+		h, ok := f.(func(*core.User, *core.User, string, string) (int, os.Error))
 		if ok && h != nil {
 			return h(source, target, name, value)
 		}
@@ -125,8 +124,7 @@ func CheckChanData(u *core.User, ch *core.Channel, name, value string) (bool, os
 // CheckChanDataPerm returns the full permissions value for CheckChanData.
 func CheckChanDataPerm(u *core.User, ch *core.Channel, name, value string) (int, os.Error) {
 	f := func(f interface{}) (int, os.Error) {
-		h, ok := f.(func(*core.User, *core.Channel, string,
-		                 string) (int, os.Error))
+		h, ok := f.(func(*core.User, *core.Channel, string, string) (int, os.Error))
 		if ok && h != nil {
 			return h(u, ch, name, value)
 		}
@@ -178,8 +176,7 @@ func CheckMemberData(u *core.User, m *core.Membership, name, value string) (bool
 // CheckMemberDataPerm returns the full permissions value for CheckMemberData.
 func CheckMemberDataPerm(u *core.User, m *core.Membership, name, value string) (int, os.Error) {
 	f := func(f interface{}) (int, os.Error) {
-		h, ok := f.(func(*core.User, *core.Membership, string,
-		                 string) (int, os.Error))
+		h, ok := f.(func(*core.User, *core.Membership, string, string) (int, os.Error))
 		if ok && h != nil {
 			return h(u, m, name, value)
 		}

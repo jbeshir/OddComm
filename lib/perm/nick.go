@@ -30,6 +30,6 @@ func CheckNickPerm(u *core.User, nick string) (int, os.Error) {
 			return h(u, nick)
 		}
 		return 0, nil
-	}, true)
+	},
+		true)
 }
-

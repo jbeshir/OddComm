@@ -18,46 +18,60 @@ func init() {
 	}
 
 	c = new(irc.Command)
-	c.Name = "USER"; c.Handler = cmdUser
-	c.Minargs = 4;	c.Maxargs = 4
+	c.Name = "USER"
+	c.Handler = cmdUser
+	c.Minargs = 4
+	c.Maxargs = 4
 	c.Unregged = 2
 	Commands.Add(c)
 
 	c = new(irc.Command)
-	c.Name = "NICK"; c.Handler = cmdNick
-	c.Minargs = 1; c.Maxargs = 1
-	c.Unregged = 1
-	Commands.Add(c)
-
-	c = new(irc.Command)
-	c.Name = "AWAY"; c.Handler = cmdAway
-	c.Maxargs = 1
-	Commands.Add(c)
-
-	c = new(irc.Command)
-	c.Name = "QUIT"; c.Handler = irc.CmdQuit
+	c.Name = "NICK"
+	c.Handler = cmdNick
+	c.Minargs = 1
 	c.Maxargs = 1
 	c.Unregged = 1
 	Commands.Add(c)
 
 	c = new(irc.Command)
-	c.Name = "PING"; c.Handler = cmdPing
-	c.Minargs = 1; c.Maxargs = 1
+	c.Name = "AWAY"
+	c.Handler = cmdAway
+	c.Maxargs = 1
 	Commands.Add(c)
 
 	c = new(irc.Command)
-	c.Name = "MODE"; c.Handler = cmdMode
-	c.Minargs = 1; c.Maxargs = 3
+	c.Name = "QUIT"
+	c.Handler = irc.CmdQuit
+	c.Maxargs = 1
+	c.Unregged = 1
 	Commands.Add(c)
 
 	c = new(irc.Command)
-	c.Name = "PRIVMSG"; c.Handler = cmdPrivmsg
-	c.Minargs = 2; c.Maxargs = 2
+	c.Name = "PING"
+	c.Handler = cmdPing
+	c.Minargs = 1
+	c.Maxargs = 1
 	Commands.Add(c)
 
 	c = new(irc.Command)
-	c.Name = "NOTICE"; c.Handler = cmdNotice
-	c.Minargs = 2; c.Maxargs = 2
+	c.Name = "MODE"
+	c.Handler = cmdMode
+	c.Minargs = 1
+	c.Maxargs = 3
+	Commands.Add(c)
+
+	c = new(irc.Command)
+	c.Name = "PRIVMSG"
+	c.Handler = cmdPrivmsg
+	c.Minargs = 2
+	c.Maxargs = 2
+	Commands.Add(c)
+
+	c = new(irc.Command)
+	c.Name = "NOTICE"
+	c.Handler = cmdNotice
+	c.Minargs = 2
+	c.Maxargs = 2
 	Commands.Add(c)
 }
 
@@ -65,7 +79,7 @@ func cmdNick(u *core.User, w io.Writer, params [][]byte) {
 	var nick = string(params[0])
 
 	if nick == "0" {
-		nick = u.ID()		
+		nick = u.ID()
 	}
 
 	if ok, err := perm.CheckNick(u, nick); !ok {
@@ -84,7 +98,9 @@ func cmdNick(u *core.User, w io.Writer, params [][]byte) {
 
 func cmdUser(u *core.User, w io.Writer, params [][]byte) {
 	c := w.(*Client)
-	if (u.Data("ident") != "") { return }
+	if u.Data("ident") != "" {
+		return
+	}
 
 	ident := "~" + string(params[0])
 	real := string(params[3])
@@ -98,7 +114,7 @@ func cmdUser(u *core.User, w io.Writer, params [][]byte) {
 		c.WriteTo(nil, "461", "USER :%s", err)
 		return
 	}
-	
+
 	u.SetData(nil, "ident", ident)
 	u.SetData(nil, "real", real)
 }
@@ -106,7 +122,7 @@ func cmdUser(u *core.User, w io.Writer, params [][]byte) {
 func cmdPing(u *core.User, w io.Writer, params [][]byte) {
 	c := w.(*Client)
 	c.WriteFrom(nil, "PONG %s :%s", "Server.name", params[0])
-	
+
 }
 
 func cmdMode(u *core.User, w io.Writer, params [][]byte) {
@@ -158,11 +174,18 @@ func cmdMode(u *core.User, w io.Writer, params [][]byte) {
 
 			// Different, fixed numerics for different
 			// modes. Stupid protocol.
-			num := "941"; endnum := "940"
+			num := "941"
+			endnum := "940"
 			switch mode {
-			case 'b': num = "367"; endnum = "368"
-			case 'e': num = "348"; endnum = "349"
-			case 'I': num = "346"; endnum = "347"
+			case 'b':
+				num = "367"
+				endnum = "368"
+			case 'e':
+				num = "348"
+				endnum = "349"
+			case 'I':
+				num = "346"
+				endnum = "347"
 			}
 
 			valid := ChanModes.ListMode(ch, int(mode), func(p, v string) {
@@ -181,11 +204,11 @@ func cmdMode(u *core.User, w io.Writer, params [][]byte) {
 				}
 
 				c.WriteTo(nil, num, "#%s %s %s %s",
-				          ch.Name(), p, setBy, setTime)
+					ch.Name(), p, setBy, setTime)
 			})
 			if valid {
 				c.WriteTo(nil, endnum, "#%s :End of mode list.",
-				          ch.Name())
+					ch.Name())
 			} else {
 				badmodes += string(mode)
 			}
@@ -212,14 +235,14 @@ func cmdMode(u *core.User, w io.Writer, params [][]byte) {
 		if err != nil {
 			c.WriteTo(nil, "501", "%s", err)
 		}
-		
+
 		prev := &changes
 		for cha := changes; cha != nil; cha = cha.Next {
 			ok, err := perm.CheckUserData(u, u, cha.Name, cha.Data)
 			if !ok {
 				m := UserModes.GetMode(cha.Name)
 				c.WriteTo(nil, "482", "%s %c: %s", u.Nick(), m,
-				          err)
+					err)
 				(*prev) = cha.Next
 			} else {
 				prev = &cha.Next
@@ -276,7 +299,7 @@ func cmdMode(u *core.User, w io.Writer, params [][]byte) {
 	}
 
 	c.WriteTo(nil, "401", "%s %s :%s", u.Nick(), params[0],
-		  "No such nick or channel.")
+		"No such nick or channel.")
 }
 
 func cmdPrivmsg(u *core.User, w io.Writer, params [][]byte) {
@@ -288,7 +311,7 @@ func cmdPrivmsg(u *core.User, w io.Writer, params [][]byte) {
 			if ok, err := perm.CheckUserMsg(u, target, params[1], ""); ok {
 				if v := target.Data("away"); v != "" {
 					c.WriteTo(nil, "301", "%s :%s",
-					          target.Nick(), v)
+						target.Nick(), v)
 				}
 				target.Message(u, params[1], "")
 			} else {
@@ -302,7 +325,7 @@ func cmdPrivmsg(u *core.User, w io.Writer, params [][]byte) {
 			ch := core.FindChannel("", channame)
 			if ch != nil {
 				if ok, err := perm.CheckChanMsg(u, ch,
-				                                params[1], ""); ok {
+					params[1], ""); ok {
 					ch.Message(u, params[1], "")
 				} else {
 					c.WriteTo(nil, "404", "#%s :%s", ch.Name(), err)
@@ -322,7 +345,7 @@ func cmdNotice(u *core.User, w io.Writer, params [][]byte) {
 	for _, t := range targets {
 		if target := core.GetUserByNick(string(t)); target != nil {
 			if ok, err := perm.CheckUserMsg(u, target, params[1],
-			                                "noreply"); ok {
+				"noreply"); ok {
 				target.Message(u, params[1], "noreply")
 			} else {
 				c.WriteTo(nil, "404", "%s :%s", target.Nick(), err)
@@ -335,7 +358,7 @@ func cmdNotice(u *core.User, w io.Writer, params [][]byte) {
 			ch := core.FindChannel("", channame)
 			if ch != nil {
 				if ok, err := perm.CheckChanMsg(u, ch,
-						params[1]," noreply"); ok {
+					params[1], " noreply"); ok {
 					ch.Message(u, params[1], "noreply")
 				} else {
 					c.WriteTo(nil, "404", "#%s :%s", ch.Name(), err)

@@ -99,13 +99,13 @@ func processOp(adding bool, ch *core.Channel, param string) *core.DataChange {
 		if word == "on" {
 			word = perm.DefaultChanOp()
 		}
-		
+
 		if existing != "" {
 			existing += " "
 		}
 		existing += word
 	}
-		
+
 	if adding {
 		// If we're adding the ban, add the new restrictions to the
 		// previous restrictions.

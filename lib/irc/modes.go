@@ -10,20 +10,20 @@ var currentID uint64
 // Stores a mapping of codepoint character modes to metadata strings they
 // correspond to.
 type ModeParser struct {
-	id uint64
-	uids bool
-	simple map[int]string
-	parametered map[int]string
-	extended map[int]func(bool, core.Extensible, string)(*core.DataChange)
-	list map[int]string
-	membership map[int]string
-	nameToSimple map[string]int
+	id                uint64
+	uids              bool
+	simple            map[int]string
+	parametered       map[int]string
+	extended          map[int]func(bool, core.Extensible, string) *core.DataChange
+	list              map[int]string
+	membership        map[int]string
+	nameToSimple      map[string]int
 	nameToParametered map[string]int
-	nameToList map[string]int
-	nameToMembership map[string]int
-	nameToExt map[string]func(core.Extensible, string, string, string)([]int, []string, []int, []string)
-	getExt map[int]func(core.Extensible)string
-	prefixes *prefix
+	nameToList        map[string]int
+	nameToMembership  map[string]int
+	nameToExt         map[string]func(core.Extensible, string, string, string) ([]int, []string, []int, []string)
+	getExt            map[int]func(core.Extensible) string
+	prefixes          *prefix
 }
 
 // NewModeParser returns a new mode parser, ready to add modes to.
@@ -37,20 +37,21 @@ func NewModeParser(uids bool) (p *ModeParser) {
 	p.uids = uids
 
 	// Set our ID.
-	p.id = currentID; currentID++
+	p.id = currentID
+	currentID++
 
 	// Initialise ALL our maps.
 	p.simple = make(map[int]string)
 	p.parametered = make(map[int]string)
 	p.list = make(map[int]string)
 	p.membership = make(map[int]string)
-	p.extended = make(map[int]func(bool, core.Extensible, string)(*core.DataChange))
+	p.extended = make(map[int]func(bool, core.Extensible, string) *core.DataChange)
 	p.nameToSimple = make(map[string]int)
 	p.nameToParametered = make(map[string]int)
 	p.nameToList = make(map[string]int)
 	p.nameToMembership = make(map[string]int)
-	p.nameToExt = make(map[string]func(core.Extensible, string, string, string)([]int, []string, []int, []string))
-	p.getExt = make(map[int]func(core.Extensible)string)
+	p.nameToExt = make(map[string]func(core.Extensible, string, string, string) ([]int, []string, []int, []string))
+	p.getExt = make(map[int]func(core.Extensible) string)
 
 	// Add the base prefixes.
 	p.AddPrefix('@', "op", 100000)
@@ -108,7 +109,7 @@ func (p *ModeParser) AddMembership(mode int, metadata string) {
 //
 // XXX: Doesn't work well enough for multiple extban/opflag changes in a line.
 // API changes under consideration.
-func (p *ModeParser) ExtendModeToData(mode int, modeToName func(bool, core.Extensible, string) (*core.DataChange)) {
+func (p *ModeParser) ExtendModeToData(mode int, modeToName func(bool, core.Extensible, string) *core.DataChange) {
 	p.extended[mode] = modeToName
 }
 
@@ -148,10 +149,18 @@ func (p *ModeParser) ExtendGetSet(mode int, getSet func(core.Extensible) string)
 // not be used in place of ParseModeLine.
 // If the mode does not exist, returns "".
 func (p *ModeParser) GetName(mode int) string {
-	if v, ok := p.simple[mode]; ok { return v }
-	if v, ok := p.parametered[mode]; ok { return v }
-	if v, ok := p.list[mode]; ok { return v }
-	if v, ok := p.membership[mode]; ok { return v }
+	if v, ok := p.simple[mode]; ok {
+		return v
+	}
+	if v, ok := p.parametered[mode]; ok {
+		return v
+	}
+	if v, ok := p.list[mode]; ok {
+		return v
+	}
+	if v, ok := p.membership[mode]; ok {
+		return v
+	}
 	return ""
 }
 
@@ -162,10 +171,18 @@ func (p *ModeParser) GetName(mode int) string {
 // If the mode does not exist, returns 0.
 func (p *ModeParser) GetMode(name string) int {
 	for {
-		if v, ok := p.nameToSimple[name]; ok { return v }
-		if v, ok := p.nameToParametered[name]; ok { return v }
-		if v, ok := p.nameToList[name]; ok { return v }
-		if v, ok := p.nameToMembership[name]; ok { return v }
+		if v, ok := p.nameToSimple[name]; ok {
+			return v
+		}
+		if v, ok := p.nameToParametered[name]; ok {
+			return v
+		}
+		if v, ok := p.nameToList[name]; ok {
+			return v
+		}
+		if v, ok := p.nameToMembership[name]; ok {
+			return v
+		}
 
 		// Keep searching for modes matching a space-separated prefix.
 		if v := strings.LastIndex(name, " "); v != -1 {
@@ -215,15 +232,31 @@ func (p *ModeParser) AllMembership() (list string) {
 // delete any remaining bits of a previous added mode.
 func (p *ModeParser) clearPair(mode int, name string) {
 
-	if v, ok := p.simple[mode]; ok { p.clearName(v) }
-	if v, ok := p.parametered[mode]; ok { p.clearName(v) }
-	if v, ok := p.list[mode]; ok { p.clearName(v) }
-	if v, ok := p.membership[mode]; ok { p.clearName(v) }
+	if v, ok := p.simple[mode]; ok {
+		p.clearName(v)
+	}
+	if v, ok := p.parametered[mode]; ok {
+		p.clearName(v)
+	}
+	if v, ok := p.list[mode]; ok {
+		p.clearName(v)
+	}
+	if v, ok := p.membership[mode]; ok {
+		p.clearName(v)
+	}
 
-	if v, ok := p.nameToSimple[name]; ok { p.clearMode(v) }
-	if v, ok := p.nameToParametered[name]; ok { p.clearMode(v) }
-	if v, ok := p.nameToList[name]; ok { p.clearMode(v) }
-	if v, ok := p.nameToMembership[name]; ok { p.clearMode(v) }
+	if v, ok := p.nameToSimple[name]; ok {
+		p.clearMode(v)
+	}
+	if v, ok := p.nameToParametered[name]; ok {
+		p.clearMode(v)
+	}
+	if v, ok := p.nameToList[name]; ok {
+		p.clearMode(v)
+	}
+	if v, ok := p.nameToMembership[name]; ok {
+		p.clearMode(v)
+	}
 
 	p.clearMode(mode)
 	p.clearName(name)

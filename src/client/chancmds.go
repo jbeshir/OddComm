@@ -15,28 +15,38 @@ func init() {
 	}
 
 	c = new(irc.Command)
-	c.Name = "JOIN"; c.Handler = cmdJoin
-	c.Minargs = 1; c.Maxargs = 1
+	c.Name = "JOIN"
+	c.Handler = cmdJoin
+	c.Minargs = 1
+	c.Maxargs = 1
 	Commands.Add(c)
 
 	c = new(irc.Command)
-	c.Name = "PART"; c.Handler = cmdPart
-	c.Minargs = 1; c.Maxargs = 2
+	c.Name = "PART"
+	c.Handler = cmdPart
+	c.Minargs = 1
+	c.Maxargs = 2
 	Commands.Add(c)
-	
+
 	c = new(irc.Command)
-	c.Name = "KICK"; c.Handler = cmdKick
-	c.Minargs = 2; c.Maxargs = 3
+	c.Name = "KICK"
+	c.Handler = cmdKick
+	c.Minargs = 2
+	c.Maxargs = 3
 	Commands.Add(c)
-	
+
 	c = new(irc.Command)
-	c.Name = "TOPIC"; c.Handler = cmdTopic
-	c.Minargs = 1; c.Maxargs = 2
+	c.Name = "TOPIC"
+	c.Handler = cmdTopic
+	c.Minargs = 1
+	c.Maxargs = 2
 	Commands.Add(c)
-	
+
 	c = new(irc.Command)
-	c.Name = "INVITE"; c.Handler = cmdInvite
-	c.Minargs = 2; c.Maxargs = 2
+	c.Name = "INVITE"
+	c.Handler = cmdInvite
+	c.Minargs = 2
+	c.Maxargs = 2
 	Commands.Add(c)
 }
 
@@ -49,7 +59,7 @@ func cmdJoin(u *core.User, w io.Writer, params [][]byte) {
 		if channame[0] == '#' {
 			channame = channame[1:]
 		}
-	
+
 		ch := core.GetChannel("", channame)
 		if ok, err := perm.CheckJoin(u, ch); ok {
 			ch.Join(u)
@@ -117,7 +127,7 @@ func cmdTopic(u *core.User, w io.Writer, params [][]byte) {
 	}
 	if ch == nil {
 		c.WriteTo(nil, "403", "%s %s :No such channel.", u.Nick(),
-		          params[0])
+			params[0])
 		return
 	}
 
@@ -127,10 +137,10 @@ func cmdTopic(u *core.User, w io.Writer, params [][]byte) {
 		if topic != "" {
 			c.WriteTo(nil, "332", "#%s :%s", ch.Name(), topic)
 			c.WriteTo(nil, "333", "#%s %s %s", ch.Name(), setby,
-			          setat)
+				setat)
 		} else {
 			c.WriteTo(nil, "331", "#%s :No topic is set.",
-				  ch.Name())
+				ch.Name())
 		}
 		return
 	}
@@ -162,15 +172,15 @@ func cmdInvite(u *core.User, w io.Writer, params [][]byte) {
 		}
 
 		if ok, err := perm.CheckUserMsg(u, target, []byte(ch.Name()),
-		                                "invite"); ok {
+			"invite"); ok {
 			if v := target.Data("away"); v != "" {
 				c.WriteTo(nil, "301", "%s :%s",
-				          target.Nick(), v)
+					target.Nick(), v)
 			}
 			target.Message(u, []byte(ch.Name()), "invite")
 			ch.Message(u, []byte(target.Nick()), "invite")
 			c.WriteTo(nil, "341", "%s #%s", target.Nick(),
-			          ch.Name())
+				ch.Name())
 		} else {
 			c.WriteTo(nil, "404", "%s :%s", target.Nick(), err)
 		}

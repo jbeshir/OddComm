@@ -1,5 +1,5 @@
 /*
-	
+
 */
 package perm
 
@@ -8,13 +8,13 @@ import "strings"
 import "oddcomm/src/core"
 
 
-var banTypes map[string]func(u *core.User, mask string)bool
+var banTypes map[string]func(u *core.User, mask string) bool
 
 var defaultBan string = "join mute nick"
 var defaultUnrestrict string = "join"
 
 func init() {
-	banTypes = make(map[string]func(u *core.User, mask string)bool)
+	banTypes = make(map[string]func(u *core.User, mask string) bool)
 }
 
 
@@ -66,7 +66,7 @@ func Banned(u *core.User, e core.Extensible, restrict string) bool {
 // given type on the given extensible. It handles checking for unrestriction
 // modes, as well as the given restriction being set.
 func Restricted(u *core.User, e core.Extensible, restrict string) bool {
-	if e.Data("restrict " + restrict) != "" {
+	if e.Data("restrict "+restrict) != "" {
 		if !banMatch(u, e, "unrestrict", restrict) {
 			return true
 		}
@@ -89,7 +89,7 @@ func banMatch(u *core.User, e core.Extensible, prefix, restrict string) (match b
 	var reverse bool
 	var prefixlen int
 	var t string
-	var hook func(u *core.User, mask string)bool
+	var hook func(u *core.User, mask string) bool
 	matcher := func(name, value string) {
 		words := strings.Fields(value)
 		var found bool
@@ -127,14 +127,14 @@ func banMatch(u *core.User, e core.Extensible, prefix, restrict string) (match b
 	for t, hook = range banTypes {
 		reverse = false
 		prefixlen = len(prefix) + len(t) + 2
-		e.DataRange(prefix + " " + t + " ", matcher)
+		e.DataRange(prefix+" "+t+" ", matcher)
 		if match == true {
 			break
 		}
 
 		reverse = true
 		prefixlen = len(prefix) + len(t) + 3
-		e.DataRange(prefix + " ~" + t + " ", matcher)
+		e.DataRange(prefix+" ~"+t+" ", matcher)
 		if match == true {
 			break
 		}

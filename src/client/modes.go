@@ -23,8 +23,7 @@ func init() {
 
 	// Fake an always-on +i on users.
 	UserModes.AddSimple('i', "placeholder i")
-	UserModes.ExtendModeToData('i', func(_ bool, _ core.Extensible,
-	                                     _ string) *core.DataChange {
+	UserModes.ExtendModeToData('i', func(_ bool, _ core.Extensible, _ string) *core.DataChange {
 		return nil
 	})
 	UserModes.ExtendGetSet('i', func(_ core.Extensible) string {
@@ -33,8 +32,7 @@ func init() {
 
 	// Fake an always-on +n on channels.
 	ChanModes.AddSimple('n', "placeholder n")
-	ChanModes.ExtendModeToData('n', func(_ bool, _ core.Extensible,
-	                                     _ string) *core.DataChange {
+	ChanModes.ExtendModeToData('n', func(_ bool, _ core.Extensible, _ string) *core.DataChange {
 		return nil
 	})
 	ChanModes.ExtendGetSet('m', func(_ core.Extensible) string {

@@ -9,12 +9,12 @@ import "oddcomm/src/core"
 
 // Handle a client connection.
 type Client struct {
-	cchan     chan clientRequest
-	conn      *net.TCPConn
-	u         *core.User
+	cchan         chan clientRequest
+	conn          *net.TCPConn
+	u             *core.User
 	disconnecting bool
-	inputDone bool
-	outbuf    []byte
+	inputDone     bool
+	outbuf        []byte
 }
 
 // Disconnects the client with the given message. This internal method assumes
@@ -40,9 +40,9 @@ func (c *Client) delete(message string) {
 // Write a raw line to the client. This internal method assumes it is being
 // called from the client goroutine.
 func (c *Client) write(line []byte) {
-	
+
 	// If the client is disconnecting, drop all writes to it.
-	if (c.disconnecting) {
+	if c.disconnecting {
 		return
 	}
 
@@ -116,15 +116,14 @@ func (c *Client) Write(line []byte) (int, os.Error) {
 // Write a formatted line from the given user, addressed to this client.
 // u may be nil, in which case, the line will be from the server.
 // A line ending will be automatically appended.
-func (c *Client) WriteTo(u *core.User, cmd string, format string,
-                           args ...interface{}) {
+func (c *Client) WriteTo(u *core.User, cmd string, format string, args ...interface{}) {
 	if u != nil {
 		fmt.Fprintf(c, ":%s!%s@%s %s %s %s\r\n", u.Nick(),
-		            u.GetIdent(), u.GetHostname(), cmd,
-		            c.u.Nick(), fmt.Sprintf(format, args...))
+			u.GetIdent(), u.GetHostname(), cmd,
+			c.u.Nick(), fmt.Sprintf(format, args...))
 	} else {
 		fmt.Fprintf(c, ":%s %s %s %s\r\n", "Server.name", cmd,
-		            c.u.Nick(), fmt.Sprintf(format, args...))
+			c.u.Nick(), fmt.Sprintf(format, args...))
 	}
 }
 
@@ -134,10 +133,10 @@ func (c *Client) WriteTo(u *core.User, cmd string, format string,
 func (c *Client) WriteFrom(u *core.User, format string, args ...interface{}) {
 	if u != nil {
 		fmt.Fprintf(c, ":%s!%s@%s %s\r\n", u.Nick(),
-		            u.GetIdent(), u.GetHostname(),
-		            fmt.Sprintf(format, args...))
+			u.GetIdent(), u.GetHostname(),
+			fmt.Sprintf(format, args...))
 	} else {
 		fmt.Fprintf(c, ":%s %s\r\n", "Server.name",
-		            fmt.Sprintf(format, args...))
+			fmt.Sprintf(format, args...))
 	}
 }

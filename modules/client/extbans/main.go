@@ -44,36 +44,36 @@ func init() {
 	client.ChanModes.AddList('b', "ban")
 	client.ChanModes.AddList('e', "banexception")
 	client.ChanModes.AddList('I', "unrestrict")
-	
+
 	// Extend ban mode.
 	client.ChanModes.ExtendModeToData('b', func(adding bool, e core.Extensible, param string) *core.DataChange {
 		return processBan("ban", perm.DefaultBan(), adding, e, param)
 	})
-	client.ChanModes.ExtendDataToMode("ban", func (e core.Extensible, name, oldvalue, newvalue string) ([]int, []string, []int, []string) {
+	client.ChanModes.ExtendDataToMode("ban", func(e core.Extensible, name, oldvalue, newvalue string) ([]int, []string, []int, []string) {
 		return makeBan('b', perm.DefaultBan(), e, name, oldvalue,
-		               newvalue)
+			newvalue)
 	})
 
 	// Extend ban exception mode.
 	client.ChanModes.ExtendModeToData('e', func(adding bool, e core.Extensible, param string) *core.DataChange {
 		return processBan("banexception", perm.DefaultBan(), adding, e,
-		                  param)
+			param)
 	})
-	client.ChanModes.ExtendDataToMode("banexception", func (e core.Extensible, name, oldvalue, newvalue string) ([]int, []string, []int, []string) {
+	client.ChanModes.ExtendDataToMode("banexception", func(e core.Extensible, name, oldvalue, newvalue string) ([]int, []string, []int, []string) {
 		return makeBan('e', perm.DefaultBan(), e, name, oldvalue,
-		               newvalue)
+			newvalue)
 	})
 
 	// Extend unrestrict (invex) mode.
 	client.ChanModes.ExtendModeToData('I', func(adding bool, e core.Extensible, param string) *core.DataChange {
 		return processBan("unrestrict", perm.DefaultBan(), adding, e,
-		                  param)
+			param)
 	})
-	client.ChanModes.ExtendDataToMode("unrestrict", func (e core.Extensible, name, oldvalue, newvalue string) ([]int, []string, []int, []string) {
+	client.ChanModes.ExtendDataToMode("unrestrict", func(e core.Extensible, name, oldvalue, newvalue string) ([]int, []string, []int, []string) {
 		return makeBan('I', perm.DefaultBan(), e, name, oldvalue,
-		               newvalue)
+			newvalue)
 	})
-	
+
 	// Block colons from use in nicks and idents.
 	perm.HookCheckNick(func(_ *core.User, nick string) (int, os.Error) {
 		if strings.IndexRune(nick, ':') != -1 {
@@ -91,7 +91,7 @@ func init() {
 	// Add extbans to ISUPPORT.
 	client.AddSupportHook(func() string {
 		return " EXTBAN=," + ExtBanType.All() + ExtBanRestrict.All()
-	}) 
+	})
 }
 
 // Function handling processing of ban syntax into metadata.
@@ -112,7 +112,7 @@ func processBan(prefix, def string, adding bool, e core.Extensible, param string
 		if second == first {
 			second = -1
 		}
-		if second != -1 && len(param) > second + 1 {
+		if second != -1 && len(param) > second+1 {
 			mask = second + 1
 		}
 	}
@@ -210,7 +210,7 @@ func processBan(prefix, def string, adding bool, e core.Extensible, param string
 				u := core.GetUserByNick(param[mask:])
 				if u != nil {
 					change.Name = prefix + " " +
-					              u.GetDecentBan()
+						u.GetDecentBan()
 				} else {
 					change.Name += "!*@*"
 				}
@@ -237,13 +237,13 @@ func processBan(prefix, def string, adding bool, e core.Extensible, param string
 		if word == "on" {
 			word = def
 		}
-		
+
 		if existing != "" {
 			existing += " "
 		}
 		existing += word
 	}
-		
+
 	if adding {
 		// If we're adding the ban, add the new restrictions to the
 		// previous restrictions.
@@ -424,7 +424,7 @@ func makeBanParam(def, name, value string) (param string) {
 	if restrictions == "" {
 		return
 	}
-	
+
 	// If we have the default restrictions, clear the restrictions string.
 	// Otherwise, append a colon to it, it's done.
 	if !outsideDefault {

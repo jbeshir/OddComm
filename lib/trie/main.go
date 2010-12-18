@@ -30,15 +30,14 @@ type Trie struct {
 
 // trieNode is a single node of a Trie.
 type trieNode struct {
-	down *trieNode    // First child of this node.
-	next *trieNode    // Next sibling of this node- or the next one back
-		          // up if it has none left.
-	nodekey string    // Value of this node.
-	key string        // Full key of this node, if it has a key.
-        value interface{} // If set, this node contains a value.
-	lastSib bool      // Whether this node is the last of its siblings.
+	down *trieNode // First child of this node.
+	next *trieNode // Next sibling of this node- or the next one back
+	// up if it has none left.
+	nodekey string      // Value of this node.
+	key     string      // Full key of this node, if it has a key.
+	value   interface{} // If set, this node contains a value.
+	lastSib bool        // Whether this node is the last of its siblings.
 }
-
 
 
 // Value returns this trie node's key and value, or nil if it is not a value
@@ -48,7 +47,7 @@ func (t *Trie) Value() (name string, value interface{}) {
 		name, value = t.First.key, t.First.value
 	}
 	return
-} 
+}
 
 
 // Next gets the next value node, not including this node itself if it has
@@ -62,7 +61,7 @@ func (t *Trie) Next(end Trie) (next Trie) {
 	for next.First != end.First && next.First != nil && next.First.key == "" {
 		next.First = nextNode(end.First, next.First)
 	}
-	
+
 	// If we found the end node, return nil, not it.
 	if next.First == end.First {
 		next.First = nil
@@ -125,7 +124,8 @@ func (t *Trie) Add(key string, value interface{}) (old interface{}) {
 		// Find out how much of the node key matches ours.
 		var i int
 		for i = 0; i < len(n.nodekey) && i < len(remaining) &&
-				n.nodekey[i] == remaining[i]; i++ {}
+			n.nodekey[i] == remaining[i]; i++ {
+		}
 
 		// If this key has nothing in common with ours, next.
 		if i == 0 {
@@ -233,7 +233,8 @@ func (t *Trie) Del(key string) (old interface{}) {
 		// Find out how much of the node key matches ours.
 		var i int
 		for i = 0; i < len(n.nodekey) && i < len(remaining) &&
-				n.nodekey[i] == remaining[i]; i++ {}
+			n.nodekey[i] == remaining[i]; i++ {
+		}
 
 		// If this key has nothing in common with ours, next.
 		if i == 0 {
@@ -299,7 +300,8 @@ func (t *Trie) Del(key string) (old interface{}) {
 
 					// Otherwise, recurse up, deleting
 					// parents without children or values.
-					n.key = ""; n.value = nil
+					n.key = ""
+					n.value = nil
 					for ; n != nil; n = n.next {
 						// If we have a value, stop.
 						if n.key != "" {
@@ -356,7 +358,8 @@ func (t *Trie) Get(key string) (value interface{}) {
 		// Find out how much of the node key matches ours.
 		var i int
 		for i = 0; i < len(n.nodekey) && i < len(remaining) &&
-				n.nodekey[i] == remaining[i]; i++ {}
+			n.nodekey[i] == remaining[i]; i++ {
+		}
 
 		// If this key has nothing in common with ours, next.
 		if i == 0 {
@@ -410,7 +413,8 @@ func (t *Trie) GetSub(prefix string) (subtree Trie) {
 		// Find out how much of the node key matches ours.
 		var i int
 		for i = 0; i < len(n.nodekey) && i < len(remaining) &&
-				n.nodekey[i] == remaining[i]; i++ {}
+			n.nodekey[i] == remaining[i]; i++ {
+		}
 
 		// If this key has nothing in common with ours, next.
 		if i == 0 {

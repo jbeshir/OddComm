@@ -161,7 +161,7 @@ func input(c *Client) {
 
 			// Parse the line, ignoring any specified origin.
 			_, command, params, perr := irc.Parse(Commands, line,
-			                                     c.u.Registered())
+				c.u.Registered())
 
 			// If we successfully got a command, run it.
 			if command != nil {
@@ -182,14 +182,14 @@ func input(c *Client) {
 					}
 				case irc.CmdForRegistered:
 					c.WriteFrom(nil, "451 %s :%s",
-					            perr.CmdName, perr)
+						perr.CmdName, perr)
 				case irc.CmdForUnregistered:
 					c.WriteFrom(nil, "462 %s :%s",
-					            c.u.Nick(), perr)
+						c.u.Nick(), perr)
 				default:
 					c.WriteFrom(nil, "461 %s %s :%s",
-					            c.u.Nick(), perr.CmdName,
-					            perr)
+						c.u.Nick(), perr.CmdName,
+						perr)
 				}
 			}
 

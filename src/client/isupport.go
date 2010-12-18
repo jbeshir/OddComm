@@ -3,7 +3,7 @@ package client
 
 type hook struct {
 	next *hook
-	h func()string
+	h    func() string
 }
 
 
@@ -35,7 +35,7 @@ func init() {
 	})
 	AddSupportHook(func() string {
 		return " CHANMODES=" + ChanModes.AllList() + ",," +
-		       ChanModes.AllParametered() + "," + ChanModes.AllSimple()
+			ChanModes.AllParametered() + "," + ChanModes.AllSimple()
 	})
 }
 
@@ -54,7 +54,7 @@ func AddSupport(value string) {
 // will be appended to the ISUPPORT string. If the returned value is non-empty,
 // it must start with a space, to separate it from previous values.
 // May only be used during init.
-func AddSupportHook(h func()string) {
+func AddSupportHook(h func() string) {
 	hook := new(hook)
 	hook.h = h
 	hook.next = supportHooks

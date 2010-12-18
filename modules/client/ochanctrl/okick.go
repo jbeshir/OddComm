@@ -11,8 +11,10 @@ import "oddcomm/lib/perm"
 // Add command.
 func init() {
 	c := new(irc.Command)
-	c.Name = "OKICK"; c.Handler = cmdOkick
-	c.Minargs = 2; c.Maxargs = 3
+	c.Name = "OKICK"
+	c.Handler = cmdOkick
+	c.Minargs = 2
+	c.Maxargs = 3
 	c.OperFlag = "chanctrl"
 	client.Commands.Add(c)
 }

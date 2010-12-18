@@ -23,8 +23,8 @@ func init() {
 	// Add the core permissions for speaking in channels.
 	HookChanMsg(true, "", "", externalMsg)
 	HookChanMsg(true, "", "", muteBanned)
-	HookChanMsg(true, "", "", moderated) 
-	HookChanMsg(true, "", "", voiceOverride) 
+	HookChanMsg(true, "", "", moderated)
+	HookChanMsg(true, "", "", voiceOverride)
 	HookChanMsg(true, "", "", opMsgOverride)
 }
 
@@ -36,8 +36,7 @@ func init() {
 // why. See package comment for permission levels.
 // If all is true, the hook is called for all types of message. Otherwise, t is
 // the type of message it wants to affect.
-func HookUserMsg(all bool, t string,
-                     h func(*core.User, *core.User, []byte) (int, os.Error)) {
+func HookUserMsg(all bool, t string, h func(*core.User, *core.User, []byte) (int, os.Error)) {
 	if all {
 		hookAdd(&checkUserMsgAll, h)
 	} else {
@@ -74,18 +73,15 @@ func HookChanMsg(all bool, chantype, t string, h func(*core.User, *core.Channel,
 
 // CheckUserMsg tests whether the given user can PM the given target, with
 // the given message and message type.
-func CheckUserMsg(source, target *core.User, message []byte,
-                      t string) (bool, os.Error) {
+func CheckUserMsg(source, target *core.User, message []byte, t string) (bool, os.Error) {
 	perm, err := CheckUserMsgPerm(source, target, message, t)
 	return perm > 0, err
 }
 
 // CheckUserMsgPerm returns the full permissions value for CheckUserMsg.
-func CheckUserMsgPerm(source, target *core.User, message []byte,
-                          t string) (int, os.Error) {
+func CheckUserMsgPerm(source, target *core.User, message []byte, t string) (int, os.Error) {
 	f := func(f interface{}) (int, os.Error) {
-		h, ok := f.(func(*core.User, *core.User,
-		                 []byte) (int, os.Error))
+		h, ok := f.(func(*core.User, *core.User, []byte) (int, os.Error))
 		if ok && h != nil {
 			return h(source, target, message)
 		}
@@ -105,18 +101,15 @@ func CheckUserMsgPerm(source, target *core.User, message []byte,
 
 // CheckChanMsg tests whether the given user can message the given channel,
 // with the given message and message type.
-func CheckChanMsg(source *core.User, target *core.Channel, message []byte,
-                  t string) (bool, os.Error) {
+func CheckChanMsg(source *core.User, target *core.Channel, message []byte, t string) (bool, os.Error) {
 	perm, err := CheckChanMsgPerm(source, target, message, t)
 	return perm > 0, err
 }
 
 // CheckChanMsgPerm returns the full permissions value for CheckChanMsg.
-func CheckChanMsgPerm(source *core.User, target *core.Channel, message []byte,
-                      t string) (int, os.Error) {
+func CheckChanMsgPerm(source *core.User, target *core.Channel, message []byte, t string) (int, os.Error) {
 	f := func(f interface{}) (int, os.Error) {
-		h, ok := f.(func(*core.User, *core.Channel,
-		                 []byte) (int, os.Error))
+		h, ok := f.(func(*core.User, *core.Channel, []byte) (int, os.Error))
 		if ok && h != nil {
 			return h(source, target, message)
 		}

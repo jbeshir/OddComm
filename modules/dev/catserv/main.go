@@ -34,7 +34,8 @@ func init() {
 			// Meow!
 			cat.Delete(cat, "Meow!")
 		}
-	}, true)
+	},
+		true)
 
 	core.HookUserDelete(func(source, u *core.User, _ string) {
 		// If we got disconnected or quit, or someone stealing our nick
@@ -42,10 +43,10 @@ func init() {
 		if u == cat || strings.ToUpper(u.Nick()) == "CATSERV" {
 			addCat()
 		}
-	}, true)
+	},
+		true)
 
-	core.HookUserMessage("", func(source, target *core.User,
-			message []byte) {
+	core.HookUserMessage("", func(source, target *core.User, message []byte) {
 		// If someone sent a message to us, say hi.
 		// In a real psuedoserver, you could write whatever
 		// functionality you liked here.

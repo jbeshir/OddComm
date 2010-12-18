@@ -10,8 +10,10 @@ import "oddcomm/lib/perm"
 
 func init() {
 	c := new(irc.Command)
-	c.Name = "OMODE"; c.Handler = cmdOmode
-	c.Minargs = 2; c.Maxargs = 3
+	c.Name = "OMODE"
+	c.Handler = cmdOmode
+	c.Minargs = 2
+	c.Maxargs = 3
 	c.OperFlag = "chanctrl"
 	client.Commands.Add(c)
 }
@@ -27,7 +29,7 @@ func cmdOmode(u *core.User, w io.Writer, params [][]byte) {
 	ch := core.FindChannel("", channame)
 	if ch == nil {
 		c.WriteTo(nil, "501", "%s %s :%s", u.Nick(), params[0],
-		          "No such channel.")
+			"No such channel.")
 		return
 	}
 
@@ -57,36 +59,43 @@ func cmdOmode(u *core.User, w io.Writer, params [][]byte) {
 
 			// Different, fixed numerics for different
 			// modes. Stupid protocol.
-			num := "941"; endnum := "940"
+			num := "941"
+			endnum := "940"
 			switch mode {
-			case 'b': num = "367"; endnum = "368"
-			case 'e': num = "348"; endnum = "349"
-			case 'I': num = "346"; endnum = "347"
+			case 'b':
+				num = "367"
+				endnum = "368"
+			case 'e':
+				num = "348"
+				endnum = "349"
+			case 'I':
+				num = "346"
+				endnum = "347"
 			}
 
 			valid := client.ChanModes.ListMode(ch, int(mode),
-			                   func(p, v string) {
-				var setTime string = "0"
-				var setBy string = "Server.name"
-				words := strings.Fields(v)
-				for _, word := range words {
-					if len(word) > 6 && word[0:6] == "setat-" {
-						setTime = word[6:]
-						continue
+				func(p, v string) {
+					var setTime string = "0"
+					var setBy string = "Server.name"
+					words := strings.Fields(v)
+					for _, word := range words {
+						if len(word) > 6 && word[0:6] == "setat-" {
+							setTime = word[6:]
+							continue
+						}
+						if len(word) > 6 && word[0:6] == "setby-" {
+							setBy = word[6:]
+							continue
+						}
 					}
-					if len(word) > 6 && word[0:6] == "setby-" {
-						setBy = word[6:]
-						continue
-					}
-				}
 
-				c.WriteTo(nil, num, "#%s %s %s %s",
-				          ch.Name(), p, setBy, setTime)
-			})
+					c.WriteTo(nil, num, "#%s %s %s %s",
+						ch.Name(), p, setBy, setTime)
+				})
 			if valid {
 				c.WriteTo(nil, endnum,
-				          "#%s :End of mode list.",
-				          ch.Name())
+					"#%s :End of mode list.",
+					ch.Name())
 			} else {
 				badmodes += string(mode)
 			}

@@ -6,10 +6,10 @@ import "oddcomm/src/core"
 
 
 type prefix struct {
-	prefix int
+	prefix   int
 	metadata string
-	level int
-	next *prefix
+	level    int
+	next     *prefix
 }
 
 // AddPrefix adds a prefix to NAMES/WHO, associated with the given piece of
@@ -58,7 +58,7 @@ func (p *ModeParser) AllPrefixes() (prefixes string, modes string) {
 }
 
 // GetPrefixes returns the prefixes for a membership entry.
-func (p *ModeParser) GetPrefixes (m *core.Membership) string {
+func (p *ModeParser) GetPrefixes(m *core.Membership) string {
 	return m.Data(strconv.Uitoa64(p.id) + " prefixes")
 }
 
@@ -71,5 +71,5 @@ func (p *ModeParser) updatePrefix(m *core.Membership) {
 			prefix += string(it.prefix)
 		}
 	}
-	m.SetData(nil, strconv.Uitoa64(p.id) + " prefixes", prefix)
+	m.SetData(nil, strconv.Uitoa64(p.id)+" prefixes", prefix)
 }

@@ -6,7 +6,7 @@ import "os"
 // A permissions hook. Contains a function to run.
 type hook struct {
 	next *hook
-	f interface{}
+	f    interface{}
 }
 
 // Add a permissions hook to a hook list.
@@ -27,7 +27,7 @@ func (l *hook) run(f func(interface{}) (int, os.Error), def bool) (perm int, err
 	} else {
 		perm = -1
 	}
-	
+
 	for h := l; h != nil; h = h.next {
 		result, thisErr := f(h.f)
 
@@ -63,8 +63,7 @@ func (l *hook) run(f func(interface{}) (int, os.Error), def bool) (perm int, err
 }
 
 // Run a slice of permission hook lists, and combine results.
-func runPermHookLists(lists []*hook, f func(interface{}) (int, os.Error),
-                      def bool) (perm int, err os.Error) {
+func runPermHookLists(lists []*hook, f func(interface{}) (int, os.Error), def bool) (perm int, err os.Error) {
 	if def {
 		perm = 1
 	} else {
