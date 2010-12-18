@@ -1,3 +1,7 @@
+ifndef $(GOROOT)
+	GOROOT=$(HOME)/go
+endif
+
 include $(GOROOT)/src/Make.inc
 
 PKGROOT = $(CURDIR)/pkg
@@ -8,8 +12,8 @@ CORE = $(PKGDIR)/src/core.a $(PKGDIR)/lib/trie.a
 SUBSYSTEMS = $(patsubst %, $(PKGDIR)/src/%.a, $(shell cat subsystems.conf))
 MODULES = $(patsubst %, $(PKGDIR)/modules/%.a, $(shell cat modules.conf))
 
-GOCMD = $(GC) -I $(PKGSEARCH)
-LDCMD = $(LD) -L $(PKGSEARCH)
+GOCMD = $(GOBIN)/$(GC) -I $(PKGSEARCH)
+LDCMD = $(GOBIN)/$(LD) -L $(PKGSEARCH)
 GOFMT = $(GOBIN)/gofmt
 GOPACK = $(GOBIN)/gopack
 
