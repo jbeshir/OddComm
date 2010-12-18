@@ -2,6 +2,7 @@ package core
 
 import "strings"
 
+
 // GetIdent gets an ident for a user, substituting "." if none exists.
 func (u *User) GetIdent() (ident string) {
 	ident = u.Data("ident")
@@ -27,15 +28,15 @@ func (u *User) GetHostname() (hostname string) {
 func (u *User) GetSetBy() (setby string) {
 	wait := make(chan bool)
 	corechan <- func() {
-		if v := TrieGet(&u.data, "account"); v != nil {
+		if v := u.data.Get("account"); v != nil {
 			setby = v.(string)
 		} else {
 			ident := "-"
-			if v := TrieGet(&u.data, "ident"); v != nil {
+			if v := u.data.Get("ident"); v != nil {
 				ident = v.(string)
 			}
 			hostname := "Server.name"
-			if v := TrieGet(&u.data, "hostname"); v != nil {
+			if v := u.data.Get("hostname"); v != nil {
 				hostname = v.(string)
 			}
 			setby = u.nick + "!" + ident + "@" + hostname

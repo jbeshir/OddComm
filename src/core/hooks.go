@@ -15,8 +15,8 @@ type Extensible interface {
 // changed for membership changes.
 type DataChange struct {
 	Name, Data string
-	Member *Membership
-	Next *DataChange
+	Member     *Membership
+	Next       *DataChange
 }
 
 // Represents a previous metadata value.
@@ -30,7 +30,7 @@ type OldData struct {
 // Represents a hook.
 type hook struct {
 	next *hook
-	f interface{}
+	f    interface{}
 }
 
 

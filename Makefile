@@ -40,16 +40,24 @@ $(PKGDIR)/src/client.a: $(PKGDIR)/src/core.a $(PKGDIR)/lib/irc.a $(PKGDIR)/lib/p
 	$(GOPACK) grc $(PKGDIR)/src/client.a $(PKGDIR)/src/client.$(O)
 	rm -f $(PKGDIR)/src/client.$(O)
 
-$(PKGDIR)/lib/%.a: $(PKGDIR)/src/core.a lib/%/*go
+$(PKGDIR)/lib/%.a: $(PKGDIR)/src/core.a lib/%/*.go
 	mkdir -p $(PKGDIR)/lib
 	$(GOCMD) -o $(PKGDIR)/lib/$*.$(O) $(wildcard lib/$*/*.go)
 	rm -f $(PKGDIR)/lib/$*.a
 	$(GOPACK) grc $(PKGDIR)/lib/$*.a $(PKGDIR)/lib/$*.$(O)
 	rm -f $(PKGDIR)/lib/$*.$(O)
 
-$(PKGDIR)/src/core.a: src/core/*.go
+$(PKGDIR)/src/core.a: src/core/*.go $(PKGDIR)/lib/trie.a
 	mkdir -p $(PKGDIR)/src
 	$(GOCMD) -o $(PKGDIR)/src/core.$(O) $(wildcard src/core/*.go)
 	rm -f $(PKGDIR)/src/core.a
 	$(GOPACK) grc $(PKGDIR)/src/core.a $(PKGDIR)/src/core.$(O)
 	rm -f $(PKGDIR)/src/core.$(O)
+
+$(PKGDIR)/lib/trie.a: lib/trie/*.go
+	mkdir -p $(PKGDIR)/lib
+	$(GOCMD) -o $(PKGDIR)/lib/trie.$(O) $(wildcard lib/trie/*.go)
+	rm -f $(PKGDIR)/lib/trie.a
+	$(GOPACK) grc $(PKGDIR)/lib/trie.a $(PKGDIR)/lib/trie.$(O)
+	rm -f $(PKGDIR)/lib/trie.$(O)
+

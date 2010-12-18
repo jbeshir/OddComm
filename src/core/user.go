@@ -3,15 +3,17 @@ package core
 import "os"
 import "strings"
 
+import "oddcomm/lib/trie"
+
 
 // Represents a user.
 type User struct {
-	id   string
-	nick string
-	checked bool
+	id       string
+	nick     string
+	checked  bool
 	regstate int
-	chans *Membership
-	data *Trie
+	chans    *Membership
+	data     trie.Trie
 }
 
 
@@ -37,7 +39,7 @@ func NewUser(creator string, checked bool, forceid string) (u *User) {
 		u = new(User)
 		u.checked = checked
 		u.regstate = holdRegistration[creator]
-		if (!checked) {
+		if !checked {
 			u.regstate += holdRegistration[""]
 		}
 
@@ -59,7 +61,7 @@ func NewUser(creator string, checked bool, forceid string) (u *User) {
 	<-wait
 
 	runUserAddHooks(u, creator)
-	if (u.Registered()) {
+	if u.Registered() {
 		runUserRegisterHooks(u)
 	}
 
@@ -132,7 +134,7 @@ func (u *User) SetNick(nick string) (err os.Error) {
 		usersByNick[strings.ToUpper(u.nick)] = nil, false
 		u.nick = nick
 		usersByNick[NICK] = u
-		
+
 		wait <- true
 	}
 	<-wait
@@ -162,8 +164,8 @@ func (u *User) Nick() (nick string) {
 func (u *User) PermitRegistration() {
 	c := make(chan bool)
 	corechan <- func() {
-		
-			if u.regstate <= 0 {
+
+		if u.regstate <= 0 {
 			c <- false
 			return
 		}
@@ -197,14 +199,14 @@ func (u *User) Registered() bool {
 // Setting it to "" unsets it.
 func (u *User) SetData(source *User, name string, value string) {
 	var oldvalue string
-	
+
 	wait := make(chan bool)
 	corechan <- func() {
 		var old interface{}
 		if value != "" {
-			old = TrieAdd(&u.data, name, value)
+			old = u.data.Add(name, value)
 		} else {
-			old = TrieDel(&u.data, name)
+			old = u.data.Del(name)
 		}
 		if old != nil {
 			oldvalue = old.(string)
@@ -213,13 +215,13 @@ func (u *User) SetData(source *User, name string, value string) {
 		wait <- true
 	}
 	<-wait
-	
+
 	// If nothing changed, don't call hooks.
 	if oldvalue == value {
 		return
 	}
 
-	runUserDataChangeHooks(source, u,name, oldvalue, value)
+	runUserDataChangeHooks(source, u, name, oldvalue, value)
 
 	c := new(DataChange)
 	c.Name = name
@@ -245,9 +247,9 @@ func (u *User) SetDataList(source *User, c *DataChange) {
 			var old interface{}
 			var oldvalue string
 			if it.Data != "" {
-				old = TrieAdd(&u.data, it.Name, it.Data)
+				old = u.data.Add(it.Name, it.Data)
 			} else {
-				old = TrieDel(&u.data, it.Name)
+				old = u.data.Del(it.Name)
 			}
 			if old != nil {
 				oldvalue = old.(string)
@@ -285,7 +287,7 @@ func (u *User) SetDataList(source *User, c *DataChange) {
 func (u *User) Data(name string) (value string) {
 	wait := make(chan bool)
 	corechan <- func() {
-		val := TrieGet(&u.data, name)
+		val := u.data.Get(name)
 		if val != nil {
 			value = val.(string)
 		}
@@ -302,14 +304,14 @@ func (u *User) Data(name string) (value string) {
 func (u *User) DataRange(prefix string, f func(name, value string)) {
 	var dataArray [50]DataChange
 	var data []DataChange = dataArray[0:0]
-	var root, it *Trie
+	var root, it trie.Trie
 	wait := make(chan bool)
 
 	// Get an iterator pointing to our first value.
 	corechan <- func() {
-		root = TrieGetSub(&u.data, prefix)
+		root = u.data.GetSub(prefix)
 		it = root
-		if it != nil {
+		if !it.Empty() {
 			if key, _ := it.Value(); key == "" {
 				it = it.Next(root)
 			}
@@ -318,22 +320,22 @@ func (u *User) DataRange(prefix string, f func(name, value string)) {
 	}
 	<-wait
 
-	for it != nil {
+	for !it.Empty() {
 		// Get up to 50 values from this subtrie.
 		corechan <- func() {
 			for i := 0; i < cap(data); i++ {
 				var val interface{}
-				data = data[0:i+1]
+				data = data[0 : i+1]
 				data[i].Name, val = it.Value()
 				data[i].Data = val.(string)
 				it = it.Next(root)
-				if it == nil {
+				if it.Empty() {
 					break
 				}
 			}
 			wait <- true
 		}
-		<- wait
+		<-wait
 
 		// Call the function for all of them, and clear data.
 		for _, item := range data {
@@ -345,7 +347,7 @@ func (u *User) DataRange(prefix string, f func(name, value string)) {
 
 
 // Channels returns a pointer to the user's membership list.
-func (u* User) Channels() (chans *Membership) {
+func (u *User) Channels() (chans *Membership) {
 	wait := make(chan bool)
 	corechan <- func() {
 		chans = u.chans

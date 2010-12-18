@@ -1,14 +1,16 @@
 package core
 
+import "oddcomm/lib/trie"
+
 
 type Membership struct {
-	u *User
-	c *Channel
+	u     *User
+	c     *Channel
 	unext *Membership // Next membership entry for the user.
 	uprev *Membership // Next membership entry for the user.
 	cprev *Membership // Previous membership entry for the channel.
 	cnext *Membership // Next membership entry for the channel.
-	data *Trie
+	data  trie.Trie
 }
 
 // Channel returns the channel that this membership entry is for.
@@ -58,9 +60,9 @@ func (m *Membership) SetData(source *User, name string, value string) {
 
 		var old interface{}
 		if value != "" {
-			old = TrieAdd(&m.data, name, value)
+			old = m.data.Add(name, value)
 		} else {
-			old = TrieDel(&m.data, name)
+			old = m.data.Del(name)
 		}
 		if old != nil {
 			oldvalue = old.(string)
@@ -102,9 +104,9 @@ func (m *Membership) SetDataList(source *User, c *DataChange) {
 			var old interface{}
 			var oldvalue string
 			if it.Data != "" {
-				old = TrieAdd(&m.data, it.Name, it.Data)
+				old = m.data.Add(it.Name, it.Data)
 			} else {
-				old = TrieDel(&m.data, it.Name)
+				old = m.data.Del(it.Name)
 			}
 			if old != nil {
 				oldvalue = old.(string)
@@ -142,7 +144,7 @@ func (m *Membership) SetDataList(source *User, c *DataChange) {
 func (m *Membership) Data(name string) (value string) {
 	wait := make(chan bool)
 	corechan <- func() {
-		val := TrieGet(&m.data, name)
+		val := m.data.Get(name)
 		if val != nil {
 			value = val.(string)
 		}
@@ -159,14 +161,14 @@ func (m *Membership) Data(name string) (value string) {
 func (m *Membership) DataRange(prefix string, f func(name, value string)) {
 	var dataArray [50]DataChange
 	var data []DataChange = dataArray[0:0]
-	var root, it *Trie
+	var root, it trie.Trie
 	wait := make(chan bool)
 
 	// Get an iterator pointing to our first value.
 	corechan <- func() {
-		root = TrieGetSub(&m.data, prefix)
+		root = m.data.GetSub(prefix)
 		it = root
-		if it != nil {
+		if !it.Empty() {
 			if key, _ := it.Value(); key == "" {
 				it = it.Next(root)
 			}
@@ -175,22 +177,22 @@ func (m *Membership) DataRange(prefix string, f func(name, value string)) {
 	}
 	<-wait
 
-	for it != nil {
+	for !it.Empty() {
 		// Get up to 50 values from this subtrie.
 		corechan <- func() {
 			for i := 0; i < cap(data); i++ {
 				var val interface{}
-				data = data[0:i+1]
+				data = data[0 : i+1]
 				data[i].Name, val = it.Value()
 				data[i].Data = val.(string)
 				it = it.Next(root)
-				if it == nil {
+				if it.Empty() {
 					break
 				}
 			}
 			wait <- true
 		}
-		<- wait
+		<-wait
 
 		// Call the function for all of them, and clear data.
 		for _, item := range data {

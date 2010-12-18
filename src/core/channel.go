@@ -1,5 +1,7 @@
 package core
 
+import "oddcomm/lib/trie"
+
 import "strconv"
 import "strings"
 import "time"
@@ -7,11 +9,11 @@ import "time"
 
 // Represents a channel.
 type Channel struct {
-	name string
-	t string
-	ts int64
+	name  string
+	t     string
+	ts    int64
 	users *Membership
-	data *Trie
+	data  trie.Trie
 }
 
 
@@ -89,9 +91,9 @@ func (ch *Channel) SetData(source *User, name string, value string) {
 
 		var old interface{}
 		if value != "" {
-			old = TrieAdd(&ch.data, name, value)
+			old = ch.data.Add(name, value)
 		} else {
-			old = TrieDel(&ch.data, name)
+			old = ch.data.Del(name)
 		}
 		if old != nil {
 			oldvalue = old.(string)
@@ -130,18 +132,18 @@ func (ch *Channel) SetDataList(source *User, c *DataChange) {
 
 			// Figure out what we're making the change to.
 			// The channel, or a member?
-			trie := &ch.data
+			t := ch.data
 			if it.Member != nil {
-				trie = &it.Member.data
+				t = it.Member.data
 			}
 
 			// Make the change.
 			var old interface{}
 			var oldvalue string
 			if it.Data != "" {
-				old = TrieAdd(trie, it.Name, it.Data)
+				old = t.Add(it.Name, it.Data)
 			} else {
-				old = TrieDel(trie, it.Name)
+				old = t.Del(it.Name)
 			}
 			if old != nil {
 				oldvalue = old.(string)
@@ -173,10 +175,10 @@ func (ch *Channel) SetDataList(source *User, c *DataChange) {
 	for it, old := c, oldvalues; it != nil && old != nil; it, old = it.Next, old.Next {
 		if it.Member == nil {
 			runChanDataChangeHooks(ch.Type(), source, ch, it.Name,
-			                       old.Data, it.Data)
+				old.Data, it.Data)
 		} else {
 			runMemberDataChangeHooks(ch.Type(), source, it.Member,
-                                                 it.Name, old.Data, it.Data)
+				it.Name, old.Data, it.Data)
 		}
 	}
 	runChanDataChangesHooks(ch.Type(), source, ch, c, oldvalues)
@@ -187,7 +189,7 @@ func (ch *Channel) SetDataList(source *User, c *DataChange) {
 func (ch *Channel) Data(name string) (value string) {
 	wait := make(chan bool)
 	corechan <- func() {
-		val := TrieGet(&ch.data, name)
+		val := ch.data.Get(name)
 		if val != nil {
 			value = val.(string)
 		}
@@ -204,14 +206,14 @@ func (ch *Channel) Data(name string) (value string) {
 func (ch *Channel) DataRange(prefix string, f func(name, value string)) {
 	var dataArray [50]DataChange
 	var data []DataChange = dataArray[0:0]
-	var root, it *Trie
+	var root, it trie.Trie
 	wait := make(chan bool)
 
 	// Get an iterator pointing to our first value.
 	corechan <- func() {
-		root = TrieGetSub(&ch.data, prefix)
+		root = ch.data.GetSub(prefix)
 		it = root
-		if it != nil {
+		if !it.Empty() {
 			if key, _ := it.Value(); key == "" {
 				it = it.Next(root)
 			}
@@ -220,22 +222,22 @@ func (ch *Channel) DataRange(prefix string, f func(name, value string)) {
 	}
 	<-wait
 
-	for it != nil {
+	for !it.Empty() {
 		// Get up to 50 values from this subtrie.
 		corechan <- func() {
 			for i := 0; i < cap(data); i++ {
 				var val interface{}
-				data = data[0:i+1]
+				data = data[0 : i+1]
 				data[i].Name, val = it.Value()
 				data[i].Data = val.(string)
 				it = it.Next(root)
-				if it == nil {
+				if it.Empty() {
 					break
 				}
 			}
 			wait <- true
 		}
-		<- wait
+		<-wait
 
 		// Call the function for all of them, and clear data.
 		for _, item := range data {
@@ -246,7 +248,7 @@ func (ch *Channel) DataRange(prefix string, f func(name, value string)) {
 }
 
 // Users returns a pointer to the channel's membership list.
-func (ch* Channel) Users() (users *Membership) {
+func (ch *Channel) Users() (users *Membership) {
 	wait := make(chan bool)
 	corechan <- func() {
 		users = ch.users
@@ -327,7 +329,7 @@ func (ch *Channel) Remove(source, u *User, message string) {
 	if (source != nil && !source.Registered()) || !u.Registered() {
 		return
 	}
-	
+
 	// Search for them, remove them if we find them.
 	for it := ch.Users(); it != nil; it = it.ChanNext() {
 		if it.User() == u {
@@ -362,13 +364,13 @@ func (ch *Channel) GetTopic() (topic, setby, setat string) {
 	corechan <- func() {
 		setby = "Server.name"
 		setat = "0"
-		if v := TrieGet(&ch.data, "topic"); v != nil {
+		if v := ch.data.Get("topic"); v != nil {
 			topic = v.(string)
 		}
-		if v := TrieGet(&ch.data, "topic setby"); v != nil {
+		if v := ch.data.Get("topic setby"); v != nil {
 			setby = v.(string)
 		}
-		if v := TrieGet(&ch.data, "topic setat"); v != nil {
+		if v := ch.data.Get("topic setat"); v != nil {
 			setat = v.(string)
 		}
 		wait <- true

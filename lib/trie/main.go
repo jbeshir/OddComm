@@ -1,15 +1,37 @@
-package core
+/*
+	Provides an implementation of an iterable radix tree.
 
-// Trie represents an iterable radix tree.
-// It is designed for storing items with minimal overhead in small cases,
-// and acceptable overhead in large ones, iterable without invalidating
-// iterators in any operation, and searchable by key prefix.
-// An "empty" trie in this package is just a nil pointer of this type.
-// This container is not threadsafe; only one operation should be performed
-// upon it at once.
+	Designed for storing small numbers of items with minimal overhead,
+	and large numbers with acceptable overhead, and to be iterable without
+	invalidating iterators in any operation, including over subsets of the
+	contents.
+
+	This container is not threadsafe; external synchronisation mechanisms
+	should be used.
+*/
+package trie
+
+// Iterator safety: Thanks to garbage collection, we get 90% of this for free.
+// If we have a pointer to a node, then all its pointers will still be valid.
+// Eventually, we will return to a part of the trie that still exists, and,
+// if no one else is pointing to the nodes we iterated, they will be deleted.
+// The only gotcha is that we cannot change the parent or grandparent node,
+// as this would cause us to miss our 'root' node while iterating a subtrie.
+// Trie contains a single trie, 
+
+
+// Trie provides the implementation of the radix trie.
+// It contains methods on the trie and a pointer to its first node.
+// Individual nodes are accessed by generating a subtrie starting at them.
+// An empty trie uses no more space than a single nil pointer.
 type Trie struct {
-	down *Trie        // First child of this node.
-	next *Trie        // Next sibling of this node- or the next one back
+	First *trieNode
+}
+
+// trieNode is a single node of a Trie.
+type trieNode struct {
+	down *trieNode    // First child of this node.
+	next *trieNode    // Next sibling of this node- or the next one back
 		          // up if it has none left.
 	nodekey string    // Value of this node.
 	key string        // Full key of this node, if it has a key.
@@ -17,39 +39,40 @@ type Trie struct {
 	lastSib bool      // Whether this node is the last of its siblings.
 }
 
-// Iterator safety: Thanks to garbage collection, we get 90% of this for free.
-// If we have a pointer to a node, then all its pointers will still be valid.
-// Eventually, we will return to a part of the trie that still exists, and,
-// if no one else is pointing to the nodes we iterated, they will be deleted.
-// The only gotcha is that we cannot change the parent node of a set of nodes,
-// as this would cause us to miss our 'root' node while iterating a subtrie.
+
 
 // Value returns this trie node's key and value, or nil if it is not a value
 // node.
-func (t *Trie) Value() (string, interface{}) {
-	return t.key, t.value
+func (t *Trie) Value() (name string, value interface{}) {
+	if t.First != nil {
+		name, value = t.First.key, t.First.value
+	}
+	return
 } 
 
-// Next gets the next value node, not including this node itself if it has
-// a value. If end is non-nil, it indicates a node to not go past, used to
-// iterate only within a subtrie.
-func (t* Trie) Next(end *Trie) (next *Trie) {
 
-	next = nextNode(end, t)
-	for next != end && next != nil && next.key == "" {
-		next = nextNode(end, next)
+// Next gets the next value node, not including this node itself if it has
+// a value. If end is non-empty, it indicates a root node to not go past,
+// used to iterate only within a subtrie.
+//
+// Calling Next on a nil (that is, empty) trie is
+func (t *Trie) Next(end Trie) (next Trie) {
+
+	next.First = nextNode(end.First, t.First)
+	for next.First != end.First && next.First != nil && next.First.key == "" {
+		next.First = nextNode(end.First, next.First)
 	}
 	
 	// If we found the end node, return nil, not it.
-	if next == end {
-		next = nil
+	if next.First == end.First {
+		next.First = nil
 	}
 
 	return
 }
 
 // Iterate to the next node, including non-value nodes. May return nil.
-func nextNode(end, current *Trie) *Trie {
+func nextNode(end, current *trieNode) *trieNode {
 	if current.down != nil {
 		current = current.down
 	} else {
@@ -75,13 +98,29 @@ func nextNode(end, current *Trie) *Trie {
 	return current
 }
 
-// TrieAdd adds the given key and value to the trie.
+
+// Empty returns whether this trie is empty.
+// Used to see if a result from Next() is still a valid trie.
+func (t *Trie) Empty() bool {
+	return t.First == nil
+}
+
+
+// Add adds the given key and value to the trie.
 // If it already exists, it is overwritten with the new value.
 // Returns the previous value of the given key, or nil if it had none.
-func TrieAdd(first **Trie, key string, value interface{}) (old interface{}) {
+func (t *Trie) Add(key string, value interface{}) (old interface{}) {
+
+	// remaining contains the unmatched part of the key.
 	remaining := key
-	n := *first
-	var parent *Trie
+
+	// parent tracks the parent node to the current sibling list.
+	// Used to add a node.
+	var parent *trieNode
+
+	// n is the current sibling.
+	n := t.First
+
 	for n != nil {
 		// Find out how much of the node key matches ours.
 		var i int
@@ -116,16 +155,15 @@ func TrieAdd(first **Trie, key string, value interface{}) (old interface{}) {
 
 			// Otherwise, set this as our new root, cut the start
 			// off remaining, and restart. Note the parent node.
-			parent = n
-			first = &n.down
 			remaining = remaining[i:]
-			n = *first
+			parent = n
+			n = n.down
 			continue
 		}
 
 		// Otherwise, our key matches part of this node's key, but not
 		// all, and we need to split this node into two.
-		newn := new(Trie)
+		newn := new(trieNode)
 		newn.down = n.down
 		newn.next = n
 		newn.nodekey = n.nodekey[i:]
@@ -143,7 +181,7 @@ func TrieAdd(first **Trie, key string, value interface{}) (old interface{}) {
 		if len(remaining) == i {
 			newn = n
 		} else {
-			newn = new(Trie)
+			newn = new(trieNode)
 			newn.next = n.down
 			newn.nodekey = remaining[i:]
 			n.down = newn
@@ -156,32 +194,41 @@ func TrieAdd(first **Trie, key string, value interface{}) (old interface{}) {
 	// If we've gone through the list and not found anything with
 	// a common prefix, we need to simply add ourselves.
 	if n == nil {
-		n := new(Trie)
+		n := new(trieNode)
+		n.nodekey = remaining
+		n.key = key
+		n.value = value
 
 		// Set the next node, which is the first sibling. If there
 		// isn't one, it's the parent, and we're the last sibling.
-		n.next = *first
+		if parent != nil {
+			n.next = parent.down
+		}
 		if n.next == nil {
 			n.next = parent
 			n.lastSib = true
 		}
-		n.nodekey = remaining
-		n.key = key
-		n.value = value
-		(*first) = n
-		return
+
+		// If we have a parent, set this node as its child.
+		// If not, set this as the root node.
+		if parent != nil {
+			parent.down = n
+		} else {
+			t.First = n
+		}
 	}
 	return
 }
 
-// TrieDel deletes a key from the trie.
+
+// Del deletes a key from the trie.
 // If it does not exist, nothing happens.
 // Returns the value of the removed key, or nil if it did not exist.
-func TrieDel(first **Trie, key string) (old interface{}) {
+func (t *Trie) Del(key string) (old interface{}) {
 	remaining := key
-	root := first
-	n := *root
-	var prev *Trie
+	root := t.First
+	n := root
+	var prev *trieNode
 	for n != nil {
 		// Find out how much of the node key matches ours.
 		var i int
@@ -214,16 +261,19 @@ func TrieDel(first **Trie, key string) (old interface{}) {
 		if i == len(remaining) {
 			if n.key != "" {
 				old = n.value
-				if n.down != nil && n.down.next != n {
-					// This node is in use as part
-					// of multiple other keys;
-					// just remove its value.
-					n.key = ""
-					n.value = nil
-					return
-				}
 
+				// If the node has children, we can't delete it
+				// without breaking iterators. However, if it
+				// has only one child and that child has no
+				// children, we can merge with that child.
 				if n.down != nil {
+					c := n.down
+					if c.next != n || c.down != nil {
+						n.key = ""
+						n.value = nil
+						return
+					}
+
 					// Merge our one child into us.
 					// This HAS to happen this way around,
 					// or we'd be editing the child's
@@ -231,19 +281,19 @@ func TrieDel(first **Trie, key string) (old interface{}) {
 					n.nodekey = n.nodekey + n.down.nodekey
 					n.key = n.down.key
 					n.value = n.down.value
-					n.down = n.down.down
+					n.down = nil
 					return
 				}
 
-				// No children, so just delete references to
-				// us.
+				// We have no children, so just delete
+				// references to this node.
 				if prev != nil {
 					prev.next = n.next
 					prev.lastSib = n.lastSib
 				} else {
 					// If we had siblings, just remove us.
 					if !n.lastSib {
-						*root = n.next
+						root = n.next
 						return
 					}
 
@@ -261,8 +311,8 @@ func TrieDel(first **Trie, key string) (old interface{}) {
 						// deleting ourselves if we're
 						// the sole item left.
 						if n.next == nil {
-							if *first == n {
-								*first = nil
+							if t.First == n {
+								t.First = nil
 							}
 							return
 						}
@@ -285,10 +335,10 @@ func TrieDel(first **Trie, key string) (old interface{}) {
 
 		// Otherwise, set this as our new root,
 		// cut the start off remaining, and restart.
-		root = &n.down
+		root = n.down
 		remaining = remaining[i:]
 		prev = nil
-		n = *root
+		n = root
 	}
 
 	// Failed to find anything, return.
@@ -296,11 +346,11 @@ func TrieDel(first **Trie, key string) (old interface{}) {
 }
 
 
-// TrieGet gets a key's value from the trie.
+// Get gets a key's value from the trie.
 // If it does not exist, returns nil.
-func TrieGet(first **Trie, key string) (value interface{}) {
+func (t *Trie) Get(key string) (value interface{}) {
 	remaining := key
-	n := *first
+	n := t.First
 	for n != nil {
 
 		// Find out how much of the node key matches ours.
@@ -337,26 +387,25 @@ func TrieGet(first **Trie, key string) (value interface{}) {
 			return
 		}
 
-		// Otherwise, set this as our new root,
-		// cut the start off remaining, and restart.
-		first = &n.down
+		// Otherwise, cut the start off remaining, and restart with
+		// this node's children.
 		remaining = remaining[i:]
-		n = *first
+		n = n.down
 	}
 
 	// Failed to find anything, return.
 	return
 }
 
-// TrieGetSub gets a subtrie from the trie, consisting of a root of all values
+// GetSub gets a subtrie from the trie, consisting of a root of all values
 // with a given prefix. The value of the chain up to subtrie returned may be
 // longer than the prefix given, if no other sub entries exist.
 // The only safe operation on a subtrie is iterating it with Next(). The Trie*
 // functions require that they be working on keys from the start of the tree.
 // Returns nil if there are no entries with the given prefix.
-func TrieGetSub(first **Trie, prefix string) (subtree *Trie) {
+func (t *Trie) GetSub(prefix string) (subtree Trie) {
 	remaining := prefix
-	n := *first
+	n := t.First
 	for n != nil {
 		// Find out how much of the node key matches ours.
 		var i int
@@ -380,7 +429,7 @@ func TrieGetSub(first **Trie, prefix string) (subtree *Trie) {
 		// Either is our prefix, or fully contains it?
 		// Return it.
 		if i == len(remaining) {
-			subtree = n
+			subtree.First = n
 			return
 		}
 
@@ -390,11 +439,10 @@ func TrieGetSub(first **Trie, prefix string) (subtree *Trie) {
 			return
 		}
 
-		// Otherwise, set this as our new root,
-		// cut the start off remaining, and restart.
-		first = &n.down
+		// Otherwise, cut the start off remaining, and restart with
+		// this node's children.
 		remaining = remaining[i:]
-		n = *first
+		n = n.down
 	}
 
 	// Failed to find anything, return.
