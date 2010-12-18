@@ -58,7 +58,7 @@ func init() {
 
 func addCat() {
 	// Add CatServ!
-	cat = core.NewUser("oddcomm/modules/catserv", true, "")
+	cat = core.NewUser("oddcomm/modules/dev/catserv", true, "")
 
 	// If I suffer a collision, quit for now; I will return when they go
 	// away.
