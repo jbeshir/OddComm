@@ -159,12 +159,11 @@ func output(c *Client, n int) {
 		var err os.Error
 		n, err = c.conn.Write(c.outbuf[0:n])
 
-		// If writing failed, delete the user- but close the connection
-		// first to suppress write attempts.
+		// If writing failed, delete the user, suppressing writes.
 		if err != nil {
-			c.mutex.Lock()
 			c.outbuf = nil
-			c.conn.Close()
+			c.mutex.Lock()
+			c.disconnecting |= 2
 			c.delete(err.String())
 			c.mutex.Unlock()
 			break
