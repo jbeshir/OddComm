@@ -58,12 +58,12 @@ $(PKGDIR)/src/core.a: src/core/*.go $(PKGDIR)/lib/trie.a
 
 $(PKGDIR)/lib/trie.a: lib/trie/template.notgo
 	cp lib/trie/template.notgo lib/trie/base.go
-	gofmt -w -r 'nu -> nil' lib/trie/base.go
+	$(GOFMT) -w -r 'nu -> nil' lib/trie/base.go
 	cp lib/trie/template.notgo lib/trie/string.go
-	gofmt -w -r "interface{} -> string" lib/trie/string.go
-	gofmt -w -r "Trie -> StringTrie" lib/trie/string.go
-	gofmt -w -r "trieNode -> stringTrieNode" lib/trie/string.go
-	gofmt -w -r 'nu -> ""' lib/trie/string.go
+	$(GOFMT) -w -r "interface{} -> string" lib/trie/string.go
+	$(GOFMT) -w -r "Trie -> StringTrie" lib/trie/string.go
+	$(GOFMT) -w -r "trieNode -> stringTrieNode" lib/trie/string.go
+	$(GOFMT) -w -r 'nu -> ""' lib/trie/string.go
 	mkdir -p $(PKGDIR)/lib
 	$(GOCMD) -o $(PKGDIR)/lib/trie.$(O) $(wildcard lib/trie/*.go)
 	rm -f $(PKGDIR)/lib/trie.a
