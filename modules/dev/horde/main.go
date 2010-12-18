@@ -1,6 +1,7 @@
 /*
-	Add a horde of test users (4000 test users).
-	Tests memory efficiency of channels and users without a local socket.
+	Add a horde (10k) of test users.
+	Tests memory efficiency of channels and users without a local socket
+	or goroutine.
 */
 package horde
 
