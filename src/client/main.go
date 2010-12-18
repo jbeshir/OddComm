@@ -12,17 +12,14 @@ import "net"
 
 import "oddcomm/src/core"
 
-
-// Channel to send requests to run something from a client's goroutine to.
-var clichan chan clientRequest
+// Create a channel for sending messages to the subsystem's goroutine.
+var subsysMsg chan string = make(chan string)
 
 
 // Start starts up the client subsystem.
 func Start() (msg chan string, exit chan int) {
-	msg = make(chan string)
+	msg = subsysMsg
 	exit = make(chan int)
-
-	clichan = make(chan clientRequest)
 
 	go clientMain(msg, exit)
 
@@ -57,54 +54,27 @@ func clientMain(msg chan string, exit chan int) {
 
 	var exiting bool
 	for {
-		select {
-
 		// Handle messages to the goroutine.
-		case message := <-msg:
+		message := <-msg
 
-			// If asked to exit...
-			if message == "exit" {
+		// If asked to exit...
+		if message == "exit" {
 
-				// Stop the listening goroutine.
-				if l != nil {
-					l.Close()
-				}
-
-				// Stop every client.
-				var r clientRequest
-				var c *Client
-				r.f = func() {
-					c.delete("Server Terminating")
-				}
-				r.done = make(chan bool)
-				for c = range climap {
-					r.c = c
-					c.cchan <- r
-					<-r.done
-				}
-
-				// Note that we're terminating, as soon as
-				// every client is done quitting.
-				exiting = true
+			// Stop the listening goroutine.
+			if l != nil {
+				l.Close()
 			}
 
-		// Handle requests to be sent to a client goroutine.
-		// These are forwarded if the client exists and is alive,
-		// and dropped otherwise.
-		// If c == nil, it's a request to run the function here, so
-		// do so.
-		case r := <-clichan:
-			if r.c != nil {
-				alive, ok := climap[r.c]
-				if ok && alive {
-					r.c.cchan <- r
-				} else {
-					r.done <- false
-				}
-			} else {
-				r.f()
-				r.done <- true
+			// Stop every client.
+			for c := range climap {
+				c.mutex.Lock()
+				c.delete("Server Terminating")
+				c.mutex.Unlock()
 			}
+
+			// Note that we're terminating, as soon as
+			// every client is done quitting.
+			exiting = true
 		}
 
 		// If we're exiting, see if we've no more clients. If we've no
@@ -138,7 +108,6 @@ func listen(l *net.TCPListener) {
 		}
 
 		client := new(Client)
-		client.cchan = make(chan clientRequest)
 		client.conn = c
 		client.conn.SetWriteTimeout(1)
 		client.u = core.NewUser("oddcomm/src/client", false, "")
@@ -148,6 +117,6 @@ func listen(l *net.TCPListener) {
 		client.u.SetData(nil, "ip", ip)
 		client.u.SetData(nil, "hostname", ip)
 
-		go clientHandler(client)
+		go input(client)
 	}
 }

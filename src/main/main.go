@@ -6,6 +6,8 @@
 */
 package main
 
+import "runtime"
+
 import "oddcomm/src/core"
 import "oddcomm/src/client"
 
@@ -47,6 +49,10 @@ func main() {
 		core.AddPackage("oddcomm/src/client", msg)
 	}
 	exitList[0] = exit
+
+	// Yield, so if we're singlethreaded the subsystems can initialise,
+	// even if hooks in startup take a long time.
+	runtime.Gosched()
 
 	// Run start hooks.
 	core.RunStartHooks()

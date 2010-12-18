@@ -225,9 +225,9 @@ func init() {
 
 		// If this is our client, delete them.
 		if c := GetClient(u); c != nil {
-			makeRequest(c, func() {
-				c.delete(message)
-			})
+			c.mutex.Lock()
+			c.delete(message)
+			c.mutex.Unlock()
 			sent[c] = true
 		}
 

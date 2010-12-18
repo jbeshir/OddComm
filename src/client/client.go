@@ -3,47 +3,84 @@ package client
 import "fmt"
 import "net"
 import "os"
+import "sync"
 
 import "oddcomm/src/core"
 
 
 // Handle a client connection.
 type Client struct {
-	cchan         chan clientRequest
+	mutex         sync.Mutex
 	conn          *net.TCPConn
 	u             *core.User
-	disconnecting bool
-	inputDone     bool
 	outbuf        []byte
+	disconnecting uint8
 }
 
 // Disconnects the client with the given message. This internal method assumes
-// it is being called from the client goroutine.
+// it is being called with the client mutex already held.
+//
+// Should be called once to perform the disconnection, and then again when the
+// the output buffer is empty, and when the input goroutine has terminated,
+// if these were not true originally. The message is ignored in later calls,
+// and the user is only deleted once.
+// 
+// The client is fully deleted when this method is called when the output
+// buffer is empty, and the input goroutine has terminated.
 func (c *Client) delete(message string) {
 
-	// Remove this client from our live client lists.
-	killClient(c)
+	// First deletion only stuff.
+	if c.disconnecting & 1 == 0 {
 
-	// Send them a goodbye message.
-	username := c.u.Data("ident")
-	if username == "" {
-		username = "unknown"
+		// Mark us as disconnecting.
+		c.disconnecting |= 1
+
+		// Remove this client from our live client lists.
+		killClient(c)
+
+		// If the user has not already been deleted, delete it.
+		c.u.Delete(nil, message)
 	}
-	c.write([]byte(fmt.Sprintf("ERROR :Closing link: (%s@%s) [%s]\r\n", username, c.u.Data("hostname"), message)))
 
-	// If the user has not already been deleted, delete it.
-	c.u.Delete(nil, message)
+	// Send them a goodbye message if we've not already sent one.
+	// This also suppresses further writes to the client, and this bit can
+	// be set prior to calling delete() if a quit message should not be
+	// sent, such as in the case of a write error.
+	if c.disconnecting & 2 == 0 {
+		username := c.u.Data("ident")
+		if username == "" {
+			username = "unknown"
+		}
+		c.write([]byte(fmt.Sprintf("ERROR :Closing link: (%s@%s) [%s]\r\n", username, c.u.Data("hostname"), message)))
+		c.disconnecting &= 2
+	}
 
-	c.disconnecting = true
+	// If the output buffer is done...
+	if c.outbuf == nil {
+		// If we haven't already closed the connection, do so.
+		// This will cause the input goroutine to terminate if it
+		// has not yet done so.
+		if c.disconnecting & 4 == 0 {
+			c.conn.Close()
+			c.disconnecting |= 4
+		}
+
+		// If the input goroutine has terminated, fully delete the
+		// client if we haven't already.
+		if c.disconnecting & 8 != 0 && c.disconnecting & 16 == 0 {
+			delClient(c)
+			c.disconnecting |= 16
+		}
+	}
 }
 
 // Write a raw line to the client. This internal method assumes it is being
-// called from the client goroutine.
-func (c *Client) write(line []byte) {
+// called with the client mutex already held.
+func (c *Client) write(line []byte) bool {
 
 	// If the client is disconnecting, drop all writes to it.
-	if c.disconnecting {
-		return
+	if c.disconnecting & 2 != 0 {
+		return false
 	}
 
 	// Define function to append to the output buffer.
@@ -51,9 +88,9 @@ func (c *Client) write(line []byte) {
 
 		// If we've overflowed our output buffer, kill the client.
 		if cap(c.outbuf)-len(c.outbuf) < len(line) {
-			// Mark it as disconnecting before calling the delete
-			// method to suppress the quit message.
-			c.disconnecting = true
+			// Suppress output prior to calling delete, so it
+			// does not attempt to send a quit message.
+			c.disconnecting |= 2
 			c.delete("Output Buffer Exceeded")
 			c.outbuf = nil
 			return false
@@ -74,12 +111,11 @@ func (c *Client) write(line []byte) {
 		// Try to write.
 		n, err := c.conn.Write(line)
 		if err != nil && err.(net.Error).Timeout() == false {
-			// Mark it as disconnecting before calling the delete
-			// method to suppress the quit message.
-			c.disconnecting = true
+			// Suppress output prior to calling delete, so it
+			// does not attempt to send a quit message.
+			c.disconnecting |= 2
 			c.delete(err.String())
-			c.outbuf = nil
-			return
+			return false
 		}
 
 		// If it takes too long or we can't write it all, make an
@@ -87,7 +123,7 @@ func (c *Client) write(line []byte) {
 		if n != len(line) {
 			c.outbuf = make([]byte, 0, 4096)
 			if !appendfunc(line[n:len(line)]) {
-				return
+				return false
 			}
 			c.conn.SetWriteTimeout(0)
 			go output(c, len(line)-n)
@@ -95,21 +131,24 @@ func (c *Client) write(line []byte) {
 	} else {
 		// If we're using buffered output, add it to the buffer.
 		if !appendfunc(line) {
-			return
+			return false
 		}
 	}
+
+	return true
 }
 
 // Write a raw line to the client.
 func (c *Client) Write(line []byte) (int, os.Error) {
-	written := makeRequest(c, func() {
-		c.write(line)
-	})
+	var written bool
+
+	c.mutex.Lock()
+	written = c.write(line)
+	c.mutex.Unlock()
 
 	if !written {
 		return 0, os.NewError("Client disconnecting.")
 	}
-
 	return len(line), nil
 }
 
