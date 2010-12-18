@@ -1,5 +1,5 @@
 /*
-	Add a massive horde (100k) of test users.
+	Add a horde of test users (1000 test users).
 	Tests memory efficiency of users without a local socket.
 */
 package horde
@@ -25,7 +25,7 @@ func addHorde() {
 	rng := rand.New(src)
 
 	// Add the horde.
-	for i := 0; i < 500; i++ {
+	for i := 0; i < 4000; i++ {
 		u := core.NewUser("oddcomm/modules/dev/horde", true, "")
 		u.SetNick(fmt.Sprintf("horde-%d", rng.Int()%1000000))
 		u.SetData(u, "ident", fmt.Sprintf("horde-%d", rng.Int()%1000000))
@@ -34,21 +34,21 @@ func addHorde() {
 		u.SetData(nil, "account", fmt.Sprintf("horde-%d", rng.Int()%1000000))
 
 		// Join 5 random "big" channels.
-		// Channel count 100, average size 2000.
+		// Channel count 100, average size about 200.
 		for j := 0; j < 5; j++ {
 			name := fmt.Sprintf("big_%d", rng.Int()%100)
 			core.GetChannel("", name).Join(u)
 		}
 
 		// Join 5 random "medium" channels.
-		// Channel count 2000, average size 100.
+		// Channel count 2000, average size about 10.
 		for j := 0; j < 5; j++ {
 			name := fmt.Sprintf("medium_%d", rng.Int()%2000)
 			core.GetChannel("", name).Join(u)
 		}
 
 		// Join 10 random "small" channels.
-		// Channel count 100000, average size 10.
+		// Channel count 100000, average size 1.
 		for j := 0; j < 10; j++ {
 			name := fmt.Sprintf("small_%d", rng.Int()%100000)
 			core.GetChannel("", name).Join(u)
