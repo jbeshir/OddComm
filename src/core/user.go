@@ -2,12 +2,14 @@ package core
 
 import "os"
 import "strings"
+import "sync"
 
 import "oddcomm/lib/trie"
 
 
 // Represents a user.
 type User struct {
+	mutex    sync.Mutex
 	id       string
 	nick     string
 	checked  bool
@@ -29,36 +31,37 @@ type User struct {
 // is true, the creator may assume that it is the only package which may be
 // holding registration back.
 func NewUser(creator string, checked bool, forceid string) (u *User) {
-	wait := make(chan bool)
-	corechan <- func() {
-		if forceid != "" && users[forceid] != nil {
-			wait <- true
-			return
-		}
 
-		u = new(User)
-		u.checked = checked
-		u.regstate = holdRegistration[creator]
-		if !checked {
-			u.regstate += holdRegistration[""]
-		}
+	userMutex.Lock()
 
-		if forceid != "" {
+	if forceid != "" {
+		if users[forceid] == nil {
+			u = new(User)
 			u.id = forceid
-		} else {
-			for users[getUIDString()] != nil {
-				incrementUID()
-			}
-			u.id = getUIDString()
+		}
+	} else {
+		u = new(User)
+		for users[getUIDString()] != nil {
 			incrementUID()
 		}
-
-		u.nick = u.id
-		users[u.id] = u
-		usersByNick[strings.ToUpper(u.nick)] = u
-		wait <- true
+		u.id = getUIDString()
+		incrementUID()
 	}
-	<-wait
+	u.nick = u.id
+	users[u.id] = u
+	usersByNick[strings.ToUpper(u.nick)] = u
+
+	userMutex.Unlock()
+
+	if u == nil {
+		return
+	}
+
+	u.checked = checked
+	u.regstate = holdRegistration[creator]
+	if !checked {
+		u.regstate += holdRegistration[""]
+	}
 
 	runUserAddHooks(u, creator)
 	if u.Registered() {
@@ -70,22 +73,21 @@ func NewUser(creator string, checked bool, forceid string) (u *User) {
 
 // GetUser gets a user with the given ID, returning a pointer to their User
 // structure.
-func GetUser(id string) *User {
-	c := make(chan *User)
-	corechan <- func() {
-		c <- users[id]
-	}
-	return <-c
+func GetUser(id string) (u *User) {
+	userMutex.Lock()
+	u = users[id]
+	userMutex.Unlock()
+	return
 }
 
 // GetUserByNick gets a user with the given nick, returning a pointer to their
 // User structure.
-func GetUserByNick(nick string) *User {
-	c := make(chan *User)
-	corechan <- func() {
-		c <- usersByNick[strings.ToUpper(nick)]
-	}
-	return <-c
+func GetUserByNick(nick string) (u *User) {
+	nick = strings.ToUpper(nick)
+	userMutex.Lock()
+	u = usersByNick[nick]
+	userMutex.Unlock()
+	return
 }
 
 
@@ -94,19 +96,15 @@ func GetUserByNick(nick string) *User {
 // holds on registration but setting a nick outside their creating module.
 // This can be used to bypass DNS resolution, ban and DNSBL checks, and such.
 func (u *User) Checked() bool {
+	// As this is just a boolean, we can't possibly receive half-reads, and
+	// thus have no need to mutex reads to it.
 	return u.checked
 }
 
 // ID returns the user's ID.
-func (u *User) ID() (id string) {
-	wait := make(chan bool)
-	corechan <- func() {
-		id = u.id
-		wait <- true
-	}
-	<-wait
-
-	return
+func (u *User) ID() string {
+	// As this is constant, we have no need to mutex reads to it.
+	return u.id
 }
 
 // SetNick sets the user's nick. This may fail if the nickname is in use.
@@ -114,30 +112,25 @@ func (u *User) ID() (id string) {
 func (u *User) SetNick(nick string) (err os.Error) {
 	var oldnick string
 
-	wait := make(chan bool)
-	corechan <- func() {
-		oldnick = u.nick
-		NICK := strings.ToUpper(nick)
+	userMutex.Lock()
+	u.mutex.Lock()
 
-		if nick == oldnick {
-			wait <- true
-			return
-		}
+	oldnick = u.nick
+	NICK := strings.ToUpper(nick)
 
+	if nick != oldnick {
 		conflict := usersByNick[NICK]
 		if conflict != nil && conflict != u {
 			err = os.NewError("Nickname is already in use.")
-			wait <- true
-			return
+		} else {
+			usersByNick[strings.ToUpper(u.nick)] = nil, false
+			u.nick = nick
+			usersByNick[NICK] = u
 		}
-
-		usersByNick[strings.ToUpper(u.nick)] = nil, false
-		u.nick = nick
-		usersByNick[NICK] = u
-
-		wait <- true
 	}
-	<-wait
+
+	u.mutex.Unlock()
+	userMutex.Unlock()
 
 	if err == nil && oldnick != nick {
 		runUserNickChangeHooks(u, oldnick, nick)
@@ -148,13 +141,9 @@ func (u *User) SetNick(nick string) (err os.Error) {
 
 // Nick returns the user's nick.
 func (u *User) Nick() (nick string) {
-	wait := make(chan bool)
-	corechan <- func() {
-		nick = u.nick
-		wait <- true
-	}
-	<-wait
-
+	u.mutex.Lock()
+	nick = u.nick
+	u.mutex.Unlock()
 	return
 }
 
@@ -162,36 +151,29 @@ func (u *User) Nick() (nick string) {
 // For a user to register, this method must be called a number of times equal
 // to that which applicable HoldRegistration() calls were made during init.
 func (u *User) PermitRegistration() {
-	c := make(chan bool)
-	corechan <- func() {
+	var registered bool
 
-		if u.regstate <= 0 {
-			c <- false
-			return
-		}
-
+	u.mutex.Lock()
+	if u.regstate > 0 {
 		u.regstate--
-
 		if u.regstate == 0 {
-			c <- true
-		} else {
-			c <- false
+			registered = true
 		}
 	}
+	u.mutex.Unlock()
 
-	if <-c {
+	if registered {
 		runUserRegisterHooks(u)
 	}
 }
 
 // Registered returns whether the user is registered or not.
 // Deleted users also count as unregistered.
-func (u *User) Registered() bool {
-	c := make(chan bool)
-	corechan <- func() {
-		c <- (u.regstate == 0)
-	}
-	return <-c
+func (u *User) Registered() (r bool) {
+	u.mutex.Lock()
+	r = (u.regstate == 0)
+	u.mutex.Unlock()
+	return
 }
 
 // SetData sets the given single piece of metadata on the user.
@@ -200,29 +182,25 @@ func (u *User) Registered() bool {
 func (u *User) SetData(source *User, name string, value string) {
 	var oldvalue string
 
-	wait := make(chan bool)
-	corechan <- func() {
-		if value != "" {
-			oldvalue = u.data.Add(name, value)
-		} else {
-			oldvalue = u.data.Del(name)
-		}
-		wait <- true
+	u.mutex.Lock()
+	if value != "" {
+		oldvalue = u.data.Add(name, value)
+	} else {
+		oldvalue = u.data.Del(name)
 	}
-	<-wait
+	u.mutex.Unlock()
 
 	// If nothing changed, don't call hooks.
 	if oldvalue == value {
 		return
 	}
 
-	runUserDataChangeHooks(source, u, name, oldvalue, value)
-
 	c := new(DataChange)
 	c.Name = name
 	c.Data = value
 	old := new(OldData)
 	old.Data = value
+	runUserDataChangeHooks(source, u, name, oldvalue, value)
 	runUserDataChangesHooks(source, u, c, old)
 }
 
@@ -232,40 +210,37 @@ func (u *User) SetData(source *User, name string, value string) {
 // source may be nil, in which case the metadata is set by the server.
 func (u *User) SetDataList(source *User, c *DataChange) {
 	var oldvalues *OldData
-	wait := make(chan bool)
-	corechan <- func() {
-		var lasthook *DataChange
-		var lastold **OldData = &oldvalues
-		for it := c; it != nil; it = it.Next {
+	var lasthook *DataChange
+	var lastold **OldData = &oldvalues
 
-			// Make the change.
-			var oldvalue string
-			if it.Data != "" {
-				oldvalue = u.data.Add(it.Name, it.Data)
-			} else {
-				oldvalue = u.data.Del(it.Name)
-			}
+	u.mutex.Lock()
+	for it := c; it != nil; it = it.Next {
 
-			// If this was a do-nothing change, cut it out.
-			if oldvalue == it.Data {
-				if lasthook != nil {
-					lasthook.Next = it.Next
-				} else {
-					c = it.Next
-				}
-				continue
-			}
-
-			olddata := new(OldData)
-			olddata.Data = oldvalue
-			*lastold = olddata
-			lasthook = it
-			lastold = &olddata.Next
+		// Make the change.
+		var oldvalue string
+		if it.Data != "" {
+			oldvalue = u.data.Add(it.Name, it.Data)
+		} else {
+			oldvalue = u.data.Del(it.Name)
 		}
 
-		wait <- true
+		// If this was a do-nothing change, cut it out.
+		if oldvalue == it.Data {
+			if lasthook != nil {
+				lasthook.Next = it.Next
+			} else {
+				c = it.Next
+			}
+			continue
+		}
+
+		olddata := new(OldData)
+		olddata.Data = oldvalue
+		*lastold = olddata
+		lasthook = it
+		lastold = &olddata.Next
 	}
-	<-wait
+	u.mutex.Unlock()
 
 	for it, old := c, oldvalues; it != nil && old != nil; it, old = it.Next, old.Next {
 		runUserDataChangeHooks(source, u, c.Name, old.Data, it.Data)
@@ -276,13 +251,9 @@ func (u *User) SetDataList(source *User, c *DataChange) {
 // Data gets the given piece of metadata.
 // If it is not set, this method returns "".
 func (u *User) Data(name string) (value string) {
-	wait := make(chan bool)
-	corechan <- func() {
-		value = u.data.Get(name)
-		wait <- true
-	}
-	<-wait
-
+	u.mutex.Lock()
+	value = u.data.Get(name)
+	u.mutex.Unlock()
 	return
 }
 
@@ -290,38 +261,33 @@ func (u *User) Data(name string) (value string) {
 // given prefix. If none are found, the function is never called. Metadata
 // items added while this function is running may or may not be missed.
 func (u *User) DataRange(prefix string, f func(name, value string)) {
-	var dataArray [50]DataChange
+	var dataArray [100]DataChange
 	var data []DataChange = dataArray[0:0]
 	var root, it trie.StringTrie
-	wait := make(chan bool)
 
-	// Get an iterator pointing to our first value.
-	corechan <- func() {
-		root = u.data.GetSub(prefix)
-		it = root
-		if !it.Empty() {
-			if key, _ := it.Value(); key == "" {
-				it = it.Next(root)
-			}
-		}
-		wait <- true
-	}
-	<-wait
+	for firstrun := true; firstrun || !it.Empty(); {
+		u.mutex.Lock()
 
-	for !it.Empty() {
-		// Get up to 50 values from this subtrie.
-		corechan <- func() {
-			for i := 0; i < cap(data); i++ {
-				data = data[0 : i+1]
-				data[i].Name, data[i].Data = it.Value()
-				it = it.Next(root)
-				if it.Empty() {
-					break
+		// On our first run, get an iterator at our first value.
+		if firstrun {
+			root = u.data.GetSub(prefix)
+			it = root
+			if !it.Empty() {
+				if key, _ := it.Value(); key == "" {
+					it = it.Next(root)
 				}
 			}
-			wait <- true
+			firstrun = false
 		}
-		<-wait
+
+		// Read a block of values.
+		for i := 0; !it.Empty() && i < cap(data); i++ {
+			data = data[0 : i+1]
+			data[i].Name, data[i].Data = it.Value()
+			it = it.Next(root)
+		}
+
+		u.mutex.Unlock()
 
 		// Call the function for all of them, and clear data.
 		for _, item := range data {
@@ -334,12 +300,9 @@ func (u *User) DataRange(prefix string, f func(name, value string)) {
 
 // Channels returns a pointer to the user's membership list.
 func (u *User) Channels() (chans *Membership) {
-	wait := make(chan bool)
-	corechan <- func() {
-		chans = u.chans
-		wait <- true
-	}
-	<-wait
+	u.mutex.Lock()
+	chans = u.chans
+	u.mutex.Unlock()
 	return
 }
 
@@ -363,25 +326,41 @@ func (u *User) Message(source *User, message []byte, t string) {
 // Source may be nil, to indicate a deletion by the server.
 func (u *User) Delete(source *User, message string) {
 	var chans *Membership
+	var deleted bool
 
-	deleted := make(chan bool)
-	corechan <- func() {
-		// Delete the user from the user tables.
-		// If they are not in the user tables, return immediately.
-		if users[u.id] == u {
-			users[u.id] = nil, false
-		} else {
-			deleted <- false
-			return
-		}
+	userMutex.Lock()
+	u.mutex.Lock()
+
+	// Delete the user from the user tables.
+	if users[u.id] == u {
+		users[u.id] = nil, false
+	
 		NICK := strings.ToUpper(u.nick)
 		if usersByNick[NICK] == u {
 			usersByNick[NICK] = nil, false
 		}
+		deleted = true
+	}
+	userMutex.Unlock()
+
+	// If they were deleted from the user tables, continue.
+	if deleted {
+ 
+		// Mark the user as deleted, and get their membership list.
+		u.regstate = -1
+		chans = u.chans
 
 		// Remove them from all channel lists.
-		chans = u.chans
-		for it := u.chans; it != nil; it = it.unext {
+		var prev *Membership
+		for it := chans; it != nil; it, prev = it.unext, it {
+			u.mutex.Unlock()
+			if prev != nil {
+				prev.c.mutex.Unlock()
+				runChanUserRemoveHooks(it.c.t, u, u, it.c, message)
+			}
+			it.c.mutex.Lock()
+			u.mutex.Lock()
+
 			if it.cprev == nil {
 				it.c.users = it.cnext
 			} else {
@@ -392,17 +371,12 @@ func (u *User) Delete(source *User, message string) {
 			}
 		}
 
-		// Mark the user as deleted.
-		u.regstate = -1
-
-		deleted <- true
-	}
-
-	if <-deleted {
-		for it := chans; it != nil; it = it.UserNext() {
-			runChanUserRemoveHooks(it.c.t, u, u, it.c, message)
-		}
+		u.mutex.Unlock()
 
 		runUserDeleteHooks(source, u, message)
+		return
 	}
+
+	// Otherwise, unlock them and continue.
+	u.mutex.Unlock()
 }

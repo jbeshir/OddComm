@@ -58,10 +58,10 @@ $(PKGDIR)/src/core.a: src/core/*.go $(PKGDIR)/lib/trie.a
 
 $(PKGDIR)/lib/trie.a: lib/trie/main.go lib/trie/base.go
 	cp lib/trie/base.go lib/trie/string.go
-	$(GOFMT) -w -r 'interface{}(nil) -> ""' lib/trie/string.go
-	$(GOFMT) -w -r "interface{} -> string" lib/trie/string.go
-	$(GOFMT) -w -r "Trie -> StringTrie" lib/trie/string.go
-	$(GOFMT) -w -r "trieNode -> stringTrieNode" lib/trie/string.go
+	sed -i 's/interface{}(nil)/""/g' lib/trie/string.go
+	sed -i "s/interface{}/string/g" lib/trie/string.go
+	sed -i "s/Trie/StringTrie/g" lib/trie/string.go
+	sed -i "s/trieNode/stringTrieNode/g" lib/trie/string.go
 	mkdir -p $(PKGDIR)/lib
 	$(GOCMD) -o $(PKGDIR)/lib/trie.$(O) $(wildcard lib/trie/*.go)
 	rm -f $(PKGDIR)/lib/trie.a

@@ -6,27 +6,33 @@
 */
 package core
 
+import "sync"
+
+
+// An ordering is imposed on mutexes within this package: Only one user and one
+// channel mutex may be held at once, and they must be acquired in that order.
+// Membership entry access should only be performed while holding the correct
+// user's mutex and the correct channel's mutex.
+// No other mutexes may be held simultaneously with others.
+
+
 // Sets the server version string.
 var Version string = "0.0.1"
 
 
-// The main users by ID map to look up users.
+// The users by ID and users by nick maps to look up users.
 var users map[string]*User
-
-// The users by nick map for indexed look up of users by name.
 var usersByNick map[string]*User
+var userMutex sync.Mutex
 
-// The main channels by type, by name map to look up channels.
+// The channels by type, by name map to look up channels.
 var channels map[string]map[string]*Channel
+var chanMutex sync.Mutex
 
 // The package message channel by package name map.
 // For sending messages to package goroutines.
 var packages map[string]chan string
-
-// The core channel.
-// For sending functions to to run in the goroutine that owns the core's
-// data structures.
-var corechan chan func()
+var packageMutex sync.Mutex
 
 
 // Core initialisation function.
@@ -38,25 +44,15 @@ func init() {
 	usersByNick = make(map[string]*User)
 	channels = make(map[string]map[string]*Channel)
 	packages = make(map[string]chan string)
-
-	corechan = make(chan func())
-	go func() {
-		for corefunc := range corechan {
-			corefunc()
-		}
-	}()
 }
 
 
 // AddPackage adds the given package to the package list.
 // Packages should use a unique name.
 func AddPackage(name string, c chan string) {
-	wait := make(chan bool)
-	corechan <- func() {
-		packages[name] = c
-		wait <- true
-	}
-	<-wait
+	packageMutex.Lock()
+	packages[name] = c
+	packageMutex.Unlock()
 }
 
 
@@ -64,8 +60,10 @@ func AddPackage(name string, c chan string) {
 // goroutine. This is done asynchronously.
 func Shutdown() {
 	go func() {
+		packageMutex.Lock()
 		for name := range packages {
 			packages[name] <- "exit"
 		}
+		packageMutex.Unlock()
 	}()
 }

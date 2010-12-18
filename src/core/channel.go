@@ -4,11 +4,13 @@ import "oddcomm/lib/trie"
 
 import "strconv"
 import "strings"
+import "sync"
 import "time"
 
 
 // Represents a channel.
 type Channel struct {
+	mutex sync.Mutex
 	name  string
 	t     string
 	ts    int64
@@ -22,6 +24,8 @@ type Channel struct {
 // already existed, it is simply returned.
 func GetChannel(t, name string) (ch *Channel) {
 	NAME := strings.ToUpper(name)
+
+	chanMutex.Lock()
 	if _, ok := channels[t]; ok {
 		if v, ok := channels[t][NAME]; ok {
 			ch = v
@@ -40,6 +44,8 @@ func GetChannel(t, name string) (ch *Channel) {
 		ch.ts = time.Seconds()
 		channels[t][NAME] = ch
 	}
+	chanMutex.Unlock()
+
 	return
 }
 
@@ -47,11 +53,13 @@ func GetChannel(t, name string) (ch *Channel) {
 // for the default type. If none exist, it returns nil.
 func FindChannel(t, name string) (ch *Channel) {
 	NAME := strings.ToUpper(name)
+
+	chanMutex.Lock()
 	if _, ok := channels[t]; ok {
-		if v, ok := channels[t][NAME]; ok {
-			ch = v
-		}
+		ch = channels[t][NAME]
 	}
+	chanMutex.Unlock()
+
 	return
 }
 
@@ -59,24 +67,26 @@ func FindChannel(t, name string) (ch *Channel) {
 // Name returns the channel's name.
 func (ch *Channel) Name() string {
 	// This cannot change after the channel has been created.
+	// No need to bother with synchronisation.
 	return ch.name
 }
 
 // Type returns the channel's type. This may be "", for default.
 func (ch *Channel) Type() string {
 	// This cannot change after the channel has been created.
-	// No need to bother the core goroutine with synchronisation.
+	// No need to bother with synchronisation.
 	return ch.t
 }
 
 // TS returns the channel's creation time.
 func (ch *Channel) TS() (ts int64) {
-	wait := make(chan bool)
-	corechan <- func() {
-		ts = ch.ts
-		wait <- true
-	}
-	<-wait
+	// This actually CAN change after the channel has been created,
+	// if the channel is merged with a channel created earlier.
+	// Thus, synchronisation.
+	ch.mutex.Lock()
+	ts = ch.ts
+	ch.mutex.Unlock()
+
 	return
 }
 
@@ -86,31 +96,25 @@ func (ch *Channel) TS() (ts int64) {
 func (ch *Channel) SetData(source *User, name string, value string) {
 	var oldvalue string
 
-	wait := make(chan bool)
-	corechan <- func() {
-
-		if value != "" {
-			oldvalue = ch.data.Add(name, value)
-		} else {
-			oldvalue = ch.data.Del(name)
-		}
-
-		wait <- true
+	ch.mutex.Lock()
+	if value != "" {
+		oldvalue = ch.data.Add(name, value)
+	} else {
+		oldvalue = ch.data.Del(name)
 	}
-	<-wait
+	ch.mutex.Unlock()
 
 	// If nothing changed, don't call hooks.
 	if oldvalue == value {
 		return
 	}
 
-	runChanDataChangeHooks(ch.Type(), source, ch, name, oldvalue, value)
-
 	c := new(DataChange)
 	c.Name = name
 	c.Data = value
 	old := new(OldData)
 	old.Data = value
+	runChanDataChangeHooks(ch.Type(), source, ch, name, oldvalue, value)
 	runChanDataChangesHooks(ch.Type(), source, ch, c, old)
 }
 
@@ -120,49 +124,52 @@ func (ch *Channel) SetData(source *User, name string, value string) {
 // source may be nil, in which case the metadata is set by the server.
 func (ch *Channel) SetDataList(source *User, c *DataChange) {
 	var oldvalues *OldData
-	wait := make(chan bool)
-	corechan <- func() {
-		var lasthook *DataChange
-		var lastold **OldData = &oldvalues
-		for it := c; it != nil; it = it.Next {
+	var lasthook *DataChange
+	var lastold **OldData = &oldvalues
 
-			// Figure out what we're making the change to.
-			// The channel, or a member?
-			t := ch.data
-			if it.Member != nil {
-				t = it.Member.data
-			}
+	ch.mutex.Lock()
+	for it := c; it != nil; it = it.Next {
 
-			// Make the change.
-			var oldvalue string
-			if it.Data != "" {
-				oldvalue = t.Add(it.Name, it.Data)
-			} else {
-				oldvalue = t.Del(it.Name)
-			}
-
-			// If this was a do-nothing change, cut it out.
-			if oldvalue == it.Data {
-				if lasthook != nil {
-					lasthook.Next = it.Next
-				} else {
-					c = it.Next
-				}
-				continue
-			}
-
-			// Otherwise, add the old value to the old data list.
-			olddata := new(OldData)
-			olddata.Data = oldvalue
-			*lastold = olddata
-			lasthook = it
-			lastold = &olddata.Next
-
+		// Figure out what we're making the change to.
+		// The channel, or a member?
+		// If a member, lock them.
+		t := ch.data
+		if it.Member != nil {
+			t = it.Member.data
+			it.Member.u.mutex.Lock()
 		}
 
-		wait <- true
+		// Make the change.
+		var oldvalue string
+		if it.Data != "" {
+			oldvalue = t.Add(it.Name, it.Data)
+		} else {
+			oldvalue = t.Del(it.Name)
+		}
+
+		// If we locked a member, unlock them.
+		if it.Member != nil {
+			it.Member.u.mutex.Unlock()
+		}
+
+		// If this was a do-nothing change, cut it out.
+		if oldvalue == it.Data {
+			if lasthook != nil {
+				lasthook.Next = it.Next
+			} else {
+				c = it.Next
+			}
+			continue
+		}
+
+		// Otherwise, add the old value to the old data list.
+		olddata := new(OldData)
+		olddata.Data = oldvalue
+		*lastold = olddata
+		lasthook = it
+		lastold = &olddata.Next
 	}
-	<-wait
+	ch.mutex.Unlock()
 
 	for it, old := c, oldvalues; it != nil && old != nil; it, old = it.Next, old.Next {
 		if it.Member == nil {
@@ -179,12 +186,9 @@ func (ch *Channel) SetDataList(source *User, c *DataChange) {
 // Data gets the given piece of metadata.
 // If it is not set, this method returns "".
 func (ch *Channel) Data(name string) (value string) {
-	wait := make(chan bool)
-	corechan <- func() {
-		value = ch.data.Get(name)
-		wait <- true
-	}
-	<-wait
+	ch.mutex.Lock()
+	value = ch.data.Get(name)
+	ch.mutex.Unlock()
 
 	return
 }
@@ -193,38 +197,33 @@ func (ch *Channel) Data(name string) (value string) {
 // given prefix. If none are found, the function is never called. Metadata
 // items added while this function is running may or may not be missed.
 func (ch *Channel) DataRange(prefix string, f func(name, value string)) {
-	var dataArray [50]DataChange
+	var dataArray [100]DataChange
 	var data []DataChange = dataArray[0:0]
 	var root, it trie.StringTrie
-	wait := make(chan bool)
 
-	// Get an iterator pointing to our first value.
-	corechan <- func() {
-		root = ch.data.GetSub(prefix)
-		it = root
-		if !it.Empty() {
-			if key, _ := it.Value(); key == "" {
-				it = it.Next(root)
-			}
-		}
-		wait <- true
-	}
-	<-wait
+	for firstrun := true; firstrun || !it.Empty(); {
 
-	for !it.Empty() {
-		// Get up to 50 values from this subtrie.
-		corechan <- func() {
-			for i := 0; i < cap(data); i++ {
-				data = data[0 : i+1]
-				data[i].Name, data[i].Data = it.Value()
-				it = it.Next(root)
-				if it.Empty() {
-					break
+		ch.mutex.Lock()
+
+		if firstrun {
+			root = ch.data.GetSub(prefix)
+			it = root
+			if !it.Empty() {
+				if key, _ := it.Value(); key == "" {
+					it = it.Next(root)
 				}
 			}
-			wait <- true
+			firstrun = false
 		}
-		<-wait
+
+		// Get up to 100 values from this subtrie.
+		for i := 0; !it.Empty() && i < cap(data); i++ {
+			data = data[0 : i+1]
+			data[i].Name, data[i].Data = it.Value()
+			it = it.Next(root)
+		}
+
+		ch.mutex.Unlock()
 
 		// Call the function for all of them, and clear data.
 		for _, item := range data {
@@ -236,12 +235,10 @@ func (ch *Channel) DataRange(prefix string, f func(name, value string)) {
 
 // Users returns a pointer to the channel's membership list.
 func (ch *Channel) Users() (users *Membership) {
-	wait := make(chan bool)
-	corechan <- func() {
-		users = ch.users
-		wait <- true
-	}
-	<-wait
+	ch.mutex.Lock()
+	users = ch.users
+	ch.mutex.Unlock()
+
 	return
 }
 
@@ -249,40 +246,38 @@ func (ch *Channel) Users() (users *Membership) {
 // given user, or nil if they are not a member. This is also how to check
 // whether a user is on the channel or not.
 func (ch *Channel) GetMember(u *User) (m *Membership) {
-	wait := make(chan bool)
-	corechan <- func() {
-		for it := ch.users; it != nil; it = it.cnext {
-			if it.u == u {
-				m = it
-				break
-			}
+	ch.mutex.Lock()
+	for it := ch.users; it != nil; it = it.cnext {
+		if it.u == u {
+			m = it
+			break
 		}
-		wait <- true
 	}
-	<-wait
+	ch.mutex.Unlock()
+
 	return
 }
 
 // Join adds a user to the channel.
 func (ch *Channel) Join(u *User) {
+	var alreadyJoined bool
 	var joined bool
-	wait := make(chan bool)
-	corechan <- func() {
 
-		// Unregistered users may not join channels.
-		if u.regstate != 0 {
-			wait <- true
-			return
-		}
+	ch.mutex.Lock()
+	u.mutex.Lock()
+
+	// Unregistered users may not join channels.
+	if u.regstate == 0 {
 
 		// Users who are already IN the channel may not join.
 		for it := ch.users; it != nil; it = it.cnext {
 			if it.u == u {
-				wait <- true
-				return
+				alreadyJoined = true
 			}
 		}
+	}
 
+	if !alreadyJoined {
 		m := new(Membership)
 		m.c = ch
 		m.u = u
@@ -290,16 +285,24 @@ func (ch *Channel) Join(u *User) {
 		m.cnext = ch.users
 		u.chans = m
 		ch.users = m
-		if m.cnext != nil {
-			m.cnext.cprev = m
-		}
 		if m.unext != nil {
 			m.unext.uprev = m
 		}
+
+		u.mutex.Unlock()
+
+		if m.cnext != nil {
+			m.cnext.u.mutex.Lock()
+			m.cnext.cprev = m
+			m.cnext.u.mutex.Unlock()
+		}
 		joined = true
-		wait <- true
+	} else {
+		u.mutex.Unlock()
 	}
-	<-wait
+
+	ch.mutex.Unlock()
+
 
 	if joined {
 		runChanUserJoinHooks(ch.t, u, ch)
@@ -308,21 +311,36 @@ func (ch *Channel) Join(u *User) {
 
 // Remove removes the given user from the channel.
 // source may be nil, indicating that they are being removed by the server.
-// This iterates the user list, and then calls Remove() on the Membership
-// struct, as a convienience function.
+// This behaves as iterates the user list, and then calling Remove() on the
+// Membership struct would, but is faster.
 func (ch *Channel) Remove(source, u *User, message string) {
 
-	// Unregistered users may not join channels OR remove other users.
-	if (source != nil && !source.Registered()) || !u.Registered() {
+	// Unregistered users may not remove other users.
+	if source != nil && !source.Registered() {
+		return
+	}
+
+	ch.mutex.Lock()
+	u.mutex.Lock()
+
+	// Unregistered users may not join channels in the first place.
+	if !u.Registered() {
 		return
 	}
 
 	// Search for them, remove them if we find them.
-	for it := ch.Users(); it != nil; it = it.ChanNext() {
-		if it.User() == u {
+	for it := ch.users; it != nil; it = it.cnext {
+		if it.u == u {
+			// FIXME FIXME FIXME BUG
+			// This must be replaced by the contents of it.Remove()
+			// As we are holding mutexes it will attempt to lock.
+			// This call WILL lock up.
 			it.Remove(source, message)
 		}
 	}
+
+	u.mutex.Unlock()
+	ch.mutex.Unlock()
 }
 
 // Message sends a message to the channel.
@@ -347,20 +365,18 @@ func (ch *Channel) Delete() {
 
 // GetTopic gets the topic, the topic setter string, and the time it was set.
 func (ch *Channel) GetTopic() (topic, setby, setat string) {
-	wait := make(chan bool)
-	corechan <- func() {
-		topic = ch.data.Get("topic")
-		setby = ch.data.Get("topic setby")
-		setat = ch.data.Get("topic setat")
-		if setby == "" {
-			setby = "Server.name"
-		}
-		if setat == "" {
-			setat = "0"
-		}
-		wait <- true
+	ch.mutex.Lock()
+	topic = ch.data.Get("topic")
+	setby = ch.data.Get("topic setby")
+	setat = ch.data.Get("topic setat")
+	ch.mutex.Unlock()
+
+	if setby == "" {
+		setby = "Server.name"
 	}
-	<-wait
+	if setat == "" {
+		setat = "0"
+	}
 	return
 }
 
