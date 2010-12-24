@@ -17,8 +17,9 @@ func init() {
 			return -1e9, os.NewError("Nickname contains space or comma.")
 		}
 
-		// Do not permit ! in a nick anywhere but the start.
-		if strings.IndexRune(nick[1:], '!') != -1 {
+		// Do not permit ! anywhere in a nick.
+		// The start could hypothetically be legal, but breaks clients.
+		if strings.IndexRune(nick, '!') != -1 {
 			return -1e9, os.NewError("Nickname contains ! character.")
 		}
 
