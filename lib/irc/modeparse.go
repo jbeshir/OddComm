@@ -263,7 +263,7 @@ func (p *ModeParser) ParseChanges(e core.Extensible, c *core.DataChange, old *co
 
 		var subentry = strings.LastIndex(it.Name, " ") + 1
 		for subentry > 2 {
-			if v, ok := p.nameToExt[it.Name[0:subentry-1]]; ok &&
+			if v, ok := p.nameToExt[it.Name[:subentry-1]]; ok &&
 				v != nil {
 				add, addpar, rem, rempar := v(e, it.Name, o.Data, it.Data)
 				addmodes += string(add)
@@ -277,7 +277,7 @@ func (p *ModeParser) ParseChanges(e core.Extensible, c *core.DataChange, old *co
 				break
 			}
 
-			if v, ok := p.nameToList[it.Name[0:subentry-1]]; ok {
+			if v, ok := p.nameToList[it.Name[:subentry-1]]; ok {
 				if it.Data != "" {
 					addmodes += string(v)
 					addparams += " " + it.Name[subentry:]

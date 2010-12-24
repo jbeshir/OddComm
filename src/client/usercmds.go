@@ -199,11 +199,11 @@ func cmdMode(u *core.User, w io.Writer, params [][]byte) {
 				var setBy string = "Server.name"
 				words := strings.Fields(v)
 				for _, word := range words {
-					if len(word) > 6 && word[0:6] == "setat-" {
+					if len(word) > 6 && word[:6] == "setat-" {
 						setTime = word[6:]
 						continue
 					}
-					if len(word) > 6 && word[0:6] == "setby-" {
+					if len(word) > 6 && word[:6] == "setby-" {
 						setBy = word[6:]
 						continue
 					}

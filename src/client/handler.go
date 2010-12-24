@@ -44,7 +44,7 @@ func input(c *Client) {
 			break
 		}
 		count += n
-		b = b[0:count]
+		b = b[:count]
 
 		for {
 			// Search for an end of line, then keep going until we
@@ -65,7 +65,7 @@ func input(c *Client) {
 			}
 
 			// Get the line, with no line endings.
-			line := b[0:eol]
+			line := b[:eol]
 			end := len(line)
 			for end > 0 {
 				endchar := line[end-1]
@@ -76,16 +76,16 @@ func input(c *Client) {
 				}
 			}
 			if end != len(line) {
-				line = line[0:end]
+				line = line[:end]
 			}
 
 			// Ignore blank lines.
 			if len(line) == 0 {
 				if len(b)-eol-1 >= 0 {
-					b = b[0 : len(b)-eol-1]
+					b = b[:len(b)-eol-1]
 					continue
 				} else {
-					b = b[0:0]
+					b = b[:0]
 					break
 				}
 			}
@@ -131,9 +131,9 @@ func input(c *Client) {
 				for i := 0; i < len(b)-eol-1; i++ {
 					b[i] = b[eol+1+i]
 				}
-				b = b[0 : len(b)-eol-1]
+				b = b[:len(b)-eol-1]
 			} else {
-				b = b[0:0]
+				b = b[:0]
 				break
 			}
 		}
@@ -157,7 +157,7 @@ func output(c *Client, n int) {
 
 		// Write it.
 		var err os.Error
-		n, err = c.conn.Write(c.outbuf[0:n])
+		n, err = c.conn.Write(c.outbuf[:n])
 
 		// If writing failed, delete the user, suppressing writes.
 		if err != nil {
@@ -184,7 +184,7 @@ func output(c *Client, n int) {
 			for i := 0; i < len(c.outbuf)-n; i++ {
 				c.outbuf[i] = c.outbuf[n+i]
 			}
-			c.outbuf = c.outbuf[0 : len(c.outbuf)-n]
+			c.outbuf = c.outbuf[:len(c.outbuf)-n]
 			n = len(c.outbuf)
 		}
 		c.mutex.Unlock()

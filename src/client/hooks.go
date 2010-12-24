@@ -102,7 +102,7 @@ func init() {
 			// Send them NAMES.
 			var params [1][]byte
 			params[0] = []byte(ch.Name())
-			cmdNames(u, c, params[0:])
+			cmdNames(u, c, params[:])
 
 			// Send them the topic.
 			if topic, setby, setat := ch.GetTopic(); topic != "" {

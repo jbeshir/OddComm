@@ -23,5 +23,5 @@ func getUIDString() string {
 		}
 		id = id / 36
 	}
-	return "1AA" + string(buf[0:])
+	return "1AA" + string(buf[:])
 }

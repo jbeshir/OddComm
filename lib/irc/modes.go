@@ -186,7 +186,7 @@ func (p *ModeParser) GetMode(name string) int {
 
 		// Keep searching for modes matching a space-separated prefix.
 		if v := strings.LastIndex(name, " "); v != -1 {
-			name = name[0:v]
+			name = name[:v]
 		} else {
 			break
 		}

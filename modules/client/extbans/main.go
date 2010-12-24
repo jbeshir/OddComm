@@ -122,7 +122,7 @@ func processBan(prefix, def string, adding bool, e core.Extensible, param string
 	// type.
 	if first > -1 && second > -1 {
 		change.Data = ""
-		for _, char := range param[0:first] {
+		for _, char := range param[:first] {
 			if v := ExtBanRestrict.Str(char); v != "" {
 				if change.Data != "" {
 					change.Data += " "
@@ -170,7 +170,7 @@ func processBan(prefix, def string, adding bool, e core.Extensible, param string
 		// Otherwise, interpret things before as restrictions.
 		if exttype == "" {
 			change.Data = ""
-			for _, char := range param[0:first] {
+			for _, char := range param[:first] {
 				if v := ExtBanRestrict.Str(char); v != "" {
 
 					// Omit duplicates.
@@ -227,10 +227,10 @@ func processBan(prefix, def string, adding bool, e core.Extensible, param string
 	words := strings.Fields(existingData)
 	var existing string
 	for _, word := range words {
-		if len(word) > 5 && word[0:5] == "setby" {
+		if len(word) > 5 && word[:5] == "setby" {
 			continue
 		}
-		if len(word) > 5 && word[0:5] == "setat" {
+		if len(word) > 5 && word[:5] == "setat" {
 			continue
 		}
 

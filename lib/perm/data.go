@@ -91,7 +91,7 @@ func CheckUserDataPerm(source, target *core.User, name, value string) (int, os.E
 		}
 
 		if v := strings.LastIndex(prefix, " "); v != -1 {
-			prefix = prefix[0:v]
+			prefix = prefix[:v]
 		} else {
 			break
 		}
@@ -105,7 +105,7 @@ func CheckUserDataPerm(source, target *core.User, name, value string) (int, os.E
 		}
 
 		if v := strings.LastIndex(prefix, " "); v != -1 {
-			prefix = prefix[0:v]
+			prefix = prefix[:v]
 		} else {
 			break
 		}
@@ -143,7 +143,7 @@ func CheckChanDataPerm(u *core.User, ch *core.Channel, name, value string) (int,
 		}
 
 		if v := strings.LastIndex(prefix, " "); v != -1 {
-			prefix = prefix[0:v]
+			prefix = prefix[:v]
 		} else {
 			break
 		}
@@ -157,7 +157,7 @@ func CheckChanDataPerm(u *core.User, ch *core.Channel, name, value string) (int,
 		}
 
 		if v := strings.LastIndex(prefix, " "); v != -1 {
-			prefix = prefix[0:v]
+			prefix = prefix[:v]
 		} else {
 			break
 		}
@@ -196,7 +196,7 @@ func CheckMemberDataPerm(u *core.User, m *core.Membership, name, value string) (
 		}
 
 		if v := strings.LastIndex(prefix, " "); v != -1 {
-			prefix = prefix[0:v]
+			prefix = prefix[:v]
 		} else {
 			break
 		}
@@ -210,7 +210,7 @@ func CheckMemberDataPerm(u *core.User, m *core.Membership, name, value string) (
 		}
 
 		if v := strings.LastIndex(prefix, " "); v != -1 {
-			prefix = prefix[0:v]
+			prefix = prefix[:v]
 		} else {
 			break
 		}

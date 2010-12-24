@@ -59,7 +59,7 @@ func cmdLogin(u *core.User, w io.Writer, params [][]byte) {
 		pass = string(params[0])
 		colon := strings.IndexRune(pass, ':')
 		if colon != -1 && colon < len(pass)-1 {
-			account = pass[0:colon]
+			account = pass[:colon]
 			pass = pass[colon+1:]
 		} else {
 			account = u.Nick()

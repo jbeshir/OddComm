@@ -95,7 +95,7 @@ func CheckUserMsgPerm(source, target *core.User, message []byte, t string) (int,
 	var lists [2]*hook
 	lists[0] = checkUserMsgAll
 	lists[1] = *checkUserMsg[t]
-	return runPermHookLists(lists[0:], f, true)
+	return runPermHookLists(lists[:], f, true)
 }
 
 
@@ -127,7 +127,7 @@ func CheckChanMsgPerm(source *core.User, target *core.Channel, message []byte, t
 		var lists [2]*hook
 		lists[0] = *allList
 		lists[1] = *typeList
-		return runPermHookLists(lists[0:], f, true)
+		return runPermHookLists(lists[:], f, true)
 	}
 	if allList != nil {
 		return (*allList).run(f, true)

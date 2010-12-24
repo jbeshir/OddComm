@@ -67,13 +67,13 @@ func (u *User) GetDecentBan() string {
 		} else {
 			// Decent for IPv4.
 			v = strings.LastIndex(hostname, ".")
-			hostname = hostname[0:v+1] + "*"
+			hostname = hostname[:v+1] + "*"
 		}
 	} else if v := strings.IndexRune(hostname, ':'); v != -1 && len(hostname) > v+1 {
 		// Decent for IPv6. Maybe.
 		// It'll do until a better idea shows up.
 		v = strings.LastIndex(hostname, ":")
-		hostname = hostname[0:v+1] + "*"
+		hostname = hostname[:v+1] + "*"
 	}
 
 	return "host *!*" + ident + "@" + hostname

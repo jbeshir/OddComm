@@ -99,7 +99,7 @@ func (c *Client) write(line []byte) bool {
 
 		// Otherwise, append this to it.
 		start := len(c.outbuf)
-		c.outbuf = c.outbuf[0 : start+len(line)]
+		c.outbuf = c.outbuf[:start+len(line)]
 		for i := 0; i < len(line); i++ {
 			c.outbuf[start+i] = line[i]
 		}
@@ -123,7 +123,7 @@ func (c *Client) write(line []byte) bool {
 		// output buffer and switch to buffered I/O.
 		if n != len(line) {
 			c.outbuf = make([]byte, 0, 4096)
-			if !appendfunc(line[n:len(line)]) {
+			if !appendfunc(line[n:]) {
 				return false
 			}
 			c.conn.SetWriteTimeout(0)

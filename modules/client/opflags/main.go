@@ -81,7 +81,7 @@ func processOp(adding bool, ch *core.Channel, param string) *core.DataChange {
 	// If a colon exists, treat everything before it as opflags.
 	if colon > -1 {
 		change.Data = ""
-		for _, char := range param[0:colon] {
+		for _, char := range param[:colon] {
 			if v := Flags.Str(char); v != "" {
 				if change.Data != "" {
 					change.Data += " "

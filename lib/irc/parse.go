@@ -6,20 +6,20 @@ func Parse(d CommandDispatcher, line []byte, regged bool) (origin []byte, comman
 
 	// We can handle up to 50 parameters. This is plenty.
 	var param_array [50][]byte
-	params = param_array[0:0]
+	params = param_array[:0]
 	var word []byte
 
 	// Define function for moving to the next word.
 	var nextword = func() {
 		space := bytes.IndexByte(line, ' ')
 		if space != -1 {
-			word = line[0:space]
+			word = line[:space]
 			for space < len(line)-1 && line[space+1] == ' ' {
 				space++
 			}
 			line = line[space+1:]
 		} else {
-			word = line[0:]
+			word = line[:]
 			line = line[len(line):]
 		}
 	}
@@ -78,7 +78,7 @@ func Parse(d CommandDispatcher, line []byte, regged bool) (origin []byte, comman
 		// point is the final parameter.
 		if line[0] == ':' {
 			param_array[len(params)] = line[1:]
-			params = params[0 : len(params)+1]
+			params = params[:len(params)+1]
 			break
 		}
 
@@ -86,21 +86,21 @@ func Parse(d CommandDispatcher, line []byte, regged bool) (origin []byte, comman
 		// line is one large final parameter.
 		if len(params) == command.Maxargs-1 || len(params) == 49 {
 			param_array[len(params)] = line
-			params = params[0 : len(params)+1]
+			params = params[:len(params)+1]
 			break
 		}
 
 		// Otherwise, this parameter runs up to the next space.
 		nextword()
 		param_array[len(params)] = word
-		params = params[0 : len(params)+1]
+		params = params[:len(params)+1]
 	}
 
 	// If we don't have enough parameters, treat it as a failed dispatch.
 	if len(params) < command.Minargs {
 		err = newParseError(CmdTooFewParams, cmdName)
 		command = nil
-		params = param_array[0:0]
+		params = param_array[:0]
 	}
 
 	return
