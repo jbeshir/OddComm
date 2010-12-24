@@ -24,21 +24,21 @@ import "oddcomm/lib/cas"
 // Trie provides the implementation of the radix trie.
 // An empty trie uses no more space than a nil pointer and an int32.
 type Trie struct {
-	first *Node      // First node pointer.
+	first *nodeBox      // First node pointer.
 	rem   sync.Mutex // Removal mutex.
 }
 
 // nodeBox contains a single trie node. It wraps the node, so it can be changed
 // atomically without invalidating pointers.
-type Node struct {
+type nodeBox struct {
 	n *node
 }
 
 // node stores the contents of a trie node.
 type node struct {
 	nodekey string      // Key of this node, not including parent nodekeys.
-	down    *Node       // First child of this node (nilable).
-	next    *Node       // Next sibling of this node (nilable).
+	down    *nodeBox       // First child of this node (nilable).
+	next    *nodeBox       // Next sibling of this node (nilable).
 	key     string      // Full key of this node, if it has a key.
 	value   interface{} // If set, this node contains a value.
 }
@@ -49,8 +49,8 @@ type node struct {
 // of the trie or returns upwards to the same level it was called on.
 // A single iterator may not be used concurrently, but separate iterators may.
 type Iterator struct {
-	parents []*Node
-	it *Node
+	parents []*nodeBox
+	it *nodeBox
 }
 
 // Next moves the iterator on to its next value node.
@@ -160,7 +160,7 @@ func (t *Trie) Get(key string) (value interface{}) {
 // Returns nil if there are no entries with the given prefix.
 func (t *Trie) GetSub(prefix string) *Iterator {
 	it := new(Iterator)
-	it.parents = make([]*Node, 0)
+	it.parents = make([]*nodeBox, 0)
 
 	remaining := prefix
 	i := t.first
@@ -229,7 +229,7 @@ spin:
 	remaining := key
 
 	// parent points to the parent of the current node.
-	var parent *Node
+	var parent *nodeBox
 	var pn *node
 
 	// i is the current sibling.
@@ -291,7 +291,7 @@ spin:
 		*newn = *n
 		newn.nodekey = n.nodekey[c:]
 		newn.next = nil
-		newi := new(Node)
+		newi := new(nodeBox)
 		newi.n = newn
 
 		newn = new(node)
@@ -316,7 +316,7 @@ spin:
 			newchild.nodekey = remaining
 			newchild.key = key
 			newchild.value = value
-			newi = new(Node)
+			newi = new(nodeBox)
 			newi.n = newchild
 			newn.down = newi
 		}
@@ -333,7 +333,7 @@ spin:
 	// If we've gone through the list and not found anything with
 	// a common prefix, we need to simply add ourselves.
 	if i == nil {
-		i := new(Node)
+		i := new(nodeBox)
 		n := new(node)
 		n.nodekey = remaining
 		n.key = key
@@ -370,7 +370,7 @@ spin:
 func (t *Trie) Remove(key string) (old interface{}) {
 
 spin:
-	parents := make([]*Node, 1)
+	parents := make([]*nodeBox, 1)
 	remaining := key
 	i := t.first
 	for i != nil {
@@ -437,7 +437,7 @@ spin:
 				t.rem.Lock()
 
 				// Get the node's parent.
-				var parent *Node
+				var parent *nodeBox
 				if len(parents) > 0 {
 					parent = parents[len(parents)-1]
 					parents = parents[:len(parents)-1]
@@ -473,7 +473,7 @@ spin:
 					}
 					
 					// Get its parent.
-					newparent := (*Node)(nil)
+					newparent := (*nodeBox)(nil)
 					if len(parents) > 0 {
 						newparent = parents[len(parents)-1]
 						parents = parents[:len(parents)-1]
@@ -511,11 +511,11 @@ spin:
 // parent is nil, unless the node was its parents' first and only child, in
 // which case it is the node's parent, for consideration for deletion itself.
 // ok indicates whether the deletion was successful.
-func (t *Trie) removeNode(p, target *Node) (parent *Node, ok bool) {
+func (t *Trie) removeNode(p, target *nodeBox) (parent *nodeBox, ok bool) {
 
 spin:
 	it := new(Iterator)
-	it.parents = make([]*Node, 1)
+	it.parents = make([]*nodeBox, 1)
 
 	// If they have a parent, check if they are the first child.
 	if p != nil {

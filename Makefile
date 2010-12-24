@@ -66,7 +66,6 @@ $(PKGDIR)/lib/trie.a: $(PKGDIR)/lib/cas.a lib/trie/main.go lib/trie/base.go
 	sed -i 's/interface{}(nil)/""/g' lib/trie/string.go
 	sed -i "s/interface{}/string/g" lib/trie/string.go
 	sed -i "s/Trie/StringTrie/g" lib/trie/string.go
-	sed -i "s/Node/StringNode/g" lib/trie/string.go
 	sed -i "s/node/stringNode/g" lib/trie/string.go
 	sed -i "s/Iterator/StringIterator/g" lib/trie/string.go
 	mkdir -p $(PKGDIR)/lib

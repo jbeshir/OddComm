@@ -22,7 +22,7 @@ type Trie struct {
 
 // nodeBox contains a single trie node. It wraps the node, so it can be changed
 // atomically without invalidating pointers.
-type Node struct {
+type nodeBox struct {
 	n *node
 }
 
@@ -40,6 +40,8 @@ A parent’s key is the common prefix of all its child keys. The trie is structu
 parent
    |
 child -> child -> child
+
+An iterator structure with methods is also provided, but has no impact on the rest of the design and is simply a stack of parents coupled with a current node pointer.
 
 
 INVARIANTS
