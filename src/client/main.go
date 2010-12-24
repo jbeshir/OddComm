@@ -109,13 +109,17 @@ func listen(l *net.TCPListener) {
 
 		client := new(Client)
 		client.conn = c
-		client.conn.SetWriteTimeout(1)
-		client.u = core.NewUser("oddcomm/src/client", false, "")
-		addClient(client)
+		client.conn.SetWriteTimeout(1000)
 
 		ip := client.conn.RemoteAddr().(*net.TCPAddr).IP.String()
-		client.u.SetData(nil, "ip", ip)
-		client.u.SetData(nil, "hostname", ip)
+		data := make([]core.DataChange, 2)
+		data[0].Name, data[0].Data = "ip", ip
+		data[1].Name, data[1].Data = "hostname", ip
+		data[0].Next = &data[1]
+		
+		client.u = core.NewUser("oddcomm/src/client", false, "", &data[0])
+
+		addClient(client)
 
 		go input(client)
 	}

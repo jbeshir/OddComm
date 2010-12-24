@@ -22,34 +22,47 @@ type User struct {
 // NewUser creates a new user, with creator the name of its creating package.
 // If checked is true, DNS lookup, bans, and similar are presumed to be already
 // checked.
+//
 // If forceid is not nil, the function will create the user with that ID if it
 // is not in use. if it is, the function will return nil. The caller should be
 // prepared for this if it uses forceid, and ensure forceid is a valid UID.
+//
 // A new user is not essentially yet "registered"; until they are, they cannot
 // communicate or join channels. A user will be considered registered once all
 // packages which are holding registration back have permitted it. If checked
 // is true, the creator may assume that it is the only package which may be
 // holding registration back.
-func NewUser(creator string, checked bool, forceid string) (u *User) {
+//
+// data is a list of DataChanges to apply to the new user immediately.
+// They will be applied prior to the new user hooks being called, with
+// usual data change hooks called after. It may be nil.
+func NewUser(creator string, checked bool, forceid string, data *DataChange) (u *User) {
+	u = new(User)
 
 	userMutex.Lock()
 
+	// Figure out what ID the user should have.
 	if forceid != "" {
 		if users[forceid] == nil {
-			u = new(User)
 			u.id = forceid
+		} else {
+			u = nil
 		}
 	} else {
-		u = new(User)
 		for users[getUIDString()] != nil {
 			incrementUID()
 		}
 		u.id = getUIDString()
 		incrementUID()
 	}
-	u.nick = u.id
-	users[u.id] = u
-	usersByNick[strings.ToUpper(u.nick)] = u
+
+	// If they have a valid ID, set their nick and add them to the user
+	// structure.
+	if u != nil {
+		u.nick = u.id
+		users[u.id] = u
+		usersByNick[strings.ToUpper(u.nick)] = u
+	}
 
 	userMutex.Unlock()
 
@@ -57,13 +70,60 @@ func NewUser(creator string, checked bool, forceid string) (u *User) {
 		return
 	}
 
+	u.mutex.Lock()
+
+	// Set the number of permits this user should wait for before
+	// completing registration.
 	u.checked = checked
-	u.regstate = holdRegistration[creator]
+	u.regstate = 1 + holdRegistration[creator]
 	if !checked {
 		u.regstate += holdRegistration[""]
 	}
 
+	// Apply provided data to the user.
+	var oldvalues *OldData
+	var lasthook *DataChange
+	var lastold **OldData = &oldvalues
+	for it := data; it != nil; it = it.Next {
+
+		// Make the change.
+		var oldvalue string
+		if it.Data != "" {
+			oldvalue = u.data.Insert(it.Name, it.Data)
+		} else {
+			oldvalue = u.data.Remove(it.Name)
+		}
+
+		// If this was a do-nothing change, cut it out.
+		if oldvalue == it.Data {
+			if lasthook != nil {
+				lasthook.Next = it.Next
+			} else {
+				data = it.Next
+			}
+			continue
+		}
+
+		// Still need to track old data, just in case someone decides
+		// to set a value TWICE for some reason.
+		olddata := new(OldData)
+		olddata.Data = oldvalue
+		*lastold = olddata
+		lasthook = it
+		lastold = &olddata.Next
+	}
+
+	u.mutex.Unlock()
+
+	// Run user addition hooks.
 	runUserAddHooks(u, creator)
+
+	// Run user data change hooks.
+	for it, old := data, oldvalues; it != nil && old != nil; it, old = it.Next, old.Next {
+		runUserDataChangeHooks(nil, u, it.Name, old.Data, it.Data)
+	}
+
+	// If registered, run user registration hooks.
 	if u.Registered() {
 		runUserRegisterHooks(u)
 	}
@@ -149,7 +209,9 @@ func (u *User) Nick() (nick string) {
 
 // PermitRegistration marks the user as permitted to register.
 // For a user to register, this method must be called a number of times equal
-// to that which applicable HoldRegistration() calls were made during init.
+// to that which applicable HoldRegistration() calls were made during init,
+// PLUS once from the code creating the user whenever it has finished setting
+// it up.
 func (u *User) PermitRegistration() {
 	var registered bool
 
@@ -182,13 +244,11 @@ func (u *User) Registered() (r bool) {
 func (u *User) SetData(source *User, name string, value string) {
 	var oldvalue string
 
-	u.mutex.Lock()
 	if value != "" {
-		oldvalue = u.data.Add(name, value)
+		oldvalue = u.data.Insert(name, value)
 	} else {
-		oldvalue = u.data.Del(name)
+		oldvalue = u.data.Remove(name)
 	}
-	u.mutex.Unlock()
 
 	// If nothing changed, don't call hooks.
 	if oldvalue == value {
@@ -213,15 +273,14 @@ func (u *User) SetDataList(source *User, c *DataChange) {
 	var lasthook *DataChange
 	var lastold **OldData = &oldvalues
 
-	u.mutex.Lock()
 	for it := c; it != nil; it = it.Next {
 
 		// Make the change.
 		var oldvalue string
 		if it.Data != "" {
-			oldvalue = u.data.Add(it.Name, it.Data)
+			oldvalue = u.data.Insert(it.Name, it.Data)
 		} else {
-			oldvalue = u.data.Del(it.Name)
+			oldvalue = u.data.Remove(it.Name)
 		}
 
 		// If this was a do-nothing change, cut it out.
@@ -240,10 +299,9 @@ func (u *User) SetDataList(source *User, c *DataChange) {
 		lasthook = it
 		lastold = &olddata.Next
 	}
-	u.mutex.Unlock()
 
 	for it, old := c, oldvalues; it != nil && old != nil; it, old = it.Next, old.Next {
-		runUserDataChangeHooks(source, u, c.Name, old.Data, it.Data)
+		runUserDataChangeHooks(source, u, it.Name, old.Data, it.Data)
 	}
 	runUserDataChangesHooks(source, u, c, oldvalues)
 }
@@ -251,9 +309,7 @@ func (u *User) SetDataList(source *User, c *DataChange) {
 // Data gets the given piece of metadata.
 // If it is not set, this method returns "".
 func (u *User) Data(name string) (value string) {
-	u.mutex.Lock()
 	value = u.data.Get(name)
-	u.mutex.Unlock()
 	return
 }
 
@@ -261,39 +317,12 @@ func (u *User) Data(name string) (value string) {
 // given prefix. If none are found, the function is never called. Metadata
 // items added while this function is running may or may not be missed.
 func (u *User) DataRange(prefix string, f func(name, value string)) {
-	var dataArray [100]DataChange
-	var data []DataChange = dataArray[0:0]
-	var root, it trie.StringTrie
-
-	for firstrun := true; firstrun || !it.Empty(); {
-		u.mutex.Lock()
-
-		// On our first run, get an iterator at our first value.
-		if firstrun {
-			root = u.data.GetSub(prefix)
-			it = root
-			if !it.Empty() {
-				if key, _ := it.Value(); key == "" {
-					it = it.Next(root)
-				}
-			}
-			firstrun = false
+	for it := u.data.GetSub(prefix); it != nil; {
+		name, data := it.Value()
+		f(name, data)
+		if !it.Next() {
+			it = nil
 		}
-
-		// Read a block of values.
-		for i := 0; !it.Empty() && i < cap(data); i++ {
-			data = data[0 : i+1]
-			data[i].Name, data[i].Data = it.Value()
-			it = it.Next(root)
-		}
-
-		u.mutex.Unlock()
-
-		// Call the function for all of them, and clear data.
-		for _, item := range data {
-			f(item.Name, item.Data)
-		}
-		data = data[0:0]
 	}
 }
 
@@ -351,8 +380,8 @@ func (u *User) Delete(source *User, message string) {
 		chans = u.chans
 
 		// Remove them from all channel lists.
-		var prev *Membership
-		for it := chans; it != nil; it, prev = it.unext, it {
+		var prev, it *Membership
+		for it = chans; it != nil; it = it.unext {
 			u.mutex.Unlock()
 			if prev != nil {
 				prev.c.mutex.Unlock()
@@ -369,6 +398,12 @@ func (u *User) Delete(source *User, message string) {
 			if it.cnext != nil {
 				it.cnext.cprev = it.cprev
 			}
+
+			prev = it
+		}
+		if prev != nil {
+			prev.c.mutex.Unlock()
+			runChanUserRemoveHooks(it.c.t, u, u, it.c, message)
 		}
 
 		u.mutex.Unlock()

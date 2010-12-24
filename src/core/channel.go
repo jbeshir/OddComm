@@ -96,13 +96,11 @@ func (ch *Channel) TS() (ts int64) {
 func (ch *Channel) SetData(source *User, name string, value string) {
 	var oldvalue string
 
-	ch.mutex.Lock()
 	if value != "" {
-		oldvalue = ch.data.Add(name, value)
+		oldvalue = ch.data.Insert(name, value)
 	} else {
-		oldvalue = ch.data.Del(name)
+		oldvalue = ch.data.Remove(name)
 	}
-	ch.mutex.Unlock()
 
 	// If nothing changed, don't call hooks.
 	if oldvalue == value {
@@ -127,24 +125,23 @@ func (ch *Channel) SetDataList(source *User, c *DataChange) {
 	var lasthook *DataChange
 	var lastold **OldData = &oldvalues
 
-	ch.mutex.Lock()
 	for it := c; it != nil; it = it.Next {
 
 		// Figure out what we're making the change to.
 		// The channel, or a member?
 		// If a member, lock them.
-		t := ch.data
+		t := &ch.data
 		if it.Member != nil {
-			t = it.Member.data
+			t = &it.Member.data
 			it.Member.u.mutex.Lock()
 		}
 
 		// Make the change.
 		var oldvalue string
 		if it.Data != "" {
-			oldvalue = t.Add(it.Name, it.Data)
+			oldvalue = (*t).Insert(it.Name, it.Data)
 		} else {
-			oldvalue = t.Del(it.Name)
+			oldvalue = (*t).Remove(it.Name)
 		}
 
 		// If we locked a member, unlock them.
@@ -169,7 +166,6 @@ func (ch *Channel) SetDataList(source *User, c *DataChange) {
 		lasthook = it
 		lastold = &olddata.Next
 	}
-	ch.mutex.Unlock()
 
 	for it, old := c, oldvalues; it != nil && old != nil; it, old = it.Next, old.Next {
 		if it.Member == nil {
@@ -186,50 +182,19 @@ func (ch *Channel) SetDataList(source *User, c *DataChange) {
 // Data gets the given piece of metadata.
 // If it is not set, this method returns "".
 func (ch *Channel) Data(name string) (value string) {
-	ch.mutex.Lock()
-	value = ch.data.Get(name)
-	ch.mutex.Unlock()
-
-	return
+	return ch.data.Get(name)
 }
 
 // DataRange calls the given function for every piece of metadata with the
 // given prefix. If none are found, the function is never called. Metadata
 // items added while this function is running may or may not be missed.
 func (ch *Channel) DataRange(prefix string, f func(name, value string)) {
-	var dataArray [100]DataChange
-	var data []DataChange = dataArray[0:0]
-	var root, it trie.StringTrie
-
-	for firstrun := true; firstrun || !it.Empty(); {
-
-		ch.mutex.Lock()
-
-		if firstrun {
-			root = ch.data.GetSub(prefix)
-			it = root
-			if !it.Empty() {
-				if key, _ := it.Value(); key == "" {
-					it = it.Next(root)
-				}
-			}
-			firstrun = false
+	for it := ch.data.GetSub(prefix); it != nil; {
+		name, data := it.Value()
+		f(name, data)
+		if !it.Next() {
+			it = nil
 		}
-
-		// Get up to 100 values from this subtrie.
-		for i := 0; !it.Empty() && i < cap(data); i++ {
-			data = data[0 : i+1]
-			data[i].Name, data[i].Data = it.Value()
-			it = it.Next(root)
-		}
-
-		ch.mutex.Unlock()
-
-		// Call the function for all of them, and clear data.
-		for _, item := range data {
-			f(item.Name, item.Data)
-		}
-		data = data[0:0]
 	}
 }
 
@@ -386,11 +351,9 @@ func (ch *Channel) Delete() {
 
 // GetTopic gets the topic, the topic setter string, and the time it was set.
 func (ch *Channel) GetTopic() (topic, setby, setat string) {
-	ch.mutex.Lock()
 	topic = ch.data.Get("topic")
 	setby = ch.data.Get("topic setby")
 	setat = ch.data.Get("topic setat")
-	ch.mutex.Unlock()
 
 	if setby == "" {
 		setby = "Server.name"

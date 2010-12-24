@@ -15,9 +15,6 @@ var MODULENAME string = "dev/catserv"
 var cat *core.User
 
 func init() {
-	// Don't show my psuedoclient until I'm done adding myself.
-	core.RegistrationHold("oddcomm/modules/dev/catserv")
-
 	// Join the server on startup.
 	core.HookStart(addCat)
 
@@ -58,7 +55,7 @@ func init() {
 
 func addCat() {
 	// Add CatServ!
-	cat = core.NewUser("oddcomm/modules/dev/catserv", true, "")
+	cat = core.NewUser("oddcomm/modules/dev/catserv", true, "", nil)
 
 	// If I suffer a collision, quit for now; I will return when they go
 	// away.

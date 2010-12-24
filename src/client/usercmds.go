@@ -94,6 +94,12 @@ func cmdNick(u *core.User, w io.Writer, params [][]byte) {
 			c.WriteTo(nil, "433", "%s :%s", nick, err)
 		}
 	}
+
+	// Track whether we've gotten a NICK command from this client yet.
+	if c, ok := w.(*Client); ok && !c.nicked {
+		c.nicked = true
+		c.u.PermitRegistration()
+	}
 }
 
 func cmdUser(u *core.User, w io.Writer, params [][]byte) {

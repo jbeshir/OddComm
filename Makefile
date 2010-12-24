@@ -8,10 +8,11 @@ PKGROOT = $(CURDIR)/pkg
 PKGSEARCH = $(PKGROOT)/$(GOOS)_$(GOARCH)
 PKGDIR = $(PKGSEARCH)/oddcomm
 
-CORE = $(PKGDIR)/src/core.a $(PKGDIR)/lib/trie.a
+CORE = $(PKGDIR)/src/core.a $(PKGDIR)/lib/trie.a $(PKGDIR)/lib/cas.a
 SUBSYSTEMS = $(patsubst %, $(PKGDIR)/src/%.a, $(shell cat subsystems.conf))
 MODULES = $(patsubst %, $(PKGDIR)/modules/%.a, $(shell cat modules.conf))
 
+GOASM = $(GOBIN)/$(O)a
 GOCMD = $(GOBIN)/$(GC) -I $(PKGSEARCH)
 LDCMD = $(GOBIN)/$(LD) -L $(PKGSEARCH)
 GOFMT = $(GOBIN)/gofmt
@@ -60,15 +61,24 @@ $(PKGDIR)/src/core.a: src/core/*.go $(PKGDIR)/lib/trie.a
 	$(GOPACK) grc $(PKGDIR)/src/core.a $(PKGDIR)/src/core.$(O)
 	rm -f $(PKGDIR)/src/core.$(O)
 
-$(PKGDIR)/lib/trie.a: lib/trie/main.go lib/trie/base.go
+$(PKGDIR)/lib/trie.a: $(PKGDIR)/lib/cas.a lib/trie/main.go lib/trie/base.go
 	cp lib/trie/base.go lib/trie/string.go
 	sed -i 's/interface{}(nil)/""/g' lib/trie/string.go
 	sed -i "s/interface{}/string/g" lib/trie/string.go
 	sed -i "s/Trie/StringTrie/g" lib/trie/string.go
-	sed -i "s/trieNode/stringTrieNode/g" lib/trie/string.go
+	sed -i "s/Node/StringNode/g" lib/trie/string.go
+	sed -i "s/node/stringNode/g" lib/trie/string.go
+	sed -i "s/Iterator/StringIterator/g" lib/trie/string.go
 	mkdir -p $(PKGDIR)/lib
 	$(GOCMD) -o $(PKGDIR)/lib/trie.$(O) $(wildcard lib/trie/*.go)
 	rm -f $(PKGDIR)/lib/trie.a
 	$(GOPACK) grc $(PKGDIR)/lib/trie.a $(PKGDIR)/lib/trie.$(O)
 	rm -f $(PKGDIR)/lib/trie.$(O)
 
+$(PKGDIR)/lib/cas.a: lib/cas/*.s lib/cas/*.go
+	mkdir -p $(PKGDIR)/lib
+	$(GOASM) -o $(PKGDIR)/lib/cas_asm.$(O) $(wildcard lib/cas/asm_$(GOARCH)*.s)
+	$(GOCMD) -o $(PKGDIR)/lib/cas.$(O) $(wildcard lib/cas/*.go)
+	rm -f $(PKGDIR)/lib/cas.a
+	$(GOPACK) grc $(PKGDIR)/lib/cas.a $(PKGDIR)/lib/cas.$(O) $(PKGDIR)/lib/cas_asm.$(O)
+	rm -f $(PKGDIR)/lib/cas.$(O) $(PKGDIR)/lib/cas_asm.$(O)

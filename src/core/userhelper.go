@@ -26,7 +26,6 @@ func (u *User) GetHostname() (hostname string) {
 // user. It returns the user's nick!ident@host if they are logged out, and
 // their account name if they are logged in.
 func (u *User) GetSetBy() (setby string) {
-	u.mutex.Lock()
 	if setby = u.data.Get("account"); setby == "" {
 		ident := u.data.Get("ident")
 		if ident == "" {
@@ -38,7 +37,6 @@ func (u *User) GetSetBy() (setby string) {
 		}
 		setby = u.nick + "!" + ident + "@" + hostname
 	}
-	u.mutex.Unlock()
 
 	return
 }

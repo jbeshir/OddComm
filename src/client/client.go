@@ -15,6 +15,7 @@ type Client struct {
 	u             *core.User
 	outbuf        []byte
 	disconnecting uint8
+	nicked        bool
 }
 
 // Disconnects the client with the given message. This internal method assumes

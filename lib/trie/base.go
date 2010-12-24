@@ -1,342 +1,102 @@
 package trie
 
+import "sync"
+import "unsafe"
+
+import "oddcomm/lib/cas"
+
+
 // If this file is not called base.go, it is an automatically generated
 // variation on it, in which case you should not edit directly nor commit it.
 
-// Iterator safety: Thanks to garbage collection, we get 90% of this for free.
-// If we have a pointer to a node, then all its pointers will still be valid.
-// Eventually, we will return to a part of the trie that still exists, and,
-// if no one else is pointing to the nodes we iterated, they will be deleted.
-// The only gotcha is that we cannot change the parent or grandparent node,
-// as this would cause us to miss our 'root' node while iterating a subtrie.
-// Trie contains a single trie, 
+// Comphrension of this code will be massively improved by reading the trie's
+// design document.
+
+// Iterator safety: Thanks to garbage collection and atomic writes, we get 90%
+// of this for free. If we have a pointer to a node, then all its pointers will
+// still be valid. Eventually, we will return to a part of the trie that still
+// exists, and, if no one else is pointing to the nodes we iterated, they will
+// be deleted. The only gotcha is that we cannot change the parent or
+// grandparent node, as this would cause us to miss our 'root' node while
+// iterating a subtrie.
 
 
 // Trie provides the implementation of the radix trie.
-// It contains methods on the trie and a pointer to its first node.
-// Individual nodes are accessed by generating a subtrie starting at them.
-// An empty trie uses no more space than a single nil pointer.
+// An empty trie uses no more space than a nil pointer and an int32.
 type Trie struct {
-	First *trieNode
+	first *Node      // First node pointer.
+	rem   sync.Mutex // Removal mutex.
 }
 
-// trieNode is a single node of a Trie.
-type trieNode struct {
-	down *trieNode // First child of this node.
-	next *trieNode // Next sibling of this node- or the next one back
-	// up if it has none left.
-	nodekey string      // Value of this node.
+// nodeBox contains a single trie node. It wraps the node, so it can be changed
+// atomically without invalidating pointers.
+type Node struct {
+	n *node
+}
+
+// node stores the contents of a trie node.
+type node struct {
+	nodekey string      // Key of this node, not including parent nodekeys.
+	down    *Node       // First child of this node (nilable).
+	next    *Node       // Next sibling of this node (nilable).
 	key     string      // Full key of this node, if it has a key.
 	value   interface{} // If set, this node contains a value.
-	lastSib bool        // Whether this node is the last of its siblings.
 }
 
 
-// Value returns this trie node's key and value, or nil if it is not a value
-// node.
-func (t *Trie) Value() (name string, value interface{}) {
-	if t.First != nil {
-		name, value = t.First.key, t.First.value
-	}
-	return
+// Iterator permits iteration of a part of a trie. It keeps a stack of visited
+// parent nodes to return to, and will iterate only until it reaches the end
+// of the trie or returns upwards to the same level it was called on.
+// A single iterator may not be used concurrently, but separate iterators may.
+type Iterator struct {
+	parents []*Node
+	it *Node
 }
 
-
-// Next gets the next value node, not including this node itself if it has
-// a value. If end is non-empty, it indicates a root node to not go past,
-// used to iterate only within a subtrie.
-//
-// Calling Next on a nil (that is, empty) trie is bad.
-func (t *Trie) Next(end Trie) (next Trie) {
-
-	next.First = next.First.nextNode(end.First)
-	for next.First != end.First && next.First != nil && next.First.key == "" {
-		next.First = next.First.nextNode(end.First)
+// Next moves the iterator on to its next value node.
+// Returns whether a next value node existed, or the iterator is now nil.
+func (i *Iterator) Next() bool {
+	i.nextNode()
+	for i.it != nil && i.it.n.key == "" {
+		i.nextNode()
 	}
 
-	// If we found the end node, return nil, not it.
-	if next.First == end.First {
-		next.First = nil
+	if i.it != nil {
+		return true
 	}
-
-	return
+	return false
 }
 
-// Iterate to the next node, including non-value nodes. May return nil.
-func (t *trieNode) nextNode(end *trieNode) *trieNode {
-	if t.down != nil {
-		t = t.down
+// Iterate to the next node, including non-value nodes.
+func (i *Iterator) nextNode() {
+	n := i.it.n
+	if n.down != nil {
+		i.parents = append(i.parents, i.it)
+		i.it = n.down
 	} else {
-		for cont := true; cont && t != nil; {
-
-			// If this is the end, we do not want to go to its
-			// next node, so return nil.
-			if t == end {
-				return nil
-			}
-
-			// If this was a last sibling, we're going back up to
-			// its parent; continue onto ITS next node, not
-			// recursing into children.
-			cont = false
-			if t.lastSib {
-				cont = true
-			}
-
-			t = t.next
-		}
-	}
-	return t
-}
-
-
-// Empty returns whether this trie is empty.
-// Used to see if a result from Next() is still a valid trie.
-func (t *Trie) Empty() bool {
-	return t.First == nil
-}
-
-
-// Add adds the given key and value to the trie.
-// If it already exists, it is overwritten with the new value.
-// Returns the previous value of the given key, or nil if it had none.
-func (t *Trie) Add(key string, value interface{}) (old interface{}) {
-
-	// remaining contains the unmatched part of the key.
-	remaining := key
-
-	// parent tracks the parent node to the current sibling list.
-	// Used to add a node.
-	var parent *trieNode
-
-	// n is the current sibling.
-	n := t.First
-
-	for n != nil {
-		// Find out how much of the node key matches ours.
-		var i int
-		for i = 0; i < len(n.nodekey) && i < len(remaining) &&
-			n.nodekey[i] == remaining[i]; i++ {
-		}
-
-		// If this key has nothing in common with ours, next.
-		if i == 0 {
-			// If this is the last sibling, we're out of
-			// nodes to check. No match.
-			if n.lastSib {
-				n = nil
-				break
-			}
-
-			// Otherwise, continue to the next node.
-			n = n.next
-			continue
-		}
-
-		// If we matched the whole of the key...
-		if i == len(n.nodekey) {
-
-			// Exact match? Make it a data node if it wasn't
-			// already, and set our value.
-			if i == len(remaining) {
-				old = n.value
-				n.key = key
-				n.value = value
-				return
-			}
-
-			// Otherwise, set this as our new root, cut the start
-			// off remaining, and restart. Note the parent node.
-			remaining = remaining[i:]
-			parent = n
-			n = n.down
-			continue
-		}
-
-		// Otherwise, our key matches part of this node's key, but not
-		// all, and we need to split this node into two.
-		newn := new(trieNode)
-		newn.down = n.down
-		newn.next = n
-		newn.nodekey = n.nodekey[i:]
-		newn.lastSib = true
-		newn.key = n.key
-		newn.value = n.value
-		n.down = newn
-		n.nodekey = n.nodekey[0:i]
-		n.key = ""
-		n.value = interface{}(nil)
-
-		// If none of our name is left, then the first parent node
-		// above matches it. Otherwise, we need to add ourselves as a
-		// new child.
-		if len(remaining) == i {
-			newn = n
-		} else {
-			newn = new(trieNode)
-			newn.next = n.down
-			newn.nodekey = remaining[i:]
-			n.down = newn
-		}
-		newn.key = key
-		newn.value = value
-		return
-	}
-
-	// If we've gone through the list and not found anything with
-	// a common prefix, we need to simply add ourselves.
-	if n == nil {
-		n := new(trieNode)
-		n.nodekey = remaining
-		n.key = key
-		n.value = value
-
-		// Set the next node, which is the first sibling. If there
-		// isn't one, it's the parent, and we're the last sibling.
-		if parent != nil {
-			n.next = parent.down
-		}
-		if n.next == nil {
-			n.next = parent
-			n.lastSib = true
-		}
-
-		// If we have a parent, set this node as its child.
-		// If not, set this as the root node.
-		if parent != nil {
-			parent.down = n
-		} else {
-			t.First = n
-		}
-	}
-	return
-}
-
-
-// Del deletes a key from the trie.
-// If it does not exist, nothing happens.
-// Returns the value of the removed key, or nil if it did not exist.
-func (t *Trie) Del(key string) (old interface{}) {
-	remaining := key
-	root := t.First
-	n := root
-	var prev *trieNode
-	for n != nil {
-		// Find out how much of the node key matches ours.
-		var i int
-		for i = 0; i < len(n.nodekey) && i < len(remaining) &&
-			n.nodekey[i] == remaining[i]; i++ {
-		}
-
-		// If this key has nothing in common with ours, next.
-		if i == 0 {
-			// If this is the last sibling, we're out of
-			// nodes to check. No match.
-			if n.lastSib {
-				n = nil
-				break
-			}
-
-			// Otherwise, continue to the next node.
-			prev = n
-			n = n.next
-			continue
-		}
-
-		// If we didn't match the whole of the key, return.
-		// No match.
-		if i != len(n.nodekey) {
-			return
-		}
-
-		// Exact match? If it's a value node, delete it.
-		// Otherwise, no match exists.
-		if i == len(remaining) {
-			if n.key != "" {
-				old = n.value
-
-				// If the node has children, we can't delete it
-				// without breaking iterators. However, if it
-				// has only one child and that child has no
-				// children, we can merge with that child.
-				if n.down != nil {
-					c := n.down
-					if c.next != n || c.down != nil {
-						n.key = ""
-						n.value = interface{}(nil)
-						return
-					}
-
-					// Merge our one child into us.
-					// This HAS to happen this way around,
-					// or we'd be editing the child's
-					// parent (breaks iterators).
-					n.nodekey = n.nodekey + n.down.nodekey
-					n.key = n.down.key
-					n.value = n.down.value
-					n.down = nil
-					return
-				}
-
-				// We have no children, so just delete
-				// references to this node.
-				if prev != nil {
-					prev.next = n.next
-					prev.lastSib = n.lastSib
+		for i.it != nil {
+			if n.next == nil {
+				if len(i.parents) > 1 {
+					i.parents = i.parents[0:len(i.parents)-1]
+					i.it = i.parents[len(i.parents)-1]
 				} else {
-					// If we had siblings, just remove us.
-					if !n.lastSib {
-						root = n.next
-						return
-					}
-
-					// Otherwise, recurse up, deleting
-					// parents without children or values.
-					n.key = ""
-					n.value = interface{}(nil)
-					for ; n != nil; n = n.next {
-						// If we have a value, stop.
-						if n.key != "" {
-							return
-						}
-
-						// If we have reached the top
-						// of the tree, stop, after
-						// deleting ourselves if we're
-						// the sole item left.
-						if n.next == nil {
-							if t.First == n {
-								t.First = nil
-							}
-							return
-						}
-
-						// If we are not the sole
-						// sibling, stop recursing.
-						if n.next.down != n {
-							return
-						}
-
-						// Otherwise, delete ourselves.
-						n = n.next
-						n.down = nil
-					}
+					i.it = nil
 				}
-				return
+			} else {
+				i.it = n.next
+				break
 			}
-			return
+			if i.it != nil {
+				n = i.it.n
+			}
 		}
-
-		// Otherwise, set this as our new root,
-		// cut the start off remaining, and restart.
-		root = n.down
-		remaining = remaining[i:]
-		prev = nil
-		n = root
 	}
+}
 
-	// Failed to find anything, return.
-	return
+// Value returns the current value of the node pointed to by this iterator.
+func (i *Iterator) Value() (name string, value interface{}) {
+	n := i.it.n
+	return n.key, n.value
 }
 
 
@@ -344,38 +104,39 @@ func (t *Trie) Del(key string) (old interface{}) {
 // If it does not exist, returns nil.
 func (t *Trie) Get(key string) (value interface{}) {
 	remaining := key
-	n := t.First
-	for n != nil {
+	i := t.first
+	for i != nil {
+		n := i.n
 
 		// Find out how much of the node key matches ours.
-		var i int
-		for i = 0; i < len(n.nodekey) && i < len(remaining) &&
-			n.nodekey[i] == remaining[i]; i++ {
+		var c int
+		for c = 0; c < len(n.nodekey) && c < len(remaining) &&
+			n.nodekey[c] == remaining[c]; c++ {
 		}
 
 		// If this key has nothing in common with ours, next.
-		if i == 0 {
+		if c == 0 {
 			// If this is the last sibling, we're out of
 			// nodes to check. No match.
-			if n.lastSib {
-				n = nil
+			if n.next == nil {
+				i = nil
 				break
 			}
 
 			// Otherwise, continue to the next node.
-			n = n.next
+			i = n.next
 			continue
 		}
 
 		// If we didn't match the whole of the key, return.
 		// No match.
-		if i != len(n.nodekey) {
+		if c != len(n.nodekey) {
 			return
 		}
 
 		// Exact match? If it's a value node, return it.
 		// Otherwise, no match exists.
-		if i == len(remaining) {
+		if c == len(remaining) {
 			if n.key != "" {
 				value = n.value
 			}
@@ -384,63 +145,421 @@ func (t *Trie) Get(key string) (value interface{}) {
 
 		// Otherwise, cut the start off remaining, and restart with
 		// this node's children.
-		remaining = remaining[i:]
-		n = n.down
+		remaining = remaining[c:]
+		i = n.down
 	}
 
 	// Failed to find anything, return.
 	return
 }
 
-// GetSub gets a subtrie from the trie, consisting of a root of all values
+
+// IterSub gets an iterator for part of the trie, which will iterate all keys
 // with a given prefix. The value of the chain up to subtrie returned may be
 // longer than the prefix given, if no other sub entries exist.
-// The only safe operation on a subtrie is iterating it with Next(). The Trie*
-// functions require that they be working on keys from the start of the tree.
 // Returns nil if there are no entries with the given prefix.
-func (t *Trie) GetSub(prefix string) (subtree Trie) {
+func (t *Trie) GetSub(prefix string) *Iterator {
+	it := new(Iterator)
+	it.parents = make([]*Node, 0)
+
 	remaining := prefix
-	n := t.First
-	for n != nil {
+	i := t.first
+	for i != nil {
+		n := i.n
+
 		// Find out how much of the node key matches ours.
-		var i int
-		for i = 0; i < len(n.nodekey) && i < len(remaining) &&
-			n.nodekey[i] == remaining[i]; i++ {
+		var c int
+		for c = 0; c < len(n.nodekey) && c < len(remaining) &&
+			n.nodekey[c] == remaining[c]; c++ {
 		}
 
 		// If this key has nothing in common with ours, next.
-		if i == 0 {
+		if c == 0 {
 			// If this is the last sibling, we're out of
 			// nodes to check. No match.
-			if n.lastSib {
-				n = nil
+			if n.next == nil {
+				i = nil
 				break
 			}
 
 			// Otherwise, continue to the next node.
-			n = n.next
+			i = n.next
 			continue
 		}
 
 		// Either is our prefix, or fully contains it?
-		// Return it.
-		if i == len(remaining) {
-			subtree.First = n
-			return
+		// This is it. If we don't already have a value, iterate it.
+		// If we don't find a value, no match, otherwise return it.
+		if c == len(remaining) {
+			it.it = i
+			if it.it.n.key != "" || it.Next() {
+				return it
+			}
+			return nil
 		}
 
 		// Otherwise, if we didn't match the whole of the key,
 		// return. No match.
-		if i != len(n.nodekey) {
-			return
+		if c != len(n.nodekey) {
+			return nil
 		}
 
 		// Otherwise, cut the start off remaining, and restart with
 		// this node's children.
-		remaining = remaining[i:]
-		n = n.down
+		remaining = remaining[c:]
+		i = n.down
+	}
+
+	// Failed to find anything, return.
+	return nil
+}
+
+
+// Insert adds the given key and value to the trie.
+// If it already exists, it is overwritten with the new value.
+// Returns the previous value of the given key, or nil if it had none.
+func (t *Trie) Insert(key string, value interface{}) (old interface{}) {
+
+// If the trie is concurrently changed while this function is running, we
+// restart.
+spin:
+	first := t.first
+
+	// remaining contains the unmatched part of the key.
+	remaining := key
+
+	// parent points to the parent of the current node.
+	var parent *Node
+	var pn *node
+
+	// i is the current sibling.
+	i := first
+
+	for i != nil {
+		n := i.n
+
+		// Find out how much of the node key matches ours.
+		var c int
+		for c = 0; c < len(n.nodekey) && c < len(remaining) &&
+			n.nodekey[c] == remaining[c]; c++ {
+		}
+
+		// If this key has nothing in common with ours, next.
+		if c == 0 {
+			// If this is the last sibling, we're out of
+			// nodes to check. No match.
+			if n.next == nil {
+				i = nil
+				break
+			}
+
+			// Otherwise, continue to the next node.
+			i = n.next
+			continue
+		}
+
+		// If we matched the whole of the key...
+		if c == len(n.nodekey) {
+
+			// Exact match? Make it a data node if it wasn't
+			// already, and set our value.
+			if c == len(remaining) {
+				old = n.value
+				newn := new(node)
+				*newn = *n
+				newn.key = key
+				newn.value = value
+				if !cas.Cas((unsafe.Pointer)(&(i.n)), unsafe.Pointer(n), unsafe.Pointer(newn)) {
+					// You spin me right round baby right round
+					goto spin
+				}
+				return
+			}
+
+			// Otherwise, set this as our new root, cut the start
+			// off remaining, and restart.
+			remaining = remaining[c:]
+			parent = i
+			pn = n
+			i = n.down
+			continue
+		}
+
+		// Otherwise, our key matches part of this node's key, but not
+		// all, and we need to split this node into two.
+		newn := new(node)
+		*newn = *n
+		newn.nodekey = n.nodekey[c:]
+		newn.next = nil
+		newi := new(Node)
+		newi.n = newn
+
+		newn = new(node)
+		*newn = *n
+		newn.down = newi
+		newn.nodekey = n.nodekey[:c]
+
+
+		// If none of our name is left, then the first parent node
+		// above matches it. Otherwise, we need to add a second child
+		// for our value.
+		remaining = remaining[c:]
+		if len(remaining) == 0 {
+			newn.key = key
+			newn.value = value
+		} else {
+			newn.key = ""
+			newn.value = interface{}(nil)
+
+			newchild := new(node)
+			newchild.next = newn.down
+			newchild.nodekey = remaining
+			newchild.key = key
+			newchild.value = value
+			newi = new(Node)
+			newi.n = newchild
+			newn.down = newi
+		}
+
+		// Switch the old n with the one with the new children.
+		if !cas.Cas(unsafe.Pointer(&(i.n)), unsafe.Pointer(n), unsafe.Pointer(newn)) {
+			// Like a record baby right round round
+			goto spin
+		}
+
+		return
+	}
+
+	// If we've gone through the list and not found anything with
+	// a common prefix, we need to simply add ourselves.
+	if i == nil {
+		i := new(Node)
+		n := new(node)
+		n.nodekey = remaining
+		n.key = key
+		n.value = value
+		i.n = n
+
+		if parent != nil {
+			n.next = pn.down
+
+			newn := new(node)
+			*newn = *pn
+			newn.down = i
+
+			// Switch the old parent node with the new one.
+			if !cas.Cas(unsafe.Pointer(&(parent.n)), unsafe.Pointer(pn), unsafe.Pointer(newn)) {
+        			goto spin
+			}
+		} else {
+			n.next = first
+
+			// We're the first node! Swap a pointer to us with that.
+			if !cas.Cas(unsafe.Pointer(&(t.first)), unsafe.Pointer(first), unsafe.Pointer(i)) {
+        			goto spin
+			}
+		}
+	}
+	return
+}
+
+
+// Remove deletes a key from the trie.
+// If it does not exist, nothing happens.
+// Returns the value of the removed key, or nil if it did not exist.
+func (t *Trie) Remove(key string) (old interface{}) {
+
+spin:
+	parents := make([]*Node, 1)
+	remaining := key
+	i := t.first
+	for i != nil {
+		n := i.n
+
+		// Find out how much of the node key matches ours.
+		var c int
+		for c = 0; c < len(n.nodekey) && c < len(remaining) &&
+			n.nodekey[c] == remaining[c]; c++ {
+		}
+
+		// If this key has nothing in common with ours, next.
+		if c == 0 {
+			// If this is the last sibling, we're out of
+			// nodes to check. No match.
+			if n.next == nil {
+				i = nil
+				break
+			}
+
+			// Otherwise, continue to the next node.
+			i = n.next
+			continue
+		}
+
+		// If we didn't match the whole of the key, return.
+		// No match.
+		if c != len(n.nodekey) {
+			return
+		}
+
+		// Exact match? If it's a value node, delete it.
+		// Otherwise, no match exists.
+		if c == len(remaining) {
+			if n.key != "" {
+				old = n.value
+
+				// If the node has children, we can't delete it
+				// without breaking concurrent access.
+				if n.down != nil {
+					newn := new(node)
+					*newn = *n
+					newn.key = ""
+					newn.value = interface{}(nil)
+
+					if !cas.Cas(unsafe.Pointer(&(i.n)), unsafe.Pointer(n), unsafe.Pointer(newn)) {
+						goto spin
+					}
+					return
+				}
+
+				// We have no children, so commence deletion;
+				// set the node's nodekey to "".
+				newn := new(node)
+				*newn = *n
+				newn.key = ""
+				newn.value = interface{}(nil)
+				newn.nodekey = ""
+				if !cas.Cas(unsafe.Pointer(&(i.n)), unsafe.Pointer(n), unsafe.Pointer(newn)) {
+					goto spin
+				}
+
+				// Lock the removal mutex.
+				t.rem.Lock()
+
+				// Get the node's parent.
+				var parent *Node
+				if len(parents) > 0 {
+					parent = parents[len(parents)-1]
+					parents = parents[:len(parents)-1]
+				}
+
+				// Find and delete this node.
+				parent, ok := t.removeNode(parent, i)
+				if !ok {
+					// Someone else got here first!
+					t.rem.Unlock()
+					return
+				}
+
+				// While we deleted from a parent...
+				for parent != nil {
+					pn := parent.n
+
+					// If the parent has a value or
+					// children, leave it alone.
+					if pn.down != nil || pn.key != "" {
+						break
+					}
+
+					// Set its nodekey to "".
+					newn := new(node)
+					*newn = *pn
+					newn.key = ""
+					newn.value = interface{}(nil)
+					newn.nodekey = ""
+					if !cas.Cas(unsafe.Pointer(&(parent.n)), unsafe.Pointer(pn), unsafe.Pointer(newn)) {
+						// Stop; parent changed.
+						break
+					}
+					
+					// Get its parent.
+					newparent := (*Node)(nil)
+					if len(parents) > 0 {
+						newparent = parents[len(parents)-1]
+						parents = parents[:len(parents)-1]
+					}
+
+					// Find and delete it.
+					parent, ok = t.removeNode(newparent, parent)
+					if !ok {
+						// Already gone?
+						break
+					}
+				}
+
+				// Release the removal mutex.
+				t.rem.Unlock()
+			}
+			return
+		}
+
+		// Otherwise, set this as our new parent,
+		// cut the start off remaining, and restart.
+		remaining = remaining[c:]
+		i = n.down
 	}
 
 	// Failed to find anything, return.
 	return
+}
+
+
+// removeNode deletes the given node from the Trie.
+// The node must be marked for deletion (nodekey set to "") and the caller must
+// hold the removal mutex, or this is terribly unsafe.
+//
+// parent is nil, unless the node was its parents' first and only child, in
+// which case it is the node's parent, for consideration for deletion itself.
+// ok indicates whether the deletion was successful.
+func (t *Trie) removeNode(p, target *Node) (parent *Node, ok bool) {
+
+spin:
+	it := new(Iterator)
+	it.parents = make([]*Node, 1)
+
+	// If they have a parent, check if they are the first child.
+	if p != nil {
+		pn := p.n
+		if pn.down == target {
+			newn := new(node)
+			*newn = *pn
+			newn.down = target.n.next
+			if !cas.Cas(unsafe.Pointer(&(p.n)), unsafe.Pointer(pn), unsafe.Pointer(newn)) {
+				goto spin
+			}
+			if newn.down == nil {
+				parent = p
+			}
+			return parent, true
+		}
+		it.it = pn.down
+	} else {
+		// Handle deleting the first node.
+		first := t.first
+		if first == target {
+			if !cas.Cas(unsafe.Pointer(&(t.first)), unsafe.Pointer(target), unsafe.Pointer(target.n.next)) {
+				goto spin
+			}
+			return nil, true
+		}
+		it.it = first
+	}
+
+	// Otherwise, simply simply iterate through the siblings until we find
+	// the one before the node.	
+	for it.Next() {
+		n := it.it.n
+		if n.next == target {
+			newn := new(node)
+			*newn = *n
+			newn.next = target.n.next
+			if !cas.Cas(unsafe.Pointer(&(it.it.n)), unsafe.Pointer(n), unsafe.Pointer(newn)) {
+				goto spin
+			}
+			return nil, true
+		}
+	}
+
+	// Not found the node. Someone else must have got to it first.
+	return nil, false
 }
