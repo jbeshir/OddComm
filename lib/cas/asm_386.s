@@ -10,14 +10,14 @@
 //	}else
 //		return false;
 TEXT ·Cas(SB), 7, $0
-	MOVQ	8(SP), BX
-	MOVQ	16(SP), AX
-	MOVQ	24(SP), CX
+	MOVL	4(SP), BX
+	MOVL	8(SP), AX
+	MOVL	12(SP), CX
 	LOCK
-	CMPXCHGQ	CX, 0(BX)
+	CMPXCHGL	CX, 0(BX)
 	JZ ok
-	MOVL	$0, 32(SP)
+	MOVL	$0, 16(SP)
 	RET
 ok:
-	MOVL	$1, 32(SP)
+	MOVL	$1, 16(SP)
 	RET
