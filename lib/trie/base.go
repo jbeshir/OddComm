@@ -24,7 +24,7 @@ import "oddcomm/lib/cas"
 // Trie provides the implementation of the radix trie.
 // An empty trie uses no more space than a nil pointer and an int32.
 type Trie struct {
-	first *nodeBox      // First node pointer.
+	first *nodeBox   // First node pointer.
 	rem   sync.Mutex // Removal mutex.
 }
 
@@ -37,8 +37,8 @@ type nodeBox struct {
 // node stores the contents of a trie node.
 type node struct {
 	nodekey string      // Key of this node, not including parent nodekeys.
-	down    *nodeBox       // First child of this node (nilable).
-	next    *nodeBox       // Next sibling of this node (nilable).
+	down    *nodeBox    // First child of this node (nilable).
+	next    *nodeBox    // Next sibling of this node (nilable).
 	key     string      // Full key of this node, if it has a key.
 	value   interface{} // If set, this node contains a value.
 }
@@ -50,7 +50,7 @@ type node struct {
 // A single iterator may not be used concurrently, but separate iterators may.
 type Iterator struct {
 	parents []*nodeBox
-	it *nodeBox
+	it      *nodeBox
 }
 
 // Next moves the iterator on to its next value node.
@@ -77,7 +77,7 @@ func (i *Iterator) nextNode() {
 		for i.it != nil {
 			if n.next == nil {
 				if len(i.parents) > 1 {
-					i.parents = i.parents[0:len(i.parents)-1]
+					i.parents = i.parents[:len(i.parents)-1]
 					i.it = i.parents[len(i.parents)-1]
 				} else {
 					i.it = nil
@@ -220,8 +220,8 @@ func (t *Trie) GetSub(prefix string) *Iterator {
 // Returns the previous value of the given key, or nil if it had none.
 func (t *Trie) Insert(key string, value interface{}) (old interface{}) {
 
-// If the trie is concurrently changed while this function is running, we
-// restart.
+	// If the trie is concurrently changed while this function is running, we
+	// restart.
 spin:
 	first := t.first
 
@@ -299,7 +299,6 @@ spin:
 		newn.down = newi
 		newn.nodekey = n.nodekey[:c]
 
-
 		// If none of our name is left, then the first parent node
 		// above matches it. Otherwise, we need to add a second child
 		// for our value.
@@ -349,14 +348,14 @@ spin:
 
 			// Switch the old parent node with the new one.
 			if !cas.Cas(unsafe.Pointer(&(parent.n)), unsafe.Pointer(pn), unsafe.Pointer(newn)) {
-        			goto spin
+				goto spin
 			}
 		} else {
 			n.next = first
 
 			// We're the first node! Swap a pointer to us with that.
 			if !cas.Cas(unsafe.Pointer(&(t.first)), unsafe.Pointer(first), unsafe.Pointer(i)) {
-        			goto spin
+				goto spin
 			}
 		}
 	}
@@ -471,7 +470,7 @@ spin:
 						// Stop; parent changed.
 						break
 					}
-					
+
 					// Get its parent.
 					newparent := (*nodeBox)(nil)
 					if len(parents) > 0 {

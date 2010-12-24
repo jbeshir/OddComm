@@ -31,7 +31,7 @@ type Client struct {
 func (c *Client) delete(message string) {
 
 	// First deletion only stuff.
-	if c.disconnecting & 1 == 0 {
+	if c.disconnecting&1 == 0 {
 
 		// Mark us as disconnecting.
 		c.disconnecting |= 1
@@ -47,7 +47,7 @@ func (c *Client) delete(message string) {
 	// This also suppresses further writes to the client, and this bit can
 	// be set prior to calling delete() if a quit message should not be
 	// sent, such as in the case of a write error.
-	if c.disconnecting & 2 == 0 {
+	if c.disconnecting&2 == 0 {
 		username := c.u.Data("ident")
 		if username == "" {
 			username = "unknown"
@@ -61,14 +61,14 @@ func (c *Client) delete(message string) {
 		// If we haven't already closed the connection, do so.
 		// This will cause the input goroutine to terminate if it
 		// has not yet done so.
-		if c.disconnecting & 4 == 0 {
+		if c.disconnecting&4 == 0 {
 			c.conn.Close()
 			c.disconnecting |= 4
 		}
 
 		// If the input goroutine has terminated, fully delete the
 		// client if we haven't already.
-		if c.disconnecting & 8 != 0 && c.disconnecting & 16 == 0 {
+		if c.disconnecting&8 != 0 && c.disconnecting&16 == 0 {
 			delClient(c)
 			c.disconnecting |= 16
 		}
@@ -80,7 +80,7 @@ func (c *Client) delete(message string) {
 func (c *Client) write(line []byte) bool {
 
 	// If the client is disconnecting, drop all writes to it.
-	if c.disconnecting & 2 != 0 {
+	if c.disconnecting&2 != 0 {
 		return false
 	}
 

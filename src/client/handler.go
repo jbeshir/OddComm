@@ -174,7 +174,7 @@ func output(c *Client, n int) {
 		c.mutex.Lock()
 		if len(c.outbuf) == n {
 			c.outbuf = nil
-			if c.disconnecting & 2 != 0 {
+			if c.disconnecting&2 != 0 {
 				c.delete("Output Done")
 			} else {
 				c.conn.SetWriteTimeout(1000)

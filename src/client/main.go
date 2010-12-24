@@ -116,7 +116,7 @@ func listen(l *net.TCPListener) {
 		data[0].Name, data[0].Data = "ip", ip
 		data[1].Name, data[1].Data = "hostname", ip
 		data[0].Next = &data[1]
-		
+
 		client.u = core.NewUser("oddcomm/src/client", false, "", &data[0])
 
 		addClient(client)

@@ -270,7 +270,6 @@ func (ch *Channel) Join(u *User) {
 
 	ch.mutex.Unlock()
 
-
 	if joined {
 		runChanUserJoinHooks(ch.t, u, ch)
 	}
@@ -293,7 +292,7 @@ func (ch *Channel) Remove(source, u *User, message string) {
 
 	// Unregistered users may not join channels in the first place.
 	if u.regstate == 0 {
-		
+
 		// Search for them, remove them if we find them.
 		for it := ch.users; it != nil; it = it.cnext {
 			if it.u == u {
@@ -316,7 +315,7 @@ func (ch *Channel) Remove(source, u *User, message string) {
 				}
 
 				m = it
-				break	
+				break
 			}
 		}
 	}

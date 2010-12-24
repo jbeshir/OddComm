@@ -363,7 +363,7 @@ func (u *User) Delete(source *User, message string) {
 	// Delete the user from the user tables.
 	if users[u.id] == u {
 		users[u.id] = nil, false
-	
+
 		NICK := strings.ToUpper(u.nick)
 		if usersByNick[NICK] == u {
 			usersByNick[NICK] = nil, false
@@ -374,7 +374,7 @@ func (u *User) Delete(source *User, message string) {
 
 	// If they were deleted from the user tables, continue.
 	if deleted {
- 
+
 		// Mark the user as deleted, and get their membership list.
 		u.regstate = -1
 		chans = u.chans
