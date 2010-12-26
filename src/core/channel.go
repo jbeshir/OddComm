@@ -80,14 +80,7 @@ func (ch *Channel) Type() string {
 
 // TS returns the channel's creation time.
 func (ch *Channel) TS() (ts int64) {
-	// This actually CAN change after the channel has been created,
-	// if the channel is merged with a channel created earlier.
-	// Thus, synchronisation.
-	ch.mutex.Lock()
-	ts = ch.ts
-	ch.mutex.Unlock()
-
-	return
+	return ch.ts
 }
 
 // SetData sets the given single piece of metadata on the channel.
@@ -95,6 +88,8 @@ func (ch *Channel) TS() (ts int64) {
 // Setting it to "" unsets it.
 func (ch *Channel) SetData(source *User, name string, value string) {
 	var oldvalue string
+
+	ch.mutex.Lock()
 
 	if value != "" {
 		oldvalue = ch.data.Insert(name, value)
@@ -112,8 +107,13 @@ func (ch *Channel) SetData(source *User, name string, value string) {
 	c.Data = value
 	old := new(OldData)
 	old.Data = value
-	runChanDataChangeHooks(ch.Type(), source, ch, name, oldvalue, value)
-	runChanDataChangesHooks(ch.Type(), source, ch, c, old)
+
+	hookRunner <- func() {
+		runChanDataChangeHooks(ch.Type(), source, ch, name, oldvalue, value)
+		runChanDataChangesHooks(ch.Type(), source, ch, c, old)
+	}
+
+	ch.mutex.Unlock()
 }
 
 // SetDataList performs the given list of metadata changes on the channel.
@@ -124,6 +124,8 @@ func (ch *Channel) SetDataList(source *User, c *DataChange) {
 	var oldvalues *OldData
 	var lasthook *DataChange
 	var lastold **OldData = &oldvalues
+
+	ch.mutex.Lock()
 
 	for it := c; it != nil; it = it.Next {
 
@@ -167,16 +169,20 @@ func (ch *Channel) SetDataList(source *User, c *DataChange) {
 		lastold = &olddata.Next
 	}
 
-	for it, old := c, oldvalues; it != nil && old != nil; it, old = it.Next, old.Next {
-		if it.Member == nil {
-			runChanDataChangeHooks(ch.Type(), source, ch, it.Name,
-				old.Data, it.Data)
-		} else {
-			runMemberDataChangeHooks(ch.Type(), source, it.Member,
-				it.Name, old.Data, it.Data)
+	hookRunner <- func() {
+		for it, old := c, oldvalues; it != nil && old != nil; it, old = it.Next, old.Next {
+			if it.Member == nil {
+				runChanDataChangeHooks(ch.Type(), source, ch, it.Name,
+					old.Data, it.Data)
+			} else {
+				runMemberDataChangeHooks(ch.Type(), source, it.Member,
+					it.Name, old.Data, it.Data)
+			}
 		}
+		runChanDataChangesHooks(ch.Type(), source, ch, c, oldvalues)
 	}
-	runChanDataChangesHooks(ch.Type(), source, ch, c, oldvalues)
+
+	ch.mutex.Unlock()
 }
 
 // Data gets the given piece of metadata.
@@ -200,48 +206,34 @@ func (ch *Channel) DataRange(prefix string, f func(name, value string)) {
 
 // Users returns a pointer to the channel's membership list.
 func (ch *Channel) Users() (users *Membership) {
-	ch.mutex.Lock()
-	users = ch.users
-	ch.mutex.Unlock()
-
-	return
+	return ch.users
 }
 
 // GetMember returns a pointer to this channel's membership structure for the
 // given user, or nil if they are not a member. This is also how to check
 // whether a user is on the channel or not.
 func (ch *Channel) GetMember(u *User) (m *Membership) {
-	ch.mutex.Lock()
 	for it := ch.users; it != nil; it = it.cnext {
 		if it.u == u {
 			m = it
 			break
 		}
 	}
-	ch.mutex.Unlock()
-
 	return
 }
 
 // Join adds a user to the channel.
+// Multiple joins by the same user are not guaranteed to be reported
+// in the order they happened.
 func (ch *Channel) Join(u *User) {
-	var alreadyJoined bool
-	var joined bool
-
 	ch.mutex.Lock()
 	u.mutex.Lock()
 
 	// Unregistered users may not join channels.
-	if u.regstate == 0 {
+	if u.Registered() {
 
 		// Users who are already IN the channel may not join.
-		for it := ch.users; it != nil; it = it.cnext {
-			if it.u == u {
-				alreadyJoined = true
-			}
-		}
-
-		if !alreadyJoined {
+		if ch.GetMember(u) == nil {
 			m := new(Membership)
 			m.c = ch
 			m.u = u
@@ -260,7 +252,10 @@ func (ch *Channel) Join(u *User) {
 				m.cnext.cprev = m
 				m.cnext.u.mutex.Unlock()
 			}
-			joined = true
+
+			hookRunner <- func() {
+				runChanUserJoinHooks(ch.t, u, ch)
+			}
 		} else {
 			u.mutex.Unlock()
 		}
@@ -269,10 +264,6 @@ func (ch *Channel) Join(u *User) {
 	}
 
 	ch.mutex.Unlock()
-
-	if joined {
-		runChanUserJoinHooks(ch.t, u, ch)
-	}
 }
 
 // Remove removes the given user from the channel.
@@ -291,41 +282,38 @@ func (ch *Channel) Remove(source, u *User, message string) {
 	u.mutex.Lock()
 
 	// Unregistered users may not join channels in the first place.
-	if u.regstate == 0 {
+	if u.Registered() {
 
 		// Search for them, remove them if we find them.
-		for it := ch.users; it != nil; it = it.cnext {
-			if it.u == u {
-				if it.cprev == nil {
-					it.c.users = it.cnext
-				} else {
-					it.cprev.cnext = it.cnext
-				}
-				if it.cnext != nil {
-					it.cnext.cprev = it.cprev
-				}
-
-				if it.uprev == nil {
-					it.u.chans = it.unext
-				} else {
-					it.uprev.unext = it.unext
-				}
-				if it.unext != nil {
-					it.unext.uprev = it.uprev
-				}
-
-				m = it
-				break
+		if m = ch.GetMember(u); m != nil {
+			if m.cprev == nil {
+				m.c.users = m.cnext
+			} else {
+				m.cprev.cnext = m.cnext
 			}
+			if m.cnext != nil {
+				m.cnext.cprev = m.cprev
+			}
+
+			if m.uprev == nil {
+				m.u.chans = m.unext
+			} else {
+				m.uprev.unext = m.unext
+			}
+			if m.unext != nil {
+				m.unext.uprev = m.uprev
+			}
+		}
+	}
+
+	if m != nil {
+		hookRunner <- func() {
+			runChanUserRemoveHooks(m.c.t, source, m.u, m.c, message)
 		}
 	}
 
 	u.mutex.Unlock()
 	ch.mutex.Unlock()
-
-	if m != nil {
-		runChanUserRemoveHooks(m.c.t, source, m.u, m.c, message)
-	}
 }
 
 // Message sends a message to the channel.

@@ -64,9 +64,8 @@ func NewUser(creator string, checked bool, forceid string, data *DataChange) (u 
 		usersByNick[strings.ToUpper(u.nick)] = u
 	}
 
-	userMutex.Unlock()
-
 	if u == nil {
+		userMutex.Unlock()
 		return
 	}
 
@@ -113,21 +112,18 @@ func NewUser(creator string, checked bool, forceid string, data *DataChange) (u 
 		lastold = &olddata.Next
 	}
 
+
+	// Run user addition and data change hooks.
+	hookRunner <- func() {
+		runUserAddHooks(u, creator)
+		for it, old := data, oldvalues; it != nil && old != nil;
+				it, old = it.Next, old.Next {
+			runUserDataChangeHooks(nil, u, it.Name, old.Data, it.Data)
+		}
+	}
+
 	u.mutex.Unlock()
-
-	// Run user addition hooks.
-	runUserAddHooks(u, creator)
-
-	// Run user data change hooks.
-	for it, old := data, oldvalues; it != nil && old != nil; it, old = it.Next, old.Next {
-		runUserDataChangeHooks(nil, u, it.Name, old.Data, it.Data)
-	}
-
-	// If registered, run user registration hooks.
-	if u.Registered() {
-		runUserRegisterHooks(u)
-	}
-
+	userMutex.Unlock()
 	return
 }
 
@@ -189,22 +185,21 @@ func (u *User) SetNick(nick string) (err os.Error) {
 		}
 	}
 
+	if err == nil && oldnick != nick {
+		hookRunner <- func() {
+			runUserNickChangeHooks(u, oldnick, nick)
+		}
+	}
+
 	u.mutex.Unlock()
 	userMutex.Unlock()
-
-	if err == nil && oldnick != nick {
-		runUserNickChangeHooks(u, oldnick, nick)
-	}
 
 	return
 }
 
 // Nick returns the user's nick.
 func (u *User) Nick() (nick string) {
-	u.mutex.Lock()
-	nick = u.nick
-	u.mutex.Unlock()
-	return
+	return u.nick
 }
 
 // PermitRegistration marks the user as permitted to register.
@@ -222,26 +217,31 @@ func (u *User) PermitRegistration() {
 			registered = true
 		}
 	}
-	u.mutex.Unlock()
 
 	if registered {
-		runUserRegisterHooks(u)
+		hookRunner <- func() {
+			runUserRegisterHooks(u)
+		}
 	}
+
+	u.mutex.Unlock()
 }
 
 // Registered returns whether the user is registered or not.
 // Deleted users also count as unregistered.
 func (u *User) Registered() (r bool) {
-	u.mutex.Lock()
-	r = (u.regstate == 0)
-	u.mutex.Unlock()
-	return
+	return (u.regstate == 0)
 }
 
 // SetData sets the given single piece of metadata on the user.
 // source may be nil, in which case the metadata is set by the server.
 // Setting it to "" unsets it.
 func (u *User) SetData(source *User, name string, value string) {
+
+	// We hold this so hooks are sent to the hook runner in the order that
+	// the data changes were made.
+	u.mutex.Lock()
+
 	var oldvalue string
 
 	if value != "" {
@@ -260,8 +260,12 @@ func (u *User) SetData(source *User, name string, value string) {
 	c.Data = value
 	old := new(OldData)
 	old.Data = value
-	runUserDataChangeHooks(source, u, name, oldvalue, value)
-	runUserDataChangesHooks(source, u, c, old)
+	hookRunner <- func() {
+		runUserDataChangeHooks(source, u, name, oldvalue, value)
+		runUserDataChangesHooks(source, u, c, old)
+	}
+
+	u.mutex.Unlock()
 }
 
 // SetDataList performs the given list of metadata changes on the user.
@@ -272,6 +276,10 @@ func (u *User) SetDataList(source *User, c *DataChange) {
 	var oldvalues *OldData
 	var lasthook *DataChange
 	var lastold **OldData = &oldvalues
+
+	// We hold this so hooks are sent to the hook runner in the order that
+	// the data changes were made.
+	u.mutex.Lock()
 
 	for it := c; it != nil; it = it.Next {
 
@@ -300,10 +308,15 @@ func (u *User) SetDataList(source *User, c *DataChange) {
 		lastold = &olddata.Next
 	}
 
-	for it, old := c, oldvalues; it != nil && old != nil; it, old = it.Next, old.Next {
-		runUserDataChangeHooks(source, u, it.Name, old.Data, it.Data)
+	hookRunner <- func() {
+		for it, old := c, oldvalues; it != nil && old != nil;
+				it, old = it.Next, old.Next {
+			runUserDataChangeHooks(source, u, it.Name, old.Data, it.Data)
+		}
+		runUserDataChangesHooks(source, u, c, oldvalues)
 	}
-	runUserDataChangesHooks(source, u, c, oldvalues)
+
+	u.mutex.Unlock()
 }
 
 // Data gets the given piece of metadata.
@@ -329,9 +342,7 @@ func (u *User) DataRange(prefix string, f func(name, value string)) {
 
 // Channels returns a pointer to the user's membership list.
 func (u *User) Channels() (chans *Membership) {
-	u.mutex.Lock()
 	chans = u.chans
-	u.mutex.Unlock()
 	return
 }
 
@@ -355,63 +366,64 @@ func (u *User) Message(source *User, message []byte, t string) {
 // Source may be nil, to indicate a deletion by the server.
 func (u *User) Delete(source *User, message string) {
 	var chans *Membership
-	var deleted bool
 
+	// Holding the global user mutex for hook ordering throughout
+	// also means we know we're not called concurrently.
 	userMutex.Lock()
 	u.mutex.Lock()
 
-	// Delete the user from the user tables.
-	if users[u.id] == u {
-		users[u.id] = nil, false
-
-		NICK := strings.ToUpper(u.nick)
-		if usersByNick[NICK] == u {
-			usersByNick[NICK] = nil, false
-		}
-		deleted = true
-	}
-	userMutex.Unlock()
-
-	// If they were deleted from the user tables, continue.
-	if deleted {
-
-		// Mark the user as deleted, and get their membership list.
-		u.regstate = -1
-		chans = u.chans
-
-		// Remove them from all channel lists.
-		var prev, it *Membership
-		for it = chans; it != nil; it = it.unext {
-			u.mutex.Unlock()
-			if prev != nil {
-				prev.c.mutex.Unlock()
-				runChanUserRemoveHooks(prev.c.t, u, u, prev.c, message)
-			}
-			it.c.mutex.Lock()
-			u.mutex.Lock()
-
-			if it.cprev == nil {
-				it.c.users = it.cnext
-			} else {
-				it.cprev.cnext = it.cnext
-			}
-			if it.cnext != nil {
-				it.cnext.cprev = it.cprev
-			}
-
-			prev = it
-		}
-		if prev != nil {
-			prev.c.mutex.Unlock()
-			runChanUserRemoveHooks(prev.c.t, u, u, prev.c, message)
-		}
-
+	// And this check ensures we're not called more than once.
+	if u.regstate == -1 {
 		u.mutex.Unlock()
-
-		runUserDeleteHooks(source, u, message)
+		userMutex.Unlock()
 		return
 	}
 
-	// Otherwise, unlock them and continue.
+	// Delete the user from the user tables.
+	NICK := strings.ToUpper(u.nick)
+	users[u.id] = nil, false
+	usersByNick[NICK] = nil, false
+
+	// Mark the user as deleted, and get their membership list.
+	u.regstate = -1
+	chans = u.chans
+	u.chans = nil
+
+	// This is required by the ordering on mutexes, but means we
+	// must be able to otherwise assume that deleted users will not
+	// have their channel membership written to.
+	// We ensure this elsewhere.
 	u.mutex.Unlock()
+
+	// Remove them from all channel lists.
+	var prev, it *Membership
+	for it = chans; it != nil; it = it.unext {
+
+		u.mutex.Unlock()
+		it.c.mutex.Lock()
+		u.mutex.Lock()
+
+		if it.cprev == nil {
+			it.c.users = it.cnext
+		} else {
+			it.cprev.cnext = it.cnext
+		}
+		if it.cnext != nil {
+			it.cnext.cprev = it.cprev
+		}
+
+		prev = it
+		if prev != nil {
+			hookRunner <- func() {
+				runChanUserRemoveHooks(prev.c.t, u, u, prev.c, message)
+			}
+		}
+		it.c.mutex.Unlock()
+	}
+
+	hookRunner <- func() {
+		runUserDeleteHooks(source, u, message)
+	}
+
+	userMutex.Unlock()
 }

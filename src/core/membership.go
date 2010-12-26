@@ -39,6 +39,8 @@ func (m *Membership) UserNext() (next *Membership) {
 func (m *Membership) SetData(source *User, name string, value string) {
 	var oldvalue string
 
+	m.c.mutex.Lock()
+
 	if value != "" {
 		oldvalue = m.data.Insert(name, value)
 	} else {
@@ -56,8 +58,13 @@ func (m *Membership) SetData(source *User, name string, value string) {
 	c.Member = m
 	old := new(OldData)
 	old.Data = value
-	runMemberDataChangeHooks(m.c.Type(), source, m, name, oldvalue, value)
-	runChanDataChangesHooks(m.c.Type(), source, m.c, c, old)
+
+	hookRunner <- func() {
+		runMemberDataChangeHooks(m.c.Type(), source, m, name, oldvalue, value)
+		runChanDataChangesHooks(m.c.Type(), source, m.c, c, old)
+	}
+
+	m.c.mutex.Unlock()
 }
 
 // SetDataList performs the given list of metadata changes on the membership
@@ -68,6 +75,8 @@ func (m *Membership) SetDataList(source *User, c *DataChange) {
 	var oldvalues *OldData
 	var lasthook *DataChange
 	var lastold **OldData = &oldvalues
+
+	m.c.mutex.Lock()
 
 	for it := c; it != nil; it = it.Next {
 
@@ -96,10 +105,14 @@ func (m *Membership) SetDataList(source *User, c *DataChange) {
 		lastold = &olddata.Next
 	}
 
-	for it, old := c, oldvalues; it != nil && old != nil; it, old = it.Next, old.Next {
-		runMemberDataChangeHooks(m.c.Type(), source, m, it.Name, old.Data, it.Data)
+	hookRunner <- func() {
+		for it, old := c, oldvalues; it != nil && old != nil; it, old = it.Next, old.Next {
+			runMemberDataChangeHooks(m.c.Type(), source, m, it.Name, old.Data, it.Data)
+		}
+		runChanDataChangesHooks(m.c.Type(), source, m.c, c, oldvalues)
 	}
-	runChanDataChangesHooks(m.c.Type(), source, m.c, c, oldvalues)
+
+	m.c.mutex.Unlock()
 }
 
 // Data retrieves the requested piece of metadata from this membership entry.
@@ -128,6 +141,13 @@ func (m *Membership) Remove(source *User, message string) {
 	m.c.mutex.Lock()
 	m.u.mutex.Lock()
 
+	// If the user is being deleted, which looks like being unregistered,
+	// this will be deleted anyway. Do nothing.
+	if !m.u.Registered() {
+		m.u.mutex.Unlock()
+		m.c.mutex.Unlock()
+	}
+
 	if m.cprev == nil {
 		m.c.users = m.cnext
 	} else {
@@ -146,10 +166,10 @@ func (m *Membership) Remove(source *User, message string) {
 		m.unext.uprev = m.uprev
 	}
 
+	hookRunner <- func() {
+		runChanUserRemoveHooks(m.c.t, source, m.u, m.c, message)
+	}
+
 	m.u.mutex.Unlock()
 	m.c.mutex.Unlock()
-
-	runChanUserRemoveHooks(m.c.t, source, m.u, m.c, message)
-
-	return
 }

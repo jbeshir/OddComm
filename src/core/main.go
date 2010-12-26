@@ -8,12 +8,25 @@ package core
 
 import "sync"
 
-
-// An ordering is imposed on mutexes within this package: Only one user and one
-// channel mutex may be held at once, and they must be acquired in that order.
-// Membership entry access should only be performed while holding the correct
-// user's mutex and the correct channel's mutex.
-// No other mutexes may be held simultaneously with others.
+// An ordering is imposed on mutexes within this package: Only one global, one
+// channel, and one user mutex may be held at once, and they must be acquired
+// in that order.
+//
+// Membership entry changes should only be performed while holding the correct
+// channel mutex and the correct user mutex.
+//
+// Generally, events with hooks that alter state should have a mutex held
+// between the alteration and hooks being called, to ensure hooks are called in
+// the same order as these events.
+//
+// While a mutex exists that can block writes to any one global or Extensible
+// structure while it is synchronised, no mutex exists to lock all extensible
+// structures at once; they would all need to be locked. If this is
+// The global mutexes, aside providing the above, also permit changes to these
+// data structures to be blocked while they're being synchronised. Individual
+// Extensible types have their own mutexes which can be used similarly, 
+// The global mutexes serve this function and one other- to permit changes to
+// be blocked while serialising the state of the whole server.
 
 
 // Sets the server version string.
