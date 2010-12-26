@@ -151,18 +151,16 @@ func input(c *Client) {
 // to the output buffer to be made, is for this goroutine to do it while
 // holding the mutex, until this goroutine terminates.
 func output(c *Client, n int) {
-
 	// While we have something to write...
 	for n > 0 {
-
 		// Write it.
 		var err os.Error
 		n, err = c.conn.Write(c.outbuf[:n])
 
 		// If writing failed, delete the user, suppressing writes.
 		if err != nil {
-			c.outbuf = nil
 			c.mutex.Lock()
+			c.outbuf = nil
 			c.disconnecting |= 2
 			c.delete(err.String())
 			c.mutex.Unlock()

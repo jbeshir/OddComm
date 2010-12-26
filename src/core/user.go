@@ -385,7 +385,7 @@ func (u *User) Delete(source *User, message string) {
 			u.mutex.Unlock()
 			if prev != nil {
 				prev.c.mutex.Unlock()
-				runChanUserRemoveHooks(it.c.t, u, u, it.c, message)
+				runChanUserRemoveHooks(prev.c.t, u, u, prev.c, message)
 			}
 			it.c.mutex.Lock()
 			u.mutex.Lock()
@@ -403,7 +403,7 @@ func (u *User) Delete(source *User, message string) {
 		}
 		if prev != nil {
 			prev.c.mutex.Unlock()
-			runChanUserRemoveHooks(it.c.t, u, u, it.c, message)
+			runChanUserRemoveHooks(prev.c.t, u, u, prev.c, message)
 		}
 
 		u.mutex.Unlock()

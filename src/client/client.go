@@ -93,7 +93,6 @@ func (c *Client) write(line []byte) bool {
 			// does not attempt to send a quit message.
 			c.disconnecting |= 2
 			c.delete("Output Buffer Exceeded")
-			c.outbuf = nil
 			return false
 		}
 
