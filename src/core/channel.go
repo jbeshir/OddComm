@@ -6,6 +6,7 @@ import "strconv"
 import "strings"
 import "sync"
 import "time"
+import "unsafe"
 
 
 // Represents a channel.
@@ -26,23 +27,13 @@ func GetChannel(t, name string) (ch *Channel) {
 	NAME := strings.ToUpper(name)
 
 	chanMutex.Lock()
-	if _, ok := channels[t]; ok {
-		if v, ok := channels[t][NAME]; ok {
-			ch = v
-		} else {
-			ch = new(Channel)
-			ch.name = name
-			ch.t = t
-			ch.ts = time.Seconds()
-			channels[t][NAME] = ch
-		}
-	} else {
-		channels[t] = make(map[string]*Channel)
+	ch = (*Channel)(channels.Get(t + " " + NAME))
+	if ch == nil {
 		ch = new(Channel)
 		ch.name = name
 		ch.t = t
 		ch.ts = time.Seconds()
-		channels[t][NAME] = ch
+		channels.Insert(t + " " + NAME, unsafe.Pointer(ch))
 	}
 	chanMutex.Unlock()
 
@@ -53,14 +44,7 @@ func GetChannel(t, name string) (ch *Channel) {
 // for the default type. If none exist, it returns nil.
 func FindChannel(t, name string) (ch *Channel) {
 	NAME := strings.ToUpper(name)
-
-	chanMutex.Lock()
-	if _, ok := channels[t]; ok {
-		ch = channels[t][NAME]
-	}
-	chanMutex.Unlock()
-
-	return
+	return (*Channel)(channels.Get(t + " " + NAME))
 }
 
 
@@ -213,8 +197,11 @@ func (ch *Channel) Users() (users *Membership) {
 // given user, or nil if they are not a member. This is also how to check
 // whether a user is on the channel or not.
 func (ch *Channel) GetMember(u *User) (m *Membership) {
-	for it := ch.users; it != nil; it = it.cnext {
-		if it.u == u {
+
+	// We actually iterate the user's channel list, because it's often
+	// shorter, and much more reasonable to put a low limit on.
+	for it := u.chans; it != nil; it = it.unext {
+		if it.c == ch {
 			m = it
 			break
 		}

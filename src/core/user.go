@@ -3,6 +3,8 @@ package core
 import "os"
 import "strings"
 import "sync"
+import "unsafe"
+
 
 import "oddcomm/lib/trie"
 
@@ -16,6 +18,7 @@ type User struct {
 	regstate int
 	chans    *Membership
 	data     trie.StringTrie
+	owner    string
 }
 
 
@@ -37,81 +40,84 @@ type User struct {
 // They will be applied prior to the new user hooks being called, with
 // usual data change hooks called after. It may be nil.
 func NewUser(creator string, checked bool, forceid string, data *DataChange) (u *User) {
+	var oldvalues *OldData
+	var lasthook *DataChange
+	var lastold **OldData = &oldvalues
+
 	u = new(User)
 
 	userMutex.Lock()
 
 	// Figure out what ID the user should have.
 	if forceid != "" {
-		if users[forceid] == nil {
+		if users.Get(forceid) == nil {
 			u.id = forceid
 		} else {
 			u = nil
 		}
 	} else {
-		for users[getUIDString()] != nil {
+		for users.Get(getUIDString()) != nil {
 			incrementUID()
 		}
 		u.id = getUIDString()
 		incrementUID()
 	}
 
-	// If they have a valid ID, set their nick and add them to the user
-	// structure.
+	// If they have a valid ID, set them up and add them.
+	// As reads occur without holding a mutex, they should be fully set up
+	// before being added so we're never not in a safe state.
 	if u != nil {
-		u.nick = u.id
-		users[u.id] = u
-		usersByNick[strings.ToUpper(u.nick)] = u
-	}
+		u.mutex.Lock()
 
-	if u == nil {
+		// Set their nick and owner.
+		u.nick = u.id
+		u.owner = creator
+
+		// Set the number of permits this user should wait for before
+		// completing registration.
+		u.checked = checked
+		u.regstate = 1 + holdRegistration[creator]
+		if !checked {
+			u.regstate += holdRegistration[""]
+		}
+
+		// Apply provided data to the user.
+		for it := data; it != nil; it = it.Next {
+
+			// Make the change.
+			var oldvalue string
+			if it.Data != "" {
+				oldvalue = u.data.Insert(it.Name, it.Data)
+			} else {
+				oldvalue = u.data.Remove(it.Name)
+			}
+
+			// If this was a do-nothing change, cut it out.
+			if oldvalue == it.Data {
+				if lasthook != nil {
+					lasthook.Next = it.Next
+				} else {
+					data = it.Next
+				}
+				continue
+			}
+
+			// Still need to track old data, just in case someone
+			// decides to set a value TWICE for some reason.
+			olddata := new(OldData)
+			olddata.Data = oldvalue
+			*lastold = olddata
+			lasthook = it
+			lastold = &olddata.Next
+		}
+
+		// Now fully configured, add them.
+		users.Insert(u.id, unsafe.Pointer(u))
+		usersByNick.Insert(u.nick, unsafe.Pointer(u))
+	} else {
 		userMutex.Unlock()
 		return
 	}
-
-	u.mutex.Lock()
-
-	// Set the number of permits this user should wait for before
-	// completing registration.
-	u.checked = checked
-	u.regstate = 1 + holdRegistration[creator]
-	if !checked {
-		u.regstate += holdRegistration[""]
-	}
-
-	// Apply provided data to the user.
-	var oldvalues *OldData
-	var lasthook *DataChange
-	var lastold **OldData = &oldvalues
-	for it := data; it != nil; it = it.Next {
-
-		// Make the change.
-		var oldvalue string
-		if it.Data != "" {
-			oldvalue = u.data.Insert(it.Name, it.Data)
-		} else {
-			oldvalue = u.data.Remove(it.Name)
-		}
-
-		// If this was a do-nothing change, cut it out.
-		if oldvalue == it.Data {
-			if lasthook != nil {
-				lasthook.Next = it.Next
-			} else {
-				data = it.Next
-			}
-			continue
-		}
-
-		// Still need to track old data, just in case someone decides
-		// to set a value TWICE for some reason.
-		olddata := new(OldData)
-		olddata.Data = oldvalue
-		*lastold = olddata
-		lasthook = it
-		lastold = &olddata.Next
-	}
-
 
 	// Run user addition and data change hooks.
 	hookRunner <- func() {
@@ -130,69 +136,73 @@ func NewUser(creator string, checked bool, forceid string, data *DataChange) (u 
 // GetUser gets a user with the given ID, returning a pointer to their User
 // structure.
 func GetUser(id string) (u *User) {
-	userMutex.Lock()
-	u = users[id]
-	userMutex.Unlock()
-	return
+	return (*User)(users.Get(id))
 }
 
 // GetUserByNick gets a user with the given nick, returning a pointer to their
 // User structure.
 func GetUserByNick(nick string) (u *User) {
-	nick = strings.ToUpper(nick)
-	userMutex.Lock()
-	u = usersByNick[nick]
-	userMutex.Unlock()
+	u.mutex.Lock()
+	NICK := strings.ToUpper(nick)
+	u = (*User)(usersByNick.Get(NICK))
+	u.mutex.Unlock()
 	return
 }
 
 
 // Checked returns whether the user is pre-checked for ban purposes, and all
 // relevant information added to their data by their creator, and will have no
-// holds on registration but setting a nick outside their creating module.
+// holds on registration outside their creating module.
 // This can be used to bypass DNS resolution, ban and DNSBL checks, and such.
 func (u *User) Checked() bool {
-	// As this is just a boolean, we can't possibly receive half-reads, and
-	// thus have no need to mutex reads to it.
 	return u.checked
 }
 
 // ID returns the user's ID.
 func (u *User) ID() string {
-	// As this is constant, we have no need to mutex reads to it.
 	return u.id
 }
 
 // SetNick sets the user's nick. This may fail if the nickname is in use.
 // If successful, err is nil. If not, err is a message why.
 func (u *User) SetNick(nick string) (err os.Error) {
-	var oldnick string
 
-	userMutex.Lock()
-	u.mutex.Lock()
-
-	oldnick = u.nick
+	oldnick := u.nick
+	OLDNICK := strings.ToUpper(oldnick)
 	NICK := strings.ToUpper(nick)
 
-	if nick != oldnick {
-		conflict := usersByNick[NICK]
+	if OLDNICK != NICK {
+		userMutex.Lock()
+		u.mutex.Lock()
+
+		// Change the nick if there's no conflict.
+		conflict := (*User)(usersByNick.Get(NICK))
 		if conflict != nil && conflict != u {
 			err = os.NewError("Nickname is already in use.")
+			u.mutex.Unlock()
 		} else {
-			usersByNick[strings.ToUpper(u.nick)] = nil, false
+			usersByNick.Remove(strings.ToUpper(oldnick))
 			u.nick = nick
-			usersByNick[NICK] = u
+			usersByNick.Insert(NICK, unsafe.Pointer(u))
 		}
+
+		userMutex.Unlock()
+
+	} else if oldnick != nick {
+		// Just a change in case; no need to alter the tables.
+		u.mutex.Lock()
+		u.nick = nick
 	}
 
-	if err == nil && oldnick != nick {
-		hookRunner <- func() {
-			runUserNickChangeHooks(u, oldnick, nick)
+	if oldnick != nick {
+		if err == nil {
+			hookRunner <- func() {
+				runUserNickChangeHooks(u, oldnick, nick)
+			}
 		}
+		u.mutex.Unlock()
 	}
 
-	u.mutex.Unlock()
-	userMutex.Unlock()
 
 	return
 }
@@ -346,6 +356,13 @@ func (u *User) Channels() (chans *Membership) {
 	return
 }
 
+
+// Owner returns the owning package of the user, if one is set.
+func (u *User) Owner() string {
+	return u.owner
+}
+
+
 // Message sends a message directly to the user.
 // source may be nil, indicating a message from the server.
 // t may be "" (for default), and indicates the type of message.
@@ -381,8 +398,8 @@ func (u *User) Delete(source *User, message string) {
 
 	// Delete the user from the user tables.
 	NICK := strings.ToUpper(u.nick)
-	users[u.id] = nil, false
-	usersByNick[NICK] = nil, false
+	users.Remove(u.id)
+	usersByNick.Remove(NICK)
 
 	// Mark the user as deleted, and get their membership list.
 	u.regstate = -1

@@ -8,6 +8,9 @@ package core
 
 import "sync"
 
+import "oddcomm/lib/trie"
+
+
 // An ordering is imposed on mutexes within this package: Only one global, one
 // channel, and one user mutex may be held at once, and they must be acquired
 // in that order.
@@ -34,12 +37,12 @@ var Version string = "0.0.1"
 
 
 // The users by ID and users by nick maps to look up users.
-var users map[string]*User
-var usersByNick map[string]*User
+var users trie.PointerTrie
+var usersByNick trie.PointerTrie
 var userMutex sync.Mutex
 
 // The channels by type, by name map to look up channels.
-var channels map[string]map[string]*Channel
+var channels trie.PointerTrie
 var chanMutex sync.Mutex
 
 // The package message channel by package name map.
@@ -53,9 +56,6 @@ var packageMutex sync.Mutex
 // to do cleanup before shutdown because it is always ready to stop whenever
 // everything else is done calling into it.
 func init() {
-	users = make(map[string]*User)
-	usersByNick = make(map[string]*User)
-	channels = make(map[string]map[string]*Channel)
 	packages = make(map[string]chan string)
 }
 

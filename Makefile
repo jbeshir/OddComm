@@ -68,6 +68,12 @@ $(PKGDIR)/lib/trie.a: $(PKGDIR)/lib/cas.a lib/trie/main.go lib/trie/base.go
 	sed -i "s/Trie/StringTrie/g" lib/trie/string.go
 	sed -i "s/node/stringNode/g" lib/trie/string.go
 	sed -i "s/Iterator/StringIterator/g" lib/trie/string.go
+	cp lib/trie/base.go lib/trie/pointer.go
+	sed -i 's/package trie/package trie\nimport "unsafe"/g' lib/trie/pointer.go
+	sed -i "s/interface{}/unsafe.Pointer/g" lib/trie/pointer.go
+	sed -i "s/Trie/PointerTrie/g" lib/trie/pointer.go
+	sed -i "s/node/pointerNode/g" lib/trie/pointer.go
+	sed -i "s/Iterator/PointerIterator/g" lib/trie/pointer.go
 	mkdir -p $(PKGDIR)/lib
 	$(GOCMD) -o $(PKGDIR)/lib/trie.$(O) $(wildcard lib/trie/*.go)
 	rm -f $(PKGDIR)/lib/trie.a

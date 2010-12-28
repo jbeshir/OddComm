@@ -3,9 +3,9 @@ OVERVIEW
 OddComm Trie, as implemented by lib/trie
 Designed by J Beshir
 
-This trie is designed to permit high levels of concurrent access with minimal synchronisation overhead through lock-free reads and inserts, using atomic compare-and-swap operations. Removals require a mutex lock.
+This trie is designed to permit high levels of concurrent access with minimal synchronisation overhead through lock-free reads even while writing is occurring. Concurrent writing remains not permitted; an external mutex should be used.
 
-It likely can be optimised significantly. The primary cost in the previous version of  but the primary cost in the present version of the code is synchronisation, which this will significantly reduce.
+It likely can be optimised significantly, but the primary cost in the present version of the code is synchronisation, which this will significantly reduce.
 
 
 STRUCTURE
@@ -14,10 +14,9 @@ Three primary structures are used, each containing a pointer pointing to a more 
 Trie -> nodeBox -> node
 
 // Trie provides the implementation of the radix trie.
-// An empty trie uses no more space than a nil pointer and an int32.
+// An empty trie uses no more space than a nil pointer.
 type Trie struct {
 	first *Node      // First node pointer.
-	rem   sync.Mutex // Removal mutex.
 }
 
 // nodeBox contains a single trie node. It wraps the node, so it can be changed
@@ -50,12 +49,6 @@ The key of the parent of a node cannot change value, nor can the first character
 
 All added nodes will be added at the start of the list of children under the same parent. This means that addition will change the parent node of the new node.
 
-No node’s next sibling may be changed without holding the deletion mutex. This means nodes cannot be deleted without holding the deletion mutex, and that holding the deletion mutex is sufficient to trust that once you’ve read a node’s next sibling it will not change so long as you hold the mutex.
-
-Nodes with an empty nodekey may neither have a value nor child nodes. (They exist temporarily during deletion, and should be ignored when searching for a matching node.)
-
-Any change to a node will change the trieNode pointer, and be detectable at the time another change is done.
-
 All decisions made must depend either only on the above rules, or on a node or pointer that is changed not having being changed since it was first examined.
 
 
@@ -71,57 +64,37 @@ Inserts a key with a value and return its previous value, if it had any.
 Iterate through the first sibling list, matching on nodekey. For each key, there are the following possibilities:
 
  - The key matches nodekey. Change the value of this node to ours, return old value.
-   Simultaneous changes: Correctness depends on the key and value of this node. The key of a node cannot change without changing this node, which would be detected. The value changing without the key changing would change this node and be detected.
 
  - The start of the key matches nodekey: Cut key by nodekey, restart from its first child.
-   Simultaneous changes: Correctness depends only on the first child of this node having the key we saw in this node, as its parent. This is constant and cannot change.
 
  - The key or the start of the key matches the start of nodekey:
    1. Create a new node whose nodekey is the matched part of the nodekey, which copies the key’s siblings. If the whole key matched, its value is the value to add.
    2. Create a new node whose nodekey is the unmatched part of the nodekey, which copies the key’s value and children, but not siblings. Make it a child of the above.
    3. If there was an unmatched part of the key, create a new node whose nodekey is the unmatched part of the key, whose value is the value to add. Make it a second child of the firstnode.
    4. Replace the matched node with the first new node.
-   Simultaneous changes: Correctness depends on the key and value of this node. The key of a node cannot change without changing this node, which would be detected. The value changing without the key changing would change this node and be detected.
 
  - No match, move to the next sibling.
-   Simultaneous changes: Correctness depends only on the key of this node not having a matching first character. This is constant and cannot change.
 
 
 If the end of the list is reached, create a new node with the key and value, and add as the first child of the parent, if one exists, or as the first node otherwise.
-
-Simultaneous changes: Correctness depends on no node with a common prefix to the key being added while the list was being iterated. As such an addition would alter the child of the parent node or the pointer to the first node, it would be detectable. This is conditional on the parent node’s node pointer being stored through the whole time the list is being iterated to detect changes to it during any of that time.
 
 
 DELETION
 
 Deletes the given key. Returns the value of the key deleted, if it had one.
 
-Iterate through the first sibling list, matching on nodekey. For each key, there are the following possibilities:
+Iterate through the first sibling list, matching on nodekey. When we go downwards, remember the parent we passed. For each key, there are the following possibilities:
 
- - The key matches nodekey. 
+ - The key matches nodekey.
 
    1. If it has children, delete any value stored in the node but leave it existing, and return success.
-      Simultaneous changes: Correctness depends on the key and (lack of) child of this node. Neither can change without changing this node, which would be detected.
 
-   2. If it does not have children, set the nodekey to “”. Subsequently, we may assume that the node will never have a value or child. Lock the removal mutex.
-      Simultaneous changes: Correctness depends on this node’s key and (lack of) child. Both of these will cause a change to the node, which will be detected.
+   2. If it does not have children, set whatever pointer was pointing to it to point to its next value.
 
-   3. If this node has a parent, start at its observed parent, followed by its children, searching recursively, and find the pointer to this node. If it does not, start at the first node pointer and iterate the top-level nodes. The pointer found may be either the parent’s child pointer, a previous node’s next sibling pointer, or the first node pointer in Trie. Regardless, set it to this node’s next sibling. If the pointer isn’t found, unlock the mutex and return failure; someone else got to the node first.
-      Simultaneous changes: Correctness depends on this node’s lack of value or children, the previous/parent node being unchanged (lack of added node or concurrent deletion of this and the next node), and the node’s next sibling not being changed in the process (another deletion). The first is guaranteed by the nodekey being “”, the second will be detected, which should be handled by restarting this step, and the last is guaranteed by holding the removal mutex.
-      The approach to finding the previous node also relies on this node being findable searching the children of our remembered parent. The parent will not have itself been deleted, due to being a parent, and will always have a key which is a prefix of the node’s key, due to keys only being able to shorten, and thus will always have this node as a child, grandchild, or such. It may be multiple levels down from the parent due to splitting.
-
-   4. If it was the parent’s child pointer, and the parent has no remaining children or value, set its nodekey to “”, and lock the removal mutex.
-      Simultaneous changes: Correctness depends on this node’s key, value, and (lack of) child. Any of these changing will cause a change to the node, which will be detected, and in this case should cause an early successful return, as the node is no longer to be deleted.
-
-   5. Repeat 3 and 4 indefinitely, until 4 is not true.
-
-   6. Unlock the removal mutex and return success.
+   3. If we edited the parent, delete the parent if it has no value or children. Repeat this step until we no longer edited a parent node of the node deleted.
 
  - The start of the key matches nodekey: Cut key by nodekey, restart from its first child.
-   Simultaneous changes: Correctness depends only on the first child of this node having the key we saw in this node, as its parent. This is constant and cannot change.
 
  - The key or the start of the key matches the start of nodekey: The key we’re looking for does not exist, as if it did, this key would not be able to exist as a full key. Return false.
-   Simultaneous changes: Correctness depends only on the key of this node matching at the time we initially look at it. As we do not write in this instance, no errors can be introduced and we can safely miss a concurrent change.
 
  - No match, move to the next sibling.
-   Simultaneous changes: Correctness depends only on the key of this node not having a matching first character. This is constant and cannot change.

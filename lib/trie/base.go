@@ -1,10 +1,5 @@
 package trie
 
-import "sync"
-import "unsafe"
-
-import "oddcomm/lib/cas"
-
 
 // If this file is not called base.go, it is an automatically generated
 // variation on it, in which case you should not edit directly nor commit it.
@@ -22,10 +17,9 @@ import "oddcomm/lib/cas"
 
 
 // Trie provides the implementation of the radix trie.
-// An empty trie uses no more space than a nil pointer and an int32.
+// An empty trie uses no more space than a nil pointer.
 type Trie struct {
 	first *nodeBox   // First node pointer.
-	rem   sync.Mutex // Removal mutex.
 }
 
 // nodeBox contains a single trie node. It wraps the node, so it can be changed
@@ -75,19 +69,17 @@ func (i *Iterator) nextNode() {
 		i.it = n.down
 	} else {
 		for i.it != nil {
-			if n.next == nil {
-				if len(i.parents) > 1 {
-					i.parents = i.parents[:len(i.parents)-1]
-					i.it = i.parents[len(i.parents)-1]
-				} else {
-					i.it = nil
-				}
-			} else {
+			if n.next != nil {
 				i.it = n.next
 				break
 			}
-			if i.it != nil {
+
+			if len(i.parents) > 1 {
+				i.it = i.parents[len(i.parents)-1]
+				i.parents = i.parents[:len(i.parents)-1]
 				n = i.it.n
+			} else {
+				i.it = nil
 			}
 		}
 	}
@@ -219,10 +211,6 @@ func (t *Trie) GetSub(prefix string) *Iterator {
 // If it already exists, it is overwritten with the new value.
 // Returns the previous value of the given key, or nil if it had none.
 func (t *Trie) Insert(key string, value interface{}) (old interface{}) {
-
-	// If the trie is concurrently changed while this function is running, we
-	// restart.
-spin:
 	first := t.first
 
 	// remaining contains the unmatched part of the key.
@@ -230,7 +218,6 @@ spin:
 
 	// parent points to the parent of the current node.
 	var parent *nodeBox
-	var pn *node
 
 	// i is the current sibling.
 	i := first
@@ -265,14 +252,8 @@ spin:
 			// already, and set our value.
 			if c == len(remaining) {
 				old = n.value
-				newn := new(node)
-				*newn = *n
-				newn.key = key
-				newn.value = value
-				if !cas.Cas((unsafe.Pointer)(&(i.n)), unsafe.Pointer(n), unsafe.Pointer(newn)) {
-					// You spin me right round baby right round
-					goto spin
-				}
+				n.value = value
+				n.key = key
 				return
 			}
 
@@ -280,7 +261,6 @@ spin:
 			// off remaining, and restart.
 			remaining = remaining[c:]
 			parent = i
-			pn = n
 			i = n.down
 			continue
 		}
@@ -321,10 +301,7 @@ spin:
 		}
 
 		// Switch the old n with the one with the new children.
-		if !cas.Cas(unsafe.Pointer(&(i.n)), unsafe.Pointer(n), unsafe.Pointer(newn)) {
-			// Like a record baby right round round
-			goto spin
-		}
+		i.n = newn
 
 		return
 	}
@@ -340,23 +317,11 @@ spin:
 		i.n = n
 
 		if parent != nil {
-			n.next = pn.down
-
-			newn := new(node)
-			*newn = *pn
-			newn.down = i
-
-			// Switch the old parent node with the new one.
-			if !cas.Cas(unsafe.Pointer(&(parent.n)), unsafe.Pointer(pn), unsafe.Pointer(newn)) {
-				goto spin
-			}
+			n.next = parent.n.down
+			parent.n.down = i
 		} else {
 			n.next = first
-
-			// We're the first node! Swap a pointer to us with that.
-			if !cas.Cas(unsafe.Pointer(&(t.first)), unsafe.Pointer(first), unsafe.Pointer(i)) {
-				goto spin
-			}
+			t.first = i
 		}
 	}
 	return
@@ -367,9 +332,9 @@ spin:
 // If it does not exist, nothing happens.
 // Returns the value of the removed key, or nil if it did not exist.
 func (t *Trie) Remove(key string) (old interface{}) {
+	var prev *nodeBox
 
-spin:
-	parents := make([]*nodeBox, 1)
+	parents := make([]*nodeBox, 0)
 	remaining := key
 	i := t.first
 	for i != nil {
@@ -391,6 +356,7 @@ spin:
 			}
 
 			// Otherwise, continue to the next node.
+			prev = i
 			i = n.next
 			continue
 		}
@@ -404,161 +370,74 @@ spin:
 		// Exact match? If it's a value node, delete it.
 		// Otherwise, no match exists.
 		if c == len(remaining) {
-			if n.key != "" {
-				old = n.value
 
-				// If the node has children, we can't delete it
-				// without breaking concurrent access.
-				if n.down != nil {
-					newn := new(node)
-					*newn = *n
-					newn.key = ""
-					newn.value = interface{}(nil)
+			// If it's not a value node, no match.
+			if n.key == "" {
+				return
+			}
 
-					if !cas.Cas(unsafe.Pointer(&(i.n)), unsafe.Pointer(n), unsafe.Pointer(newn)) {
-						goto spin
-					}
-					return
-				}
+			old = n.value
 
-				// We have no children, so commence deletion;
-				// set the node's nodekey to "".
+			// If the node has children, we can't delete it
+			// without breaking concurrent access.
+			if n.down != nil {
 				newn := new(node)
 				*newn = *n
 				newn.key = ""
 				newn.value = interface{}(nil)
-				newn.nodekey = ""
-				if !cas.Cas(unsafe.Pointer(&(i.n)), unsafe.Pointer(n), unsafe.Pointer(newn)) {
-					goto spin
+
+				i.n = newn
+				return
+			}
+
+			// If we have a previous node, remove us from it.
+			if prev != nil {
+				prev.n.next = n.next
+				return
+			}
+
+			// If we have no parent either, we're the first node.
+			if len(parents) == 0 {
+				t.first = n.next
+				return
+			}
+
+			// Otherwise, remove us from our parent, and 
+			// recursively delete the parent if they have no value
+			// or remaining children. We have to find their
+			// previous node to do this.
+			for len(parents) > 0 {
+				parent := parents[len(parents)-1]
+				parents = parents[:len(parents)-1]
+				
+				prev := &parent.n.down
+				for *prev != i && *prev != nil {
+					prev = &((*prev).n.next)
 				}
 
-				// Lock the removal mutex.
-				t.rem.Lock()
-
-				// Get the node's parent.
-				var parent *nodeBox
-				if len(parents) > 0 {
-					parent = parents[len(parents)-1]
-					parents = parents[:len(parents)-1]
-				}
-
-				// Find and delete this node.
-				parent, ok := t.removeNode(parent, i)
-				if !ok {
-					// Someone else got here first!
-					t.rem.Unlock()
+				if *prev != nil {
+					*prev = i.n.next
+				} else {
 					return
 				}
 
-				// While we deleted from a parent...
-				for parent != nil {
-					pn := parent.n
-
-					// If the parent has a value or
-					// children, leave it alone.
-					if pn.down != nil || pn.key != "" {
-						break
-					}
-
-					// Set its nodekey to "".
-					newn := new(node)
-					*newn = *pn
-					newn.key = ""
-					newn.value = interface{}(nil)
-					newn.nodekey = ""
-					if !cas.Cas(unsafe.Pointer(&(parent.n)), unsafe.Pointer(pn), unsafe.Pointer(newn)) {
-						// Stop; parent changed.
-						break
-					}
-
-					// Get its parent.
-					newparent := (*nodeBox)(nil)
-					if len(parents) > 0 {
-						newparent = parents[len(parents)-1]
-						parents = parents[:len(parents)-1]
-					}
-
-					// Find and delete it.
-					parent, ok = t.removeNode(newparent, parent)
-					if !ok {
-						// Already gone?
-						break
-					}
+				i = parent
+				if i.n.down != nil || i.n.key != "" {
+					return
 				}
-
-				// Release the removal mutex.
-				t.rem.Unlock()
 			}
+
 			return
 		}
 
 		// Otherwise, set this as our new parent,
 		// cut the start off remaining, and restart.
+		parents = append(parents, i)
 		remaining = remaining[c:]
+		prev = nil
 		i = n.down
 	}
 
 	// Failed to find anything, return.
 	return
-}
-
-
-// removeNode deletes the given node from the Trie.
-// The node must be marked for deletion (nodekey set to "") and the caller must
-// hold the removal mutex, or this is terribly unsafe.
-//
-// parent is nil, unless the node was its parents' first and only child, in
-// which case it is the node's parent, for consideration for deletion itself.
-// ok indicates whether the deletion was successful.
-func (t *Trie) removeNode(p, target *nodeBox) (parent *nodeBox, ok bool) {
-
-spin:
-	it := new(Iterator)
-	it.parents = make([]*nodeBox, 1)
-
-	// If they have a parent, check if they are the first child.
-	if p != nil {
-		pn := p.n
-		if pn.down == target {
-			newn := new(node)
-			*newn = *pn
-			newn.down = target.n.next
-			if !cas.Cas(unsafe.Pointer(&(p.n)), unsafe.Pointer(pn), unsafe.Pointer(newn)) {
-				goto spin
-			}
-			if newn.down == nil {
-				parent = p
-			}
-			return parent, true
-		}
-		it.it = pn.down
-	} else {
-		// Handle deleting the first node.
-		first := t.first
-		if first == target {
-			if !cas.Cas(unsafe.Pointer(&(t.first)), unsafe.Pointer(target), unsafe.Pointer(target.n.next)) {
-				goto spin
-			}
-			return nil, true
-		}
-		it.it = first
-	}
-
-	// Otherwise, simply simply iterate through the siblings until we find
-	// the one before the node.	
-	for it.Next() {
-		n := it.it.n
-		if n.next == target {
-			newn := new(node)
-			*newn = *n
-			newn.next = target.n.next
-			if !cas.Cas(unsafe.Pointer(&(it.it.n)), unsafe.Pointer(n), unsafe.Pointer(newn)) {
-				goto spin
-			}
-			return nil, true
-		}
-	}
-
-	// Not found the node. Someone else must have got to it first.
-	return nil, false
 }

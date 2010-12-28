@@ -21,6 +21,12 @@ func init() {
 // GetClient looks up a Client corresponding to a given User.
 // If no such Client exists, or the Client is disconnecting, returns nil.
 func GetClient(u *core.User) (c *Client) {
+
+	// Check whether they're marked as ours before doing a lookup.
+	if u.Owner() != "oddcomm/src/client" {
+		return
+	}
+
 	cliMutex.Lock()
 	c = clients_by_user[u]
 	cliMutex.Unlock()
