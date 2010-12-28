@@ -19,10 +19,8 @@ var subsysMsg chan string = make(chan string)
 // Counts our clients.
 // We impose the terrible upper limit of four billion simultaneous clients.
 var clicount uint32
-var cliMutex sync.Mutex
-
-// Records whether we're exiting or not.
 var exiting bool
+var cliMutex sync.Mutex
 
 
 // Start starts up the client subsystem.
@@ -56,7 +54,6 @@ func clientMain(msg chan string, exit chan int) {
 	l, err := net.ListenTCP("tcp4", &addr)
 	if err != nil {
 		fmt.Printf("No bind: %s\n", err)
-		core.Shutdown()
 	} else {
 		go listen(l)
 	}

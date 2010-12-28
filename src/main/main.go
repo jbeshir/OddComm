@@ -6,40 +6,25 @@
 */
 package main
 
-import "runtime"
-
 import "oddcomm/src/core"
 import "oddcomm/src/client"
+import "oddcomm/src/ts6"
 
-import modules_user_botmark     "oddcomm/modules/user/botmark"
-import modules_client_extbans   "oddcomm/modules/client/extbans"
-import modules_client_login     "oddcomm/modules/client/login"
-import modules_client_ochanctrl "oddcomm/modules/client/ochanctrl"
-import modules_client_opermode  "oddcomm/modules/client/opermode"
-import modules_client_opflags   "oddcomm/modules/client/opflags"
-import modules_oper_account     "oddcomm/modules/oper/account"
-import modules_oper_pmoverride  "oddcomm/modules/oper/pmoverride"
-import modules_dev_catserv      "oddcomm/modules/dev/catserv"
-import modules_dev_horde        "oddcomm/modules/dev/horde"
-import modules_dev_testaccount  "oddcomm/modules/dev/testaccount"
-import modules_dev_tmmode       "oddcomm/modules/dev/tmmode"
+import _     "oddcomm/modules/user/botmark"
+import _   "oddcomm/modules/client/extbans"
+import _     "oddcomm/modules/client/login"
+import _ "oddcomm/modules/client/ochanctrl"
+import _  "oddcomm/modules/client/opermode"
+import _   "oddcomm/modules/client/opflags"
+import _     "oddcomm/modules/oper/account"
+import _  "oddcomm/modules/oper/pmoverride"
+import _      "oddcomm/modules/dev/catserv"
+import _        "oddcomm/modules/dev/horde"
+import _  "oddcomm/modules/dev/testaccount"
+import _       "oddcomm/modules/dev/tmmode"
 
 func main() {
-	// Makes modules be permitted to link in.
-	_ = modules_user_botmark.MODULENAME
-	_ = modules_client_extbans.MODULENAME
-	_ = modules_client_login.MODULENAME
-	_ = modules_client_ochanctrl.MODULENAME
-	_ = modules_client_opermode.MODULENAME
-	_ = modules_client_opflags.MODULENAME
-	_ = modules_oper_account.MODULENAME
-	_ = modules_oper_pmoverride.MODULENAME
-	_ = modules_dev_catserv.MODULENAME
-	_ = modules_dev_horde.MODULENAME
-	_ = modules_dev_testaccount.MODULENAME
-	_ = modules_dev_tmmode.MODULENAME
-
-	var exitList [1]chan int
+	exitList := make([]chan int, 0)
 	var msg chan string
 	var exit chan int
 
@@ -48,11 +33,14 @@ func main() {
 	if msg != nil {
 		core.AddPackage("oddcomm/src/client", msg)
 	}
-	exitList[0] = exit
+	exitList = append(exitList, exit)
 
-	// Yield, so if we're singlethreaded the subsystems can initialise,
-	// even if hooks in startup take a long time.
-	runtime.Gosched()
+	// Start TS6 subsystem.
+	msg, exit = ts6.Start()
+	if msg != nil {
+		core.AddPackage("oddcomm/src/ts6", msg)
+	}
+	exitList = append(exitList, exit)
 
 	// Run start hooks.
 	core.RunStartHooks()

@@ -40,6 +40,13 @@ $(PKGDIR)/modules/%.a: $(SUBSYSTEMS) $(CORE) modules/%/*.go
 	$(GOPACK) grc $(PKGDIR)/modules/$*.a $(PKGDIR)/modules/$*.$(O)
 	rm -f $(PKGDIR)/modules/$*.$(O)
 
+$(PKGDIR)/src/ts6.a: $(CORE) $(PKGDIR)/lib/irc.a src/ts6/*.go
+	mkdir -p $(PKGDIR)/src
+	$(GOCMD) -o $(PKGDIR)/src/ts6.$(O) $(wildcard src/ts6/*.go)
+	rm -f $(PKGDIR)/src/ts6.a
+	$(GOPACK) grc $(PKGDIR)/src/ts6.a $(PKGDIR)/src/ts6.$(O)
+	rm -f $(PKGDIR)/src/ts6.$(O)
+
 $(PKGDIR)/src/client.a: $(CORE) $(PKGDIR)/lib/irc.a $(PKGDIR)/lib/perm.a src/client/*.go
 	mkdir -p $(PKGDIR)/src
 	$(GOCMD) -o $(PKGDIR)/src/client.$(O) $(wildcard src/client/*.go)
