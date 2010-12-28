@@ -146,6 +146,21 @@ func (t *Trie) Get(key string) (value interface{}) {
 }
 
 
+// Iterate gets an interator for the full trie.
+// Returns nil if the trie is empty.
+func (t *Trie) Iterate() *Iterator {
+	first := t.first
+	if first == nil {
+		return nil
+	}
+
+	it := new(Iterator)
+	it.parents = make([]*nodeBox, 1)
+	it.it = first
+	return it
+}
+
+
 // IterSub gets an iterator for part of the trie, which will iterate all keys
 // with a given prefix. The value of the chain up to subtrie returned may be
 // longer than the prefix given, if no other sub entries exist.

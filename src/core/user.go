@@ -22,6 +22,40 @@ type User struct {
 	owndata  interface{}
 }
 
+// IterateUsers calls the given function for all existing users.
+// If owner is not "", it is only called for users with that owner.
+//
+// Users added concurrently may or may not be missed.
+func IterateUsers(owner string, f func(u *User)) {
+	it := users.Iterate()
+	if it == nil {
+		return
+	}
+
+	if owner != "" {
+		_, uptr := it.Value()
+		u := (*User)(uptr)
+		if u.owner == owner {
+			f(u)
+		}
+		for it.Next() {
+			_, uptr = it.Value()
+			u = (*User)(uptr)
+			if u.owner == owner {
+				f(u)
+			}
+		}
+	} else {
+		_, uptr := it.Value()
+		f((*User)(uptr))
+		for it.Next() {
+			_, uptr = it.Value()
+			f((*User)(uptr))
+		}
+	}
+}
+
+
 // NewUser creates a new user.
 //
 // owner is the name of the package owning the user, and owndata is arbitrary
@@ -155,7 +189,6 @@ func GetUserByNick(nick string) (u *User) {
 	u.mutex.Unlock()
 	return
 }
-
 
 // Checked returns whether the user is pre-checked for ban purposes, and all
 // relevant information added to their data by their creator, and will have no

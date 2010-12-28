@@ -9,11 +9,20 @@ package client
 
 import "fmt"
 import "net"
+import "sync"
 
 import "oddcomm/src/core"
 
 // Create a channel for sending messages to the subsystem's goroutine.
 var subsysMsg chan string = make(chan string)
+
+// Counts our clients.
+// We impose the terrible upper limit of four billion simultaneous clients.
+var clicount uint32
+var cliMutex sync.Mutex
+
+// Records whether we're exiting or not.
+var exiting bool
 
 
 // Start starts up the client subsystem.
@@ -65,13 +74,17 @@ func clientMain(msg chan string, exit chan int) {
 				l.Close()
 			}
 
-			// Stop every client.
-			// Stubbed out; we need to iterate all users here.
-			// FIXME
+			cliMutex.Lock()
 
 			// Note that we're terminating, as soon as
 			// every client is done quitting.
 			exiting = true
+
+			// Stop every current client by deleting their user.
+			core.IterateUsers("oddcomm/src/client",
+				func(u *core.User) {
+					u.Delete(u, "Server Terminating")
+				})
 		}
 
 		// If we're exiting, see if we've no more clients. If we've no
@@ -111,9 +124,51 @@ func listen(l *net.TCPListener) {
 		data[0].Next = &data[1]
 
 		client.u = core.NewUser("oddcomm/src/client", client, false, "", &data[0])
-
-		addClient(client)
+		incClient(client)
 
 		go input(client)
 	}
+}
+
+
+// Increment client count.
+// If we're exiting, kills the client immediately.
+// Must be called while holding the client mutex, and after adding the client's
+// user to the server, so on shutdown the client will guaranteeably either have
+// been already added to the user list and killed there, or will be killed here.
+func incClient(c *Client) {
+	cliMutex.Lock()
+	if !exiting {
+		clicount++
+	} else {
+		c.delete("Server Terminating")
+	}
+	cliMutex.Unlock()
+}
+
+// Decrement client count.
+func decClient(c *Client) {
+	cliMutex.Lock()
+	clicount--
+	
+	// Poke the client subsystem goroutine if this is the last one, so it
+	// knows that shutdown is okay, if it wants to shut down.
+	if clicount == 0 {
+		subsysMsg <- "clients gone"
+	}
+
+	cliMutex.Unlock()
+}
+
+
+// GetClient looks up a Client corresponding to a given User.
+// If no such Client exists, or the Client is disconnecting, returns nil.
+func GetClient(u *core.User) (c *Client) {
+
+	// Check whether they're marked as ours before getting their struct.
+	if u.Owner() != "oddcomm/src/client" {
+		return nil
+	}
+
+	return u.Owndata().(*Client)
 }

@@ -66,7 +66,7 @@ func (c *Client) delete(message string) {
 		// If the input goroutine has terminated, fully delete the
 		// client if we haven't already.
 		if c.disconnecting&8 != 0 && c.disconnecting&16 == 0 {
-			delClient(c)
+			decClient(c)
 			c.disconnecting |= 16
 		}
 	}
