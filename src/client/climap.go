@@ -5,57 +5,41 @@ import "sync"
 import "oddcomm/src/core"
 
 
-// Contains the current client objects. When empty, we don't have any anymore.
-// True is the normal value for a client. False means they're disconnecting.
-var climap map[*Client]bool
-var clients_by_user map[*core.User]*Client
+// Counts our clients.
+// We impose the terrible upper limit of four billion simultaneous clients.
+var clicount uint32
 var cliMutex sync.Mutex
-
-
-func init() {
-	climap = make(map[*Client]bool)
-	clients_by_user = make(map[*core.User]*Client)
-}
 
 
 // GetClient looks up a Client corresponding to a given User.
 // If no such Client exists, or the Client is disconnecting, returns nil.
 func GetClient(u *core.User) (c *Client) {
 
-	// Check whether they're marked as ours before doing a lookup.
+	// Check whether they're marked as ours before getting their struct.
 	if u.Owner() != "oddcomm/src/client" {
-		return
+		return nil
 	}
 
-	cliMutex.Lock()
-	c = clients_by_user[u]
-	cliMutex.Unlock()
-	return
+	return u.Owndata().(*Client)
 }
 
 // Add a client to the client map.
 func addClient(c *Client) {
 	cliMutex.Lock()
-	climap[c] = true
-	clients_by_user[c.u] = c
+	clicount++
 	cliMutex.Unlock()
 }
 
-// Mark a client as disconnecting.
-// Only to be called holding the client's Mutex.
-func killClient(c *Client) {
-	cliMutex.Lock()
-	climap[c] = false
-	clients_by_user[c.u] = nil, false
-	cliMutex.Unlock()
-}
 // Delete a client from the client map.
 func delClient(c *Client) {
 	cliMutex.Lock()
-	climap[c] = false, false
-	cliMutex.Unlock()
+	clicount--
+	
+	// Poke the client subsystem goroutine if this is the last one, so it
+	// knows that shutdown is okay, if it wants to shut down.
+	if clicount == 0 {
+		subsysMsg <- "clients gone"
+	}
 
-	// Poke the client subsystem goroutine so it can shut us down if this
-	// was the last one.
-	subsysMsg <- "client deleted"
+	cliMutex.Unlock()
 }

@@ -36,9 +36,6 @@ func (c *Client) delete(message string) {
 		// Mark us as disconnecting.
 		c.disconnecting |= 1
 
-		// Remove this client from our live client lists.
-		killClient(c)
-
 		// If the user has not already been deleted, delete it.
 		c.u.Delete(nil, message)
 	}

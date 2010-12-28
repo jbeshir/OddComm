@@ -66,11 +66,8 @@ func clientMain(msg chan string, exit chan int) {
 			}
 
 			// Stop every client.
-			for c := range climap {
-				c.mutex.Lock()
-				c.delete("Server Terminating")
-				c.mutex.Unlock()
-			}
+			// Stubbed out; we need to iterate all users here.
+			// FIXME
 
 			// Note that we're terminating, as soon as
 			// every client is done quitting.
@@ -81,16 +78,12 @@ func clientMain(msg chan string, exit chan int) {
 		// more clients, we're good to shut down as soon as everyone
 		// else is, so send the exit signal and wait for the end.
 		if exiting {
-			done := true
-			for _ = range climap {
-				done = false
-				break
-			}
-
-			if done {
+			cliMutex.Lock()
+			if clicount == 0 {
 				exit <- 0
 				exiting = false
 			}
+			cliMutex.Unlock()
 		}
 	}
 }
@@ -117,7 +110,7 @@ func listen(l *net.TCPListener) {
 		data[1].Name, data[1].Data = "hostname", ip
 		data[0].Next = &data[1]
 
-		client.u = core.NewUser("oddcomm/src/client", false, "", &data[0])
+		client.u = core.NewUser("oddcomm/src/client", client, false, "", &data[0])
 
 		addClient(client)
 

@@ -35,7 +35,7 @@ func addHorde() {
 		data[0].Next, data[1].Next = &data[1], &data[2]
 		data[2].Next = &data[3]
 
-		u := core.NewUser("oddcomm/modules/dev/horde", true, "", &data[0])
+		u := core.NewUser("oddcomm/modules/dev/horde", nil, true, "", &data[0])
 		u.SetNick(fmt.Sprintf("horde-%d", rng.Int()%1000000))
 		u.PermitRegistration()
 

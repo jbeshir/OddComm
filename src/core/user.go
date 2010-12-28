@@ -19,12 +19,16 @@ type User struct {
 	chans    *Membership
 	data     trie.StringTrie
 	owner    string
+	owndata  interface{}
 }
 
-
-// NewUser creates a new user, with creator the name of its creating package.
+// NewUser creates a new user.
+//
+// owner is the name of the package owning the user, and owndata is arbitrary
+// data associated with the user by that package for its own usage.
+//
 // If checked is true, DNS lookup, bans, and similar are presumed to be already
-// checked.
+// checked for this user. This generally is used if the user is added remotely.
 //
 // If forceid is not nil, the function will create the user with that ID if it
 // is not in use. if it is, the function will return nil. The caller should be
@@ -33,13 +37,15 @@ type User struct {
 // A new user is not essentially yet "registered"; until they are, they cannot
 // communicate or join channels. A user will be considered registered once all
 // packages which are holding registration back have permitted it. If checked
-// is true, the creator may assume that it is the only package which may be
+// is true, the owner may assume that it is the only package which may be
 // holding registration back.
 //
-// data is a list of DataChanges to apply to the new user immediately.
+// data is a list of DataChanges to apply to the new user immediately. This
+// should generally include IP and ident if the user has them.
+//
 // They will be applied prior to the new user hooks being called, with
 // usual data change hooks called after. It may be nil.
-func NewUser(creator string, checked bool, forceid string, data *DataChange) (u *User) {
+func NewUser(owner string, owndata interface{}, checked bool, forceid string, data *DataChange) (u *User) {
 	var oldvalues *OldData
 	var lasthook *DataChange
 	var lastold **OldData = &oldvalues
@@ -69,14 +75,15 @@ func NewUser(creator string, checked bool, forceid string, data *DataChange) (u 
 	if u != nil {
 		u.mutex.Lock()
 
-		// Set their nick and owner.
+		// Set their nick, owner, and owndata.
 		u.nick = u.id
-		u.owner = creator
+		u.owner = owner
+		u.owndata = owndata
 
 		// Set the number of permits this user should wait for before
 		// completing registration.
 		u.checked = checked
-		u.regstate = 1 + holdRegistration[creator]
+		u.regstate = 1 + holdRegistration[owner]
 		if !checked {
 			u.regstate += holdRegistration[""]
 		}
@@ -121,7 +128,7 @@ func NewUser(creator string, checked bool, forceid string, data *DataChange) (u 
 
 	// Run user addition and data change hooks.
 	hookRunner <- func() {
-		runUserAddHooks(u, creator)
+		runUserAddHooks(u, owner)
 		for it, old := data, oldvalues; it != nil && old != nil;
 				it, old = it.Next, old.Next {
 			runUserDataChangeHooks(nil, u, it.Name, old.Data, it.Data)
@@ -360,6 +367,11 @@ func (u *User) Channels() (chans *Membership) {
 // Owner returns the owning package of the user, if one is set.
 func (u *User) Owner() string {
 	return u.owner
+}
+
+// Owndata returns the owning package of the user's data.
+func (u *User) Owndata() interface{} {
+	return u.owndata
 }
 
 
