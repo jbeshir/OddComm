@@ -183,10 +183,8 @@ func GetUser(id string) (u *User) {
 // GetUserByNick gets a user with the given nick, returning a pointer to their
 // User structure.
 func GetUserByNick(nick string) (u *User) {
-	u.mutex.Lock()
 	NICK := strings.ToUpper(nick)
 	u = (*User)(usersByNick.Get(NICK))
-	u.mutex.Unlock()
 	return
 }
 
