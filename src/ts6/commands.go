@@ -40,7 +40,7 @@ func cmdPass(u *core.User, w io.Writer, params [][]byte) {
 	// Ignore PASS commands from already authed servers.
 	// They can happen if they have an invalid source.
 	if l.authed {
-		return false
+		return
 	}
 
 	// Set the password.
