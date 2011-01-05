@@ -24,9 +24,10 @@ func init() {
 func addHorde() {
 	src := rand.NewSource(time.Nanoseconds())
 	rng := rand.New(src)
+	horde := make([]*core.User, 20000)
 
 	// Add the horde.
-	for i := 0; i < 20000; i++ {
+	for i, _ := range horde {
 		data := make([]core.DataChange, 4)
 		data[0].Name, data[0].Data = "ip", fmt.Sprintf("%d.%d.%d.%d", rng.Int()%255, rng.Int()%255, rng.Int()%255, rng.Int()%255)
 		data[1].Name, data[1].Data = "hostname", fmt.Sprintf("%d.Horde.FakeUsers.PsuedoUserUnion.org", rng.Int()%1000000)
@@ -35,29 +36,38 @@ func addHorde() {
 		data[0].Next, data[1].Next = &data[1], &data[2]
 		data[2].Next = &data[3]
 
-		u := core.NewUser("oddcomm/modules/dev/horde", nil, true, "", &data[0])
-		u.SetNick(fmt.Sprintf("horde-%d", rng.Int()%1000000))
-		u.PermitRegistration()
+		horde[i] = core.NewUser("oddcomm/modules/dev/horde", nil, true, "", &data[0])
+		horde[i].SetNick(fmt.Sprintf("horde-%d", rng.Int()%1000000))
+		horde[i].PermitRegistration()
+	}
 
-		// Join 5 random "big" channels.
-		// Channel count 100, average size roughly 1000.
-		for j := 0; j < 5; j++ {
-			name := fmt.Sprintf("big_%d", rng.Int()%100)
-			core.GetChannel("", name).Join(u)
+	// Make 100 channels containing roughly a twentieth of the horde each.
+	// Each horde user is in an average of roughly five.
+	for i := 0; i < 100; i++ {
+		joiners := make([]*core.User, len(horde)/20)
+		for i, _ := range joiners {
+			joiners[i] = horde[rand.Int()%len(horde)]
 		}
+		core.GetChannel("", fmt.Sprintf("big_%d", i)).Join(joiners)
+	}
 
-		// Join 5 random "medium" channels.
-		// Channel count 2000, average size roughly 50.
-		for j := 0; j < 5; j++ {
-			name := fmt.Sprintf("medium_%d", rng.Int()%2000)
-			core.GetChannel("", name).Join(u)
+	// Make 2000 channels containing roughly 1/400th of the horde each.
+	// Each horde user is in an average of roughly five.
+	for i := 0; i < 2000; i++ {
+		joiners := make([]*core.User, len(horde)/400)
+		for i, _ := range joiners {
+			joiners[i] = horde[rand.Int()%len(horde)]
 		}
+		core.GetChannel("", fmt.Sprintf("medium_%d", i)).Join(joiners)
+	}
 
-		// Join 10 random "small" channels.
-		// Channel count 50000, average size roughly 4.
-		for j := 0; j < 10; j++ {
-			name := fmt.Sprintf("small_%d", rng.Int()%50000)
-			core.GetChannel("", name).Join(u)
+	// Make horde*2 channels containing roughly four of the horde each.
+	// Each horde user is in an average of roughly eight.
+	for i := 0; i < len(horde)*2; i++ {
+		joiners := make([]*core.User, 4)
+		for i, _ := range joiners {
+			joiners[i] = horde[rand.Int()%len(horde)]
 		}
+		core.GetChannel("", fmt.Sprintf("small_%d", i)).Join(joiners)
 	}
 }

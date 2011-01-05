@@ -209,45 +209,53 @@ func (ch *Channel) GetMember(u *User) (m *Membership) {
 	return
 }
 
-// Join adds a user to the channel.
+// Join adds a set of users to the channel.
 // Multiple joins by the same user are not guaranteed to be reported
 // in the order they happened.
-func (ch *Channel) Join(u *User) {
-	ch.mutex.Lock()
-	u.mutex.Lock()
+func (ch *Channel) Join(users []*User) {
+	var joinedusers []*User
 
-	// Unregistered users may not join channels.
-	if u.Registered() {
+	ch.mutex.Lock()
+
+	for _, u := range users {
+		u.mutex.Lock()
+
+		// Unregistered users may not join channels.
+		if !u.Registered() {
+			u.mutex.Unlock()
+			continue
+		}
 
 		// Users who are already IN the channel may not join.
-		if ch.GetMember(u) == nil {
-			m := new(Membership)
-			m.c = ch
-			m.u = u
-			m.unext = u.chans
-			m.cnext = ch.users
-			u.chans = m
-			ch.users = m
-			if m.unext != nil {
-				m.unext.uprev = m
-			}
-
+		if ch.GetMember(u) != nil {
 			u.mutex.Unlock()
-
-			if m.cnext != nil {
-				m.cnext.u.mutex.Lock()
-				m.cnext.cprev = m
-				m.cnext.u.mutex.Unlock()
-			}
-
-			hookRunner <- func() {
-				runChanUserJoinHooks(ch.t, u, ch)
-			}
-		} else {
-			u.mutex.Unlock()
+			continue
 		}
-	} else {
+
+		m := new(Membership)
+		m.c = ch
+		m.u = u
+		m.unext = u.chans
+		m.cnext = ch.users
+		u.chans = m
+		ch.users = m
+		if m.unext != nil {
+			m.unext.uprev = m
+		}
+
 		u.mutex.Unlock()
+
+		if m.cnext != nil {
+			m.cnext.u.mutex.Lock()
+			m.cnext.cprev = m
+			m.cnext.u.mutex.Unlock()
+		}
+
+		joinedusers = append(joinedusers, u)
+	}
+
+	hookRunner <- func() {
+		runChanUserJoinHooks(ch.t, ch, joinedusers)
 	}
 
 	ch.mutex.Unlock()

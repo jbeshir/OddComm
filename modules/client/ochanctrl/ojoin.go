@@ -33,7 +33,7 @@ func cmdOjoin(u *core.User, w io.Writer, params [][]byte) {
 		return
 	}
 
-	ch.Join(u)
+	ch.Join([]*core.User{u})
 	if m := ch.GetMember(u); m != nil {
 		m.SetData(nil, "serverop", "on")
 	}

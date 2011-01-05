@@ -2,7 +2,7 @@ package core
 
 var hookChanAdd = make(map[string][]func(*Channel))
 var hookChanDataChanges = make(map[string][]func(*User, *Channel, *DataChange, *OldData))
-var hookChanUserJoin = make(map[string][]func(*User, *Channel))
+var hookChanUserJoin = make(map[string][]func(*Channel, []*User))
 var hookChanUserRemove = make(map[string][]func(*User, *User, *Channel, string))
 var hookChanDelete = make(map[string][]func(*Channel))
 
@@ -43,7 +43,7 @@ func HookChanDataChanges(t string, f func(*User, *Channel, *DataChange, *OldData
 // The hook receives the user and channel.
 // It is illegal to remove the user from the channel in response to this hook.
 // It's also stupid- use a permissions hook and deny them joining.
-func HookChanUserJoin(t string, f func(*User, *Channel)) {
+func HookChanUserJoin(t string, f func(*Channel, []*User)) {
 	hookChanUserJoin[t] = append(hookChanUserJoin[t], f)
 }
 
@@ -81,9 +81,9 @@ func runChanAddHooks(t string, ch *Channel) {
 	}
 }
 
-func runChanUserJoinHooks(t string, u *User, ch *Channel) {
+func runChanUserJoinHooks(t string, ch *Channel, users []*User) {
 	for _, f := range hookChanUserJoin[t] {
-		f(u, ch)
+		f(ch, users)
 	}
 }
 

@@ -106,36 +106,38 @@ func init() {
 			c.WriteTo(source, "INVITE", ":#%s", message)
 		})
 
-	core.HookChanUserJoin("", func(u *core.User, ch *core.Channel) {
+	core.HookChanUserJoin("", func(ch *core.Channel, users []*core.User) {
 
-		// Send the JOIN to all clients in the same channel.
+		// Send the JOINs to all clients in the same channel.
 		for m := ch.Users(); m != nil; m = m.ChanNext() {
 			chu := m.User()
 			c := GetClient(chu)
 			if c == nil {
 				continue
 			}
-			
-			c.WriteFrom(u, "JOIN #%s", ch.Name())
+
+			for _, u := range users {
+				c.WriteFrom(u, "JOIN #%s", ch.Name())
+			}
 		}
 
-		c := GetClient(u)
-		if c == nil {
-			return
-		}
-			
+		// If this is one of our clients, we need to send them info.
+		for _, u := range users {
+			c := GetClient(u)
+			if c == nil {
+				continue
+			}
 
-		// Send them NAMES.
-		var params [1][]byte
-		params[0] = []byte(ch.Name())
-		cmdNames(u, c, params[:])
+			// Send them NAMES.
+			cmdNames(u, c, [][]byte{[]byte(ch.Name())})
 
-		// Send them the topic.
-		if topic, setby, setat := ch.GetTopic(); topic != "" {
-			c.WriteTo(nil, "332", "#%s :%s", ch.Name(),
-				topic)
-			c.WriteTo(nil, "333", "#%s %s %s", ch.Name(),
-				setby, setat)
+			// Send them the topic.
+			if topic, setby, setat := ch.GetTopic(); topic != "" {
+				c.WriteTo(nil, "332", "#%s :%s", ch.Name(),
+					topic)
+				c.WriteTo(nil, "333", "#%s %s %s", ch.Name(),
+					setby, setat)
+			}
 		}
 	})
 

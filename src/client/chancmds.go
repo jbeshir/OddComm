@@ -62,7 +62,7 @@ func cmdJoin(u *core.User, w io.Writer, params [][]byte) {
 
 		ch := core.GetChannel("", channame)
 		if ok, err := perm.CheckJoin(u, ch); ok {
-			ch.Join(u)
+			ch.Join([]*core.User{u})
 		} else {
 			c.WriteTo(nil, "495", "#%s :%s", ch.Name(), err)
 		}
