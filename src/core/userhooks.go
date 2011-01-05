@@ -1,29 +1,33 @@
 package core
 
-var holdRegistration map[string]int
+var holdRegistration = make(map[string]int)
 
-// Hook list for user hooks.
-// Contains sublists for all users and just regged users.
-type userHooklist struct {
-	all    *hook
-	regged *hook
+
+var hookUserAdd []func(*User, string)
+var hookUserRegister []func(*User)
+
+var hookUserNickChange struct {
+	all    []func(*User, string, string)
+	regged []func(*User, string, string)
 }
 
-var hookUserAdd userHooklist
-var hookUserRegister userHooklist
-var hookUserNickChange userHooklist
-var hookDataChanges userHooklist
-var hookUserDelete userHooklist
-
-var hookDataChange map[string]*userHooklist
-var hookUserMessage map[string]*userHooklist
-
-
-func init() {
-	holdRegistration = make(map[string]int)
-	hookDataChange = make(map[string]*userHooklist)
-	hookUserMessage = make(map[string]*userHooklist)
+var hookUserDataChanges struct {
+	all    []func(*User, *User, *DataChange, *OldData)
+	regged []func(*User, *User, *DataChange, *OldData)
 }
+
+var hookUserDelete struct {
+	all    []func(*User, *User, string)
+	regged []func(*User, *User, string)
+}
+
+type hookDataChangeType struct {
+        all    []func(*User, *User, string, string)
+	regged []func(*User, *User, string, string)
+}
+var hookDataChange = make(map[string]hookDataChangeType)
+
+var hookUserMessage = make(map[string][]func(*User, *User, []byte))
 
 
 // RegistrationHold causes user registration for new users to be held until the
@@ -38,56 +42,26 @@ func RegistrationHold(creator string) {
 }
 
 
-// Add a hook to a user hook list.
-func (l *userHooklist) add(f interface{}, unregged bool) {
-	h := new(hook)
-	h.f = f
-
-	var list **hook
-	if unregged {
-		list = &l.all
-	} else {
-		list = &l.regged
-	}
-
-	for *list != nil {
-		list = &((*list).next)
-	}
-	*list = h
-}
-
-// Run all the hooks on a user hook list.
-func (l *userHooklist) run(f func(interface{}), registered bool) {
-	for h := l.all; h != nil; h = h.next {
-		f(h.f)
-	}
-
-	if !registered {
-		return
-	}
-
-	for h := l.regged; h != nil; h = h.next {
-		f(h.f)
-	}
-}
-
-
 // HookUserAdd adds a hook called whenever a new user is added.
 // The hook receives the name of the creating module as a parameter.
 func HookUserAdd(f func(*User, string)) {
-	hookUserAdd.add(f, true)
+	hookUserAdd = append(hookUserAdd, f)
 }
 
 // HookUserRegister adds a hook called whenever a user completes registration.
 func HookUserRegister(f func(*User)) {
-	hookUserRegister.add(f, false)
+	hookUserRegister = append(hookUserRegister, f)
 }
 
 // HookUserNickChange adds a hook called whenever a user changes nick.
 // If unregged is false, it is not called for unregistered users.
 // The hook receives the old and new nicks as parameters.
 func HookUserNickChange(f func(*User, string, string), unregged bool) {
-	hookUserNickChange.add(f, unregged)
+	if unregged {
+		hookUserNickChange.all = append(hookUserNickChange.all, f)
+	} else {
+		hookUserNickChange.regged = append(hookUserNickChange.regged, f)
+	}
 }
 
 // HookUserDataChange adds a hook called whenever a user's metadata changes.
@@ -97,11 +71,13 @@ func HookUserNickChange(f func(*User, string, string), unregged bool) {
 // values of the data as parameters, and must be prepared for source to be nil.
 // "" means unset, for either the old or new value.
 func HookUserDataChange(name string, f func(*User, *User, string, string), unregged bool) {
-	if hookDataChange[name] == nil {
-		hookDataChange[name] = new(userHooklist)
+	hooks := hookDataChange[name]
+	if unregged {
+		hooks.all = append(hooks.all, f)
+	} else {
+		hooks.regged = append(hooks.regged, f)
 	}
-
-	hookDataChange[name].add(f, unregged)
+	hookDataChange[name] = hooks
 }
 
 // HookUserDataChanges adds a hook called for all user metadata changes.
@@ -110,7 +86,11 @@ func HookUserDataChange(name string, f func(*User, *User, string, string), unreg
 // DataChanges and OldData as parameters, so multiple changes at once result
 // in a single call. It must be prepared for source to be nil.
 func HookUserDataChanges(f func(*User, *User, *DataChange, *OldData), unregged bool) {
-	hookDataChanges.add(f, unregged)
+	if unregged {
+		hookUserDataChanges.all = append(hookUserDataChanges.all, f)
+	} else {
+		hookUserDataChanges.regged = append(hookUserDataChanges.regged, f)
+	}
 }
 
 
@@ -120,11 +100,7 @@ func HookUserDataChanges(f func(*User, *User, *DataChange, *OldData), unregged b
 // The hook receives the source, target, and message as parameters, and must be
 // prepared for the source to be nil.
 func HookUserMessage(t string, f func(*User, *User, []byte)) {
-	if hookUserMessage[t] == nil {
-		hookUserMessage[t] = new(userHooklist)
-	}
-
-	hookUserMessage[t].add(f, false)
+	hookUserMessage[t] = append(hookUserMessage[t], f)
 }
 
 // HookUserDelete adds a hook called whenever a user is deleted.
@@ -132,76 +108,76 @@ func HookUserMessage(t string, f func(*User, *User, []byte)) {
 // must be prepared for the source to be nil.
 // If unregged is false, it is not called for unregistered users.
 func HookUserDelete(f func(*User, *User, string), unregged bool) {
-	hookUserDelete.add(f, unregged)
+	if unregged {
+		hookUserDelete.all = append(hookUserDelete.all, f)
+	} else {
+		hookUserDelete.regged = append(hookUserDelete.regged, f)
+	}
 }
 
 
 func runUserAddHooks(u *User, creator string) {
-	hookUserAdd.run(func(f interface{}) {
-		if h := f.(func(*User, string)); h != nil {
-			h(u, creator)
-		}
-	},
-		false)
+	for _, f := range hookUserAdd {
+		f(u, creator)
+	}
 }
 
 func runUserRegisterHooks(u *User) {
-	hookUserRegister.run(func(f interface{}) {
-		if h, ok := f.(func(*User)); ok && h != nil {
-			h(u)
-		}
-	},
-		true)
+	for _, f := range hookUserRegister {
+		f(u)
+	}
 }
 
 func runUserNickChangeHooks(u *User, oldnick, newnick string) {
-	hookUserNickChange.run(func(f interface{}) {
-		if h, ok := f.(func(*User, string, string)); ok && h != nil {
-			h(u, oldnick, newnick)
+	for _, f := range hookUserNickChange.all {
+		f(u, oldnick, newnick)
+	}
+
+	if u.Registered() {
+		for _, f := range hookUserNickChange.regged {
+			f(u, oldnick, newnick)
 		}
-	},
-		u.Registered())
+	}
 }
 
 func runUserDataChangesHooks(source, target *User, changes *DataChange, olddata *OldData) {
-	hookDataChanges.run(func(f interface{}) {
-		if h, ok := f.(func(*User, *User, *DataChange, *OldData)); ok && h != nil {
-			h(source, target, changes, olddata)
+	for _, f := range hookUserDataChanges.all {
+		f(source, target, changes, olddata)
+	}
+
+	if target.Registered() {
+		for _, f := range hookUserDataChanges.regged {
+			f(source, target, changes, olddata)
 		}
-	},
-		target.Registered())
+	}
 }
 
-func runUserDeleteHooks(source, u *User, message string) {
-	hookUserDelete.run(func(f interface{}) {
-		if h, ok := f.(func(*User, *User, string)); ok && h != nil {
-			h(source, u, message)
+func runUserDeleteHooks(source, target *User, message string) {
+	for _, f := range hookUserDelete.all {
+		f(source, target, message)
+	}
+
+	if target.Registered() {
+		for _, f := range hookUserDelete.regged {
+			f(source, target, message)
 		}
-	},
-		u.Registered())
+	}
 }
 
 func runUserDataChangeHooks(source, target *User, name, oldvalue, newvalue string) {
-	if hookDataChange[name] == nil {
-		return
+	for _, f := range hookDataChange[name].all {
+		f(source, target, oldvalue, newvalue)
 	}
-	hookDataChange[name].run(func(f interface{}) {
-		if h, ok := f.(func(*User, *User, string, string)); ok &&
-			h != nil {
-			h(source, target, oldvalue, newvalue)
+
+	if target.Registered() {
+		for _, f := range hookDataChange[name].regged {
+			f(source, target, oldvalue, newvalue)
 		}
-	},
-		target.Registered())
+	}
 }
 
 func runUserMessageHooks(source, target *User, message []byte, t string) {
-	if hookUserMessage[t] == nil {
-		return
+	for _, f := range hookUserMessage[t] {
+		f(source, target, message)
 	}
-	hookUserMessage[t].run(func(f interface{}) {
-		if h, ok := f.(func(*User, *User, []byte)); ok && h != nil {
-			h(source, target, message)
-		}
-	},
-		true)
 }

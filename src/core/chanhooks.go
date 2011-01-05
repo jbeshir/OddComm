@@ -1,34 +1,19 @@
 package core
 
-var hookChanAdd map[string]*hook
-var hookChanDataChanges map[string]*hook
-var hookChanUserJoin map[string]*hook
-var hookChanUserRemove map[string]*hook
-var hookChanDelete map[string]*hook
+var hookChanAdd = make(map[string][]func(*Channel))
+var hookChanDataChanges = make(map[string][]func(*User, *Channel, *DataChange, *OldData))
+var hookChanUserJoin = make(map[string][]func(*User, *Channel))
+var hookChanUserRemove = make(map[string][]func(*User, *User, *Channel, string))
+var hookChanDelete = make(map[string][]func(*Channel))
 
-var hookChanDataChange map[string]map[string]*hook
-var hookChanMessage map[string]map[string]*hook
-
-
-func init() {
-	hookChanAdd = make(map[string]*hook)
-	hookChanDataChanges = make(map[string]*hook)
-	hookChanUserJoin = make(map[string]*hook)
-	hookChanUserRemove = make(map[string]*hook)
-	hookChanDelete = make(map[string]*hook)
-
-	hookChanDataChange = make(map[string]map[string]*hook)
-	hookChanMessage = make(map[string]map[string]*hook)
-}
+var hookChanDataChange = make(map[string]map[string][]func(*User, *Channel, string, string))
+var hookChanMessage = make(map[string]map[string][]func(*User, *Channel, []byte))
 
 
 // HookChanAdd adds a hook called whenever a new channel is created.
 // t is the type of channel to hook. "" is default.
 func HookChanAdd(t string, f func(*Channel)) {
-	h := new(hook)
-	h.f = f
-	h.next = hookChanAdd[t]
-	hookChanAdd[t] = h
+	hookChanAdd[t] = append(hookChanAdd[t], f)
 }
 
 // HookChanDataChange adds a hook called whenever a channel's metadata changes.
@@ -39,12 +24,9 @@ func HookChanAdd(t string, f func(*Channel)) {
 // "" means unset, for either the old or new value.
 func HookChanDataChange(t, name string, f func(*User, *Channel, string, string)) {
 	if hookChanDataChange[t] == nil {
-		hookChanDataChange[t] = make(map[string]*hook)
+		hookChanDataChange[t] = make(map[string][]func(*User, *Channel, string, string))
 	}
-	h := new(hook)
-	h.f = f
-	h.next = hookChanDataChange[t][name]
-	hookChanDataChange[t][name] = h
+	hookChanDataChange[t][name] = append(hookChanDataChange[t][name], f)
 }
 
 // HookChanDataChanges adds a hook called for all channel metadata changes.
@@ -53,10 +35,7 @@ func HookChanDataChange(t, name string, f func(*User, *Channel, string, string))
 // DataChanges and OldData as parameters, so multiple changes at once result
 // in a single call. It must be prepared for source to be nil.
 func HookChanDataChanges(t string, f func(*User, *Channel, *DataChange, *OldData)) {
-	h := new(hook)
-	h.f = f
-	h.next = hookChanDataChanges[t]
-	hookChanDataChanges[t] = h
+	hookChanDataChanges[t] = append(hookChanDataChanges[t], f)
 }
 
 // HookChanUserJoin adds a hook on a user joining a channel.
@@ -65,10 +44,7 @@ func HookChanDataChanges(t string, f func(*User, *Channel, *DataChange, *OldData
 // It is illegal to remove the user from the channel in response to this hook.
 // It's also stupid- use a permissions hook and deny them joining.
 func HookChanUserJoin(t string, f func(*User, *Channel)) {
-	h := new(hook)
-	h.f = f
-	h.next = hookChanUserJoin[t]
-	hookChanUserJoin[t] = h
+	hookChanUserJoin[t] = append(hookChanUserJoin[t], f)
 }
 
 // HookChanUserRemove adds a hook on a user being removed from a channel.
@@ -77,19 +53,13 @@ func HookChanUserJoin(t string, f func(*User, *Channel)) {
 // message associated with the removal.
 // It must be prepared for source to be nil.
 func HookChanUserRemove(t string, f func(*User, *User, *Channel, string)) {
-	h := new(hook)
-	h.f = f
-	h.next = hookChanUserRemove[t]
-	hookChanUserRemove[t] = h
+	hookChanUserRemove[t] = append(hookChanUserRemove[t], f)
 }
 
 // HookChanDelete adds a hook called whenever a channel is deleted.
 // t is the type of channel to hook. "" is default.
 func HookChanDelete(t string, f func(*Channel)) {
-	h := new(hook)
-	h.f = f
-	h.next = hookChanDelete[t]
-	hookChanDelete[t] = h
+	hookChanDelete[t] = append(hookChanDelete[t], f)
 }
 
 // HookChanMessage adds a hook called whenever a channel receives a message.
@@ -97,38 +67,29 @@ func HookChanDelete(t string, f func(*Channel)) {
 // message the hook is interested in, and either may be "" for the default.
 // The hook receives the source, target, and message as parameters, and must be
 // prepared for the source to be nil.
-func HookChanMessage(chantype, msgtype string, f func(*User, *Channel, []byte)) {
-	if hookChanMessage[chantype] == nil {
-		hookChanMessage[chantype] = make(map[string]*hook)
+func HookChanMessage(chant, msgt string, f func(*User, *Channel, []byte)) {
+	if hookChanMessage[chant] == nil {
+		hookChanMessage[chant] = make(map[string][]func(*User, *Channel, []byte))
 	}
-	h := new(hook)
-	h.f = f
-	h.next = hookChanMessage[chantype][msgtype]
-	hookChanMessage[chantype][msgtype] = h
+	hookChanMessage[chant][msgt] = append(hookChanMessage[chant][msgt], f)
 }
 
 
 func runChanAddHooks(t string, ch *Channel) {
-	for h := hookChanAdd[t]; h != nil; h = h.next {
-		if f := h.f.(func(*Channel)); f != nil {
-			f(ch)
-		}
+	for _, f := range hookChanAdd[t] {
+		f(ch)
 	}
 }
 
 func runChanUserJoinHooks(t string, u *User, ch *Channel) {
-	for h := hookChanUserJoin[t]; h != nil; h = h.next {
-		if f := h.f.(func(*User, *Channel)); f != nil {
-			f(u, ch)
-		}
+	for _, f := range hookChanUserJoin[t] {
+		f(u, ch)
 	}
 }
 
-func runChanUserRemoveHooks(t string, source *User, u *User, ch *Channel, message string) {
-	for h := hookChanUserRemove[t]; h != nil; h = h.next {
-		if f := h.f.(func(*User, *User, *Channel, string)); f != nil {
-			f(source, u, ch, message)
-		}
+func runChanUserRemoveHooks(t string, source *User, target *User, ch *Channel, message string) {
+	for _, f := range hookChanUserRemove[t] {
+		f(source, target, ch, message)
 	}
 }
 
@@ -136,18 +97,14 @@ func runChanDataChangeHooks(t string, source *User, ch *Channel, name, oldvalue,
 	if hookChanDataChange[t] == nil {
 		return
 	}
-	for h := hookChanDataChange[t][name]; h != nil; h = h.next {
-		if f := h.f.(func(*User, *Channel, string, string)); f != nil {
-			f(source, ch, oldvalue, newvalue)
-		}
+	for _, f := range hookChanDataChange[t][name] {
+		f(source, ch, oldvalue, newvalue)
 	}
 }
 
 func runChanDataChangesHooks(t string, source *User, ch *Channel, c *DataChange, o *OldData) {
-	for h := hookChanDataChanges[t]; h != nil; h = h.next {
-		if f := h.f.(func(*User, *Channel, *DataChange, *OldData)); f != nil {
-			f(source, ch, c, o)
-		}
+	for _, f := range hookChanDataChanges[t] {
+		f(source, ch, c, o)
 	}
 }
 
@@ -155,9 +112,7 @@ func runChanMessageHooks(t, msgt string, source *User, ch *Channel, message []by
 	if hookChanMessage[t] == nil {
 		return
 	}
-	for h := hookChanMessage[t][msgt]; h != nil; h = h.next {
-		if f := h.f.(func(*User, *Channel, []byte)); f != nil {
-			f(source, ch, message)
-		}
+	for _, f := range hookChanMessage[t][msgt] {
+		f(source, ch, message)
 	}
 }

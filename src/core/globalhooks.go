@@ -1,12 +1,7 @@
 package core
 
-var hookGlobalDataChanges *hook
-var hookGlobalDataChange map[string]*hook
-
-
-func init() {
-	hookGlobalDataChange = make(map[string]*hook)
-}
+var hookGlobalDataChanges []func(*User, *DataChange, *OldData)
+var hookGlobalDataChange = make(map[string][]func(*User, string, string))
 
 
 // HookGlobalDataChange adds a hook called whenever global data changes.
@@ -15,10 +10,7 @@ func init() {
 // the data as parameters, and must be prepared for source to be nil.
 // "" means unset, for either the old or new value.
 func HookGlobalDataChange(name string, f func(*User, string, string)) {
-	h := new(hook)
-	h.f = f
-	h.next = hookGlobalDataChange[name]
-	hookGlobalDataChange[name] = h
+	hookGlobalDataChange[name] = append(hookGlobalDataChange[name], f)
 }
 
 // HookGlobalDataChanges adds a hook called for all global data changes.
@@ -26,24 +18,17 @@ func HookGlobalDataChange(name string, f func(*User, string, string)) {
 // OldData as parameters, so multiple changes at once result in a single call.
 // It must be prepared for source to be nil.
 func HookGlobalDataChanges(f func(*User, *DataChange, *OldData)) {
-	h := new(hook)
-	h.f = f
-	h.next = hookGlobalDataChanges
-	hookGlobalDataChanges = h
+	hookGlobalDataChanges = append(hookGlobalDataChanges, f)
 }
 
 func runGlobalDataChangeHooks(source *User, name, oldvalue, newvalue string) {
-	for h := hookGlobalDataChange[name]; h != nil; h = h.next {
-		if f := h.f.(func(*User, string, string)); f != nil {
-			f(source, oldvalue, newvalue)
-		}
+	for _, f := range hookGlobalDataChange[name] {
+		f(source, oldvalue, newvalue)
 	}
 }
 
 func runGlobalDataChangesHooks(source *User, c *DataChange, o *OldData) {
-	for h := hookGlobalDataChanges; h != nil; h = h.next {
-		if f := h.f.(func(*User, *DataChange, *OldData)); f != nil {
-			f(source, c, o)
-		}
+	for _, f := range hookGlobalDataChanges {
+		f(source, c, o)
 	}
 }
