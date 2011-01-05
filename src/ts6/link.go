@@ -94,7 +94,7 @@ func link(c *net.TCPConn, outgoing bool) {
 
 			// If we successfully got a command, run it.
 			if command != nil {
-				command.Handler(nil, server, params)
+				command.Handler(server, params)
 			} else if perr != nil {
 
 				// The IRC protocol is stupid.

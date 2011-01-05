@@ -1,9 +1,6 @@
 package irc
 
-import "io"
 import "strings"
-
-import "oddcomm/src/core"
 
 
 // Command structure; contains the handler and information for a command.
@@ -13,10 +10,9 @@ type Command struct {
 	Name string
 
 	// The command handler.
-	// w may be nil.  If non-nil, it writes to the client's connection.
-	// This handler may assume the contraints set in the rest of the
-	// structure have been met when it is called.
-	Handler func(u *core.User, w io.Writer, params [][]byte)
+	// What "source" should be expected to be depends on the command
+	// dispatcher instance this command is added to.
+	Handler func(source interface{}, params [][]byte)
 
 	// The minimum arguments the command expects.
 	Minargs int

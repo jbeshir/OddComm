@@ -1,6 +1,5 @@
 package client
 
-import "io"
 import "strings"
 import "time"
 
@@ -70,15 +69,15 @@ func init() {
 }
 
 
-func cmdVersion(u *core.User, w io.Writer, params [][]byte) {
-	c := w.(*Client)
+func cmdVersion(source interface{}, params [][]byte) {
+	c := source.(*Client)
 
 	c.WriteTo(nil, "351", "OddComm-%s Server.name", core.Version)
 	c.WriteTo(nil, "351", "%s :are supported by this server", supportLine)
 }
 
-func cmdUserhost(u *core.User, w io.Writer, params [][]byte) {
-	c := w.(*Client)
+func cmdUserhost(source interface{}, params [][]byte) {
+	c := source.(*Client)
 
 	nicks := strings.Fields(string(params[0]))
 	var replyline string
@@ -108,8 +107,8 @@ func cmdUserhost(u *core.User, w io.Writer, params [][]byte) {
 	c.WriteTo(nil, "302", ":%s", replyline)
 }
 
-func cmdIsOn(u *core.User, w io.Writer, params [][]byte) {
-	c := w.(*Client)
+func cmdIsOn(source interface{}, params [][]byte) {
+	c := source.(*Client)
 
 	nicks := strings.Fields(string(params[0]))
 	var replyline string
@@ -125,8 +124,8 @@ func cmdIsOn(u *core.User, w io.Writer, params [][]byte) {
 	c.WriteTo(nil, "303", ":%s", replyline)
 }
 
-func cmdWho(u *core.User, w io.Writer, params [][]byte) {
-	c := w.(*Client)
+func cmdWho(source interface{}, params [][]byte) {
+	c := source.(*Client)
 	channame := string(params[0])
 	if channame[0] == '#' {
 		channame = channame[1:]
@@ -140,8 +139,8 @@ func cmdWho(u *core.User, w io.Writer, params [][]byte) {
 
 	// If the user isn't on the channel, don't let them check unless they
 	// can view private channel data.
-	if m := ch.GetMember(u); m == nil {
-		if ok, err := perm.CheckChanViewData(u, ch, "members"); !ok {
+	if m := ch.GetMember(c.u); m == nil {
+		if ok, err := perm.CheckChanViewData(c.u, ch, "members"); !ok {
 			c.WriteTo(nil, "482", "#%s :%s", ch.Name(), err)
 			return
 		}
@@ -167,8 +166,8 @@ func cmdWho(u *core.User, w io.Writer, params [][]byte) {
 	c.WriteTo(nil, "315", "#%s :End of /WHO list.", channame)
 }
 
-func cmdNames(u *core.User, w io.Writer, params [][]byte) {
-	c := w.(*Client)
+func cmdNames(source interface{}, params [][]byte) {
+	c := source.(*Client)
 	channame := string(params[0])
 	if channame[0] == '#' {
 		channame = channame[1:]
@@ -182,8 +181,8 @@ func cmdNames(u *core.User, w io.Writer, params [][]byte) {
 
 	// If the user isn't on the channel, don't let them check unless they
 	// can view private channel data.
-	if m := ch.GetMember(u); m == nil {
-		if ok, err := perm.CheckChanViewData(u, ch, "members"); !ok {
+	if m := ch.GetMember(c.u); m == nil {
+		if ok, err := perm.CheckChanViewData(c.u, ch, "members"); !ok {
 			c.WriteTo(nil, "482", "#%s :%s", ch.Name(), err)
 			return
 		}
@@ -196,7 +195,7 @@ func cmdNames(u *core.User, w io.Writer, params [][]byte) {
 	}
 
 	var myprefix string
-	if m := ch.GetMember(u); m != nil {
+	if m := ch.GetMember(c.u); m != nil {
 		myprefix = ChanModes.GetPrefixes(m)
 	}
 	if myprefix == "" {
@@ -206,13 +205,13 @@ func cmdNames(u *core.User, w io.Writer, params [][]byte) {
 	c.WriteTo(nil, "366", "#%s :End of /NAMES list", channame)
 }
 
-func cmdTime(u *core.User, w io.Writer, params [][]byte) {
-	c := w.(*Client)
+func cmdTime(source interface{}, params [][]byte) {
+	c := source.(*Client)
 	c.WriteTo(nil, "391", ":%s", time.UTC().Format(time.RFC1123))
 }
 
-func cmdOpflags(u *core.User, w io.Writer, params [][]byte) {
-	c := w.(*Client)
+func cmdOpflags(source interface{}, params [][]byte) {
+	c := source.(*Client)
 	channame := string(params[0])
 	if channame[0] == '#' {
 		channame = channame[1:]
@@ -226,8 +225,8 @@ func cmdOpflags(u *core.User, w io.Writer, params [][]byte) {
 
 	// If the user isn't on the channel, don't let them check unless they
 	// can view private channel data.
-	if m := ch.GetMember(u); m == nil {
-		if ok, err := perm.CheckChanViewData(u, ch, "members"); !ok {
+	if m := ch.GetMember(c.u); m == nil {
+		if ok, err := perm.CheckChanViewData(c.u, ch, "members"); !ok {
 			c.WriteTo(nil, "482", "#%s :%s", ch.Name(), err)
 			return
 		}
@@ -244,7 +243,7 @@ func cmdOpflags(u *core.User, w io.Writer, params [][]byte) {
 		c.WriteTo(nil, "304", ":OPFLAGS #%s: %s is not in the channel.", ch.Name(), target.Nick())
 		return
 	}
-	if ok, err := perm.CheckMemberViewData(u, m, "op"); !ok {
+	if ok, err := perm.CheckMemberViewData(c.u, m, "op"); !ok {
 		c.WriteTo(nil, "482", "#%s :%s: %s", ch.Name(), target.Nick(), err)
 		return
 	}
@@ -261,12 +260,12 @@ func cmdOpflags(u *core.User, w io.Writer, params [][]byte) {
 	c.WriteTo(nil, "304", ":OPFLAGS #%s: %s has channel op flags: %s", ch.Name(), target.Nick(), flags)
 }
 
-func cmdOperflags(u *core.User, w io.Writer, params [][]byte) {
-	c := w.(*Client)
+func cmdOperflags(source interface{}, params [][]byte) {
+	c := source.(*Client)
 
 	var target *core.User
 	if target = core.GetUserByNick(string(params[0])); target == nil {
-		c.WriteTo(nil, "401", "%s %s :No such user.", u.Nick(),
+		c.WriteTo(nil, "401", "%s %s :No such user.", c.u.Nick(),
 			params[0])
 		return
 	}

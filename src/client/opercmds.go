@@ -1,6 +1,5 @@
 package client
 
-import "io"
 import "strings"
 
 import "oddcomm/src/core"
@@ -8,7 +7,7 @@ import "oddcomm/lib/irc"
 import "oddcomm/lib/perm"
 
 
-// Add cUore oper commands.
+// Add core oper commands.
 func init() {
 	var c *irc.Command
 	if Commands == nil {
@@ -30,15 +29,15 @@ func init() {
 	Commands.Add(c)
 }
 
-func cmdKill(u *core.User, w io.Writer, params [][]byte) {
-	c := w.(*Client)
+func cmdKill(source interface{}, params [][]byte) {
+	c := source.(*Client)
 
 	targets := strings.Split(string(params[0]), ",", -1)
 	message := string(params[1])
 	for _, t := range targets {
 
 		if target := core.GetUserByNick(string(t)); target != nil {
-			perm, err := perm.CheckKillPerm(u, target)
+			perm, err := perm.CheckKillPerm(c.u, target)
 			if perm < -1000000 {
 				c.WriteTo(nil, "404", "%s :%s", target.Nick(), err)
 				continue
@@ -47,12 +46,12 @@ func cmdKill(u *core.User, w io.Writer, params [][]byte) {
 			// Send a kill message to the user if they're killing
 			// themselves. The rest of the server treats this as a
 			// quit, but their client won't understand this.
-			if target == u {
-				c.WriteTo(u, "KILL", "%s (%s)", u.Nick(), message)
+			if target == c.u {
+				c.WriteTo(c.u, "KILL", "%s (%s)", c.u.Nick(), message)
 			}
 
 			// Kill the user.
-			target.Delete(u, message)
+			target.Delete(c.u, message)
 
 			continue
 		}
@@ -61,6 +60,6 @@ func cmdKill(u *core.User, w io.Writer, params [][]byte) {
 	}
 }
 
-func cmdDie(u *core.User, w io.Writer, params [][]byte) {
+func cmdDie(source interface{}, params [][]byte) {
 	core.Shutdown()
 }

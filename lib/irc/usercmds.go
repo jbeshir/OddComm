@@ -1,12 +1,12 @@
 package irc
 
-import "io"
-
 import "oddcomm/src/core"
 
 
 // QUIT command; removes the user.
-func CmdQuit(u *core.User, w io.Writer, params [][]byte) {
+func CmdQuit(source interface{}, params [][]byte) {
+	u := source.(*core.User)
+
 	if len(params) > 0 {
 		u.Delete(u, string(params[0]))
 	} else {

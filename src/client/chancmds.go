@@ -1,6 +1,5 @@
 package client
 
-import "io"
 import "strings"
 
 import "oddcomm/src/core"
@@ -51,8 +50,8 @@ func init() {
 }
 
 
-func cmdJoin(u *core.User, w io.Writer, params [][]byte) {
-	c := w.(*Client)
+func cmdJoin(source interface{}, params [][]byte) {
+	c := source.(*Client)
 
 	chans := strings.Split(string(params[0]), ",", -1)
 	for _, channame := range chans {
@@ -61,18 +60,20 @@ func cmdJoin(u *core.User, w io.Writer, params [][]byte) {
 		}
 
 		ch := core.GetChannel("", channame)
-		if ok, err := perm.CheckJoin(u, ch); ok {
-			ch.Join([]*core.User{u})
+		if ok, err := perm.CheckJoin(c.u, ch); ok {
+			ch.Join([]*core.User{c.u})
 		} else {
 			c.WriteTo(nil, "495", "#%s :%s", ch.Name(), err)
 		}
 	}
 }
 
-func cmdPart(u *core.User, w io.Writer, params [][]byte) {
+func cmdPart(source interface{}, params [][]byte) {
+	c := source.(*Client)
+
 	chans := strings.Split(string(params[0]), ",", -1)
-	for _, c := range chans {
-		channame := c
+	for _, ch := range chans {
+		channame := ch
 		if channame[0] == '#' {
 			channame = channame[1:]
 		}
@@ -82,13 +83,13 @@ func cmdPart(u *core.User, w io.Writer, params [][]byte) {
 			if len(params) > 1 {
 				message = string(params[1])
 			}
-			ch.Remove(u, u, message)
+			ch.Remove(c.u, c.u, message)
 		}
 	}
 }
 
-func cmdKick(u *core.User, w io.Writer, params [][]byte) {
-	c := w.(*Client)
+func cmdKick(source interface{}, params [][]byte) {
+	c := source.(*Client)
 
 	var ch *core.Channel
 	channame := string(params[0])
@@ -105,20 +106,20 @@ func cmdKick(u *core.User, w io.Writer, params [][]byte) {
 		if target == nil {
 			continue
 		}
-		if ok, err := perm.CheckRemove(u, target, ch); ok {
+		if ok, err := perm.CheckRemove(c.u, target, ch); ok {
 			var message string
 			if len(params) > 2 {
 				message = string(params[2])
 			}
-			ch.Remove(u, target, message)
+			ch.Remove(c.u, target, message)
 		} else {
 			c.WriteTo(nil, "482", "#%s :%s", ch.Name(), err)
 		}
 	}
 }
 
-func cmdTopic(u *core.User, w io.Writer, params [][]byte) {
-	c := w.(*Client)
+func cmdTopic(source interface{}, params [][]byte) {
+	c := source.(*Client)
 
 	var ch *core.Channel
 	if params[0][0] == '#' {
@@ -126,7 +127,7 @@ func cmdTopic(u *core.User, w io.Writer, params [][]byte) {
 		ch = core.FindChannel("", channame)
 	}
 	if ch == nil {
-		c.WriteTo(nil, "403", "%s %s :No such channel.", u.Nick(),
+		c.WriteTo(nil, "403", "%s %s :No such channel.", c.u.Nick(),
 			params[0])
 		return
 	}
@@ -146,11 +147,11 @@ func cmdTopic(u *core.User, w io.Writer, params [][]byte) {
 	}
 
 	// Otherwise, we're setting the topic.
-	ch.SetTopic(u, string(params[1]))
+	ch.SetTopic(c.u, string(params[1]))
 }
 
-func cmdInvite(u *core.User, w io.Writer, params [][]byte) {
-	c := w.(*Client)
+func cmdInvite(source interface{}, params [][]byte) {
+	c := source.(*Client)
 
 	if len(params[1]) < 2 || params[1][0] != '#' {
 		c.WriteTo(nil, "403", "%s :%s", params[1], "No such channel.")
@@ -171,14 +172,14 @@ func cmdInvite(u *core.User, w io.Writer, params [][]byte) {
 			continue
 		}
 
-		if ok, err := perm.CheckUserMsg(u, target, []byte(ch.Name()),
+		if ok, err := perm.CheckUserMsg(c.u, target, []byte(ch.Name()),
 			"invite"); ok {
 			if v := target.Data("away"); v != "" {
 				c.WriteTo(nil, "301", "%s :%s",
 					target.Nick(), v)
 			}
-			target.Message(u, []byte(ch.Name()), "invite")
-			ch.Message(u, []byte(target.Nick()), "invite")
+			target.Message(c.u, []byte(ch.Name()), "invite")
+			ch.Message(c.u, []byte(target.Nick()), "invite")
 			c.WriteTo(nil, "341", "%s #%s", target.Nick(),
 				ch.Name())
 		} else {

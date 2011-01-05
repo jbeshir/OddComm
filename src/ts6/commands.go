@@ -1,7 +1,5 @@
 package ts6
 
-import "io"
-
 import "oddcomm/lib/irc"
 import "oddcomm/src/core"
 
@@ -32,10 +30,19 @@ func init() {
 }
 
 
-// Password authentication. Does server user creation.
-// Ignore the user here; specifying one is invalid. We care about the server.
-func cmdPass(u *core.User, w io.Writer, params [][]byte) {
-	l := w.(*local)
+// Password authentication.
+// May only be from a server.
+func cmdPass(source interface{}, params [][]byte) {
+	s, ok := source.(*server)
+	if !ok {
+		return
+	}
+
+	// If this isn't a local server, ignore it.
+	l := s.local
+	if &l.s != s {
+		return
+	}
 
 	// Ignore PASS commands from already authed servers.
 	// They can happen if they have an invalid source.
@@ -82,9 +89,5 @@ func cmdPass(u *core.User, w io.Writer, params [][]byte) {
 
 
 // Server registration command.
-// If the user here is nil, it's a local server we need to do authentication
-// for, which is the writer.
-// If it is not, it is an unregistered remote server created for this command,
-// or for some reason a remote server sent a server command from a user.
-func cmdServer(u *core.User, w io.Writer, params [][]byte) {
+func cmdServer(source interface{}, params [][]byte) {
 }

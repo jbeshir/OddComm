@@ -101,7 +101,7 @@ func input(c *Client) {
 				if command.OperFlag != "" && !perm.HasOperCommand(c.u, command.OperFlag, command.Name) {
 					c.WriteTo(nil, "481", ":You do not have the appropriate privileges to use this command.")
 				} else {
-					command.Handler(c.u, c, params)
+					command.Handler(c, params)
 				}
 			} else if perr != nil {
 

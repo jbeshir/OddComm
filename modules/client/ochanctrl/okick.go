@@ -1,7 +1,5 @@
 package ochanctrl
 
-import "io"
-
 import "oddcomm/src/client"
 import "oddcomm/src/core"
 import "oddcomm/lib/irc"
@@ -19,8 +17,8 @@ func init() {
 	client.Commands.Add(c)
 }
 
-func cmdOkick(u *core.User, w io.Writer, params [][]byte) {
-	c := w.(*client.Client)
+func cmdOkick(source interface{}, params [][]byte) {
+	c := source.(*client.Client)
 
 	var ch *core.Channel
 	var target *core.User
@@ -37,8 +35,10 @@ func cmdOkick(u *core.User, w io.Writer, params [][]byte) {
 		return
 	}
 
-	if perm, err := perm.CheckRemovePerm(u, target, ch); perm < -1000000 {
+	perm, err := perm.CheckRemovePerm(c.User(), target, ch)
+	if perm < -1000000 {
 		c.WriteTo(nil, "482", "#%s :%s", ch.Name(), err)
+		return
 	}
 
 	var message string

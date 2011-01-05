@@ -1,6 +1,5 @@
 package ochanctrl
 
-import "io"
 import "strings"
 
 import "oddcomm/src/core"
@@ -19,8 +18,8 @@ func init() {
 }
 
 
-func cmdOmode(u *core.User, w io.Writer, params [][]byte) {
-	c := w.(*client.Client)
+func cmdOmode(source interface{}, params [][]byte) {
+	c := source.(*client.Client)
 
 	channame := string(params[0])
 	if channame[0] == '#' {
@@ -28,7 +27,7 @@ func cmdOmode(u *core.User, w io.Writer, params [][]byte) {
 	}
 	ch := core.FindChannel("", channame)
 	if ch == nil {
-		c.WriteTo(nil, "501", "%s %s :%s", u.Nick(), params[0],
+		c.WriteTo(nil, "501", "%s %s :%s", c.User().Nick(), params[0],
 			"No such channel.")
 		return
 	}
@@ -52,7 +51,7 @@ func cmdOmode(u *core.User, w io.Writer, params [][]byte) {
 				continue
 			}
 
-			if perm, err := perm.CheckChanViewDataPerm(u, ch, name); perm < -1000000 {
+			if perm, err := perm.CheckChanViewDataPerm(c.User(), ch, name); perm < -1000000 {
 				c.WriteTo(nil, "482", "#%s :%s", ch.Name(), err)
 				continue
 			}
@@ -118,7 +117,7 @@ func cmdOmode(u *core.User, w io.Writer, params [][]byte) {
 	if len(params) == 3 {
 		mpars = strings.Fields(string(params[2]))
 	}
-	changes, err := client.ChanModes.ParseModeLine(u, ch, params[1], mpars)
+	changes, err := client.ChanModes.ParseModeLine(c.User(), ch, params[1], mpars)
 	if err != nil {
 		c.WriteTo(nil, "501", "%s", err)
 	}
@@ -126,13 +125,13 @@ func cmdOmode(u *core.User, w io.Writer, params [][]byte) {
 	todo := make([]core.DataChange, 0, len(changes))
 	for _, cha := range changes {
 		if cha.Member != nil {
-			num, err := perm.CheckMemberDataPerm(u, cha.Member, cha.Name, cha.Data)
+			num, err := perm.CheckMemberDataPerm(c.User(), cha.Member, cha.Name, cha.Data)
 			if num < -1000000 {
 				c.WriteTo(nil, "482", "#%s %s: %s", ch.Name(), cha.Name, err)
 				continue
 			}
 		} else {
-			num, err := perm.CheckChanDataPerm(u, ch, cha.Name, cha.Data)
+			num, err := perm.CheckChanDataPerm(c.User(), ch, cha.Name, cha.Data)
 			if num < -1000000 {
 				c.WriteTo(nil, "482", "#%s %s: %s", ch.Name(), cha.Name, err)
 				continue

@@ -3,11 +3,9 @@
 */
 package login
 
-import "io"
 import "strings"
 
 import "oddcomm/src/client"
-import "oddcomm/src/core"
 import "oddcomm/lib/irc"
 import "oddcomm/lib/perm"
 
@@ -46,8 +44,8 @@ func init() {
 	client.Commands.Add(c)
 }
 
-func cmdLogin(u *core.User, w io.Writer, params [][]byte) {
-	c := w.(*client.Client)
+func cmdLogin(source interface{}, params [][]byte) {
+	c := source.(*client.Client)
 
 	var account string
 	var pass string
@@ -62,7 +60,7 @@ func cmdLogin(u *core.User, w io.Writer, params [][]byte) {
 			account = pass[:colon]
 			pass = pass[colon+1:]
 		} else {
-			account = u.Nick()
+			account = c.User().Nick()
 		}
 	} else {
 		account = string(params[0])
@@ -70,8 +68,8 @@ func cmdLogin(u *core.User, w io.Writer, params [][]byte) {
 	}
 
 	// Try to log them in.
-	if ok, err := perm.CheckLogin(u, account, "password", pass); ok {
-		u.SetData(nil, "account", err.String())
+	if ok, err := perm.CheckLogin(c.User(), account, "password", pass); ok {
+		c.User().SetData(nil, "account", err.String())
 	} else {
 		c.WriteTo(nil, "491", ":%s", err)
 	}

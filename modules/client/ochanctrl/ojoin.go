@@ -1,7 +1,5 @@
 package ochanctrl
 
-import "io"
-
 import "oddcomm/src/client"
 import "oddcomm/src/core"
 import "oddcomm/lib/irc"
@@ -19,8 +17,8 @@ func init() {
 	client.Commands.Add(c)
 }
 
-func cmdOjoin(u *core.User, w io.Writer, params [][]byte) {
-	c := w.(*client.Client)
+func cmdOjoin(source interface{}, params [][]byte) {
+	c := source.(*client.Client)
 
 	channame := string(params[0])
 	if channame[0] == '#' {
@@ -28,13 +26,13 @@ func cmdOjoin(u *core.User, w io.Writer, params [][]byte) {
 	}
 
 	ch := core.GetChannel("", channame)
-	if perm, err := perm.CheckJoinPerm(u, ch); perm < -1000000 {
+	if perm, err := perm.CheckJoinPerm(c.User(), ch); perm < -1000000 {
 		c.WriteTo(nil, "495", "#%s :%s", ch.Name(), err)
 		return
 	}
 
-	ch.Join([]*core.User{u})
-	if m := ch.GetMember(u); m != nil {
+	ch.Join([]*core.User{c.User()})
+	if m := ch.GetMember(c.User()); m != nil {
 		m.SetData(nil, "serverop", "on")
 	}
 }

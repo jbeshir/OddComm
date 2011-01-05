@@ -1,6 +1,5 @@
 package client
 
-import "io"
 import "strconv"
 import "strings"
 import "time"
@@ -75,36 +74,38 @@ func init() {
 	Commands.Add(c)
 }
 
-func cmdNick(u *core.User, w io.Writer, params [][]byte) {
+func cmdNick(source interface{}, params [][]byte) {
+	c := source.(*Client)
+
 	var nick = string(params[0])
 
 	if nick == "0" {
-		nick = u.ID()
+		nick = c.u.ID()
 	}
 
-	if ok, err := perm.CheckNick(u, nick); !ok {
-		if c, ok := w.(*Client); ok {
+	if ok, err := perm.CheckNick(c.u, nick); !ok {
+		if c, ok := source.(*Client); ok {
 			c.WriteTo(nil, "432", "%s :%s", nick, err)
 		}
 		return
 	}
 
-	if err := u.SetNick(nick); err != nil {
-		if c, ok := w.(*Client); ok {
+	if err := c.u.SetNick(nick); err != nil {
+		if c, ok := source.(*Client); ok {
 			c.WriteTo(nil, "433", "%s :%s", nick, err)
 		}
 	}
 
 	// Track whether we've gotten a NICK command from this client yet.
-	if c, ok := w.(*Client); ok && !c.nicked {
+	if c, ok := source.(*Client); ok && !c.nicked {
 		c.nicked = true
 		c.u.PermitRegistration()
 	}
 }
 
-func cmdUser(u *core.User, w io.Writer, params [][]byte) {
-	c := w.(*Client)
-	if u.Data("ident") != "" {
+func cmdUser(source interface{}, params [][]byte) {
+	c := source.(*Client)
+	if c.u.Data("ident") != "" {
 		return
 	}
 
@@ -112,32 +113,34 @@ func cmdUser(u *core.User, w io.Writer, params [][]byte) {
 	real := string(params[3])
 
 	// Check that the ident and realname are valid.
-	if num, err := perm.CheckUserDataPerm(u, u, "ident", ident); num <= -1e9 {
+	if num, err := perm.CheckUserDataPerm(c.u, c.u, "ident", ident); num <= -1e9 {
 		c.WriteTo(nil, "461", "USER :%s", err)
 		return
 	}
-	if num, err := perm.CheckUserDataPerm(u, u, "realname", real); num <= -1e9 {
+	if num, err := perm.CheckUserDataPerm(c.u, c.u, "realname", real); num <= -1e9 {
 		c.WriteTo(nil, "461", "USER :%s", err)
 		return
 	}
 
-	u.SetData(nil, "ident", ident)
-	u.SetData(nil, "real", real)
+	data := make([]core.DataChange, 2)
+	data[0].Name, data[0].Data = "ident", ident
+	data[1].Name, data[1].Data = "real", real
+	c.u.SetDataList(nil, data)
 }
 
-func cmdPing(u *core.User, w io.Writer, params [][]byte) {
-	c := w.(*Client)
+func cmdPing(source interface{}, params [][]byte) {
+	c := source.(*Client)
 	c.WriteFrom(nil, "PONG %s :%s", "Server.name", params[0])
 
 }
 
-func cmdMode(u *core.User, w io.Writer, params [][]byte) {
-	c := w.(*Client)
+func cmdMode(source interface{}, params [][]byte) {
+	c := source.(*Client)
 
 	// If we're viewing the modes of ourselves or a channel...
 	if len(params) < 2 {
-		if strings.ToUpper(u.Nick()) == strings.ToUpper(string(params[0])) {
-			modeline := UserModes.GetModes(u)
+		if strings.ToUpper(c.u.Nick()) == strings.ToUpper(string(params[0])) {
+			modeline := UserModes.GetModes(c.u)
 			c.WriteTo(nil, "221", ":+%s", modeline)
 			return
 		}
@@ -173,7 +176,7 @@ func cmdMode(u *core.User, w io.Writer, params [][]byte) {
 				continue
 			}
 
-			if ok, err := perm.CheckChanViewData(u, ch, name); !ok {
+			if ok, err := perm.CheckChanViewData(c.u, ch, name); !ok {
 				c.WriteTo(nil, "482", "#%s :%s", ch.Name(), err)
 				continue
 			}
@@ -237,24 +240,24 @@ func cmdMode(u *core.User, w io.Writer, params [][]byte) {
 		if len(params) == 3 {
 			mpars = strings.Fields(string(params[2]))
 		}
-		changes, err := UserModes.ParseModeLine(u, u, params[1], mpars)
+		changes, err := UserModes.ParseModeLine(c.u, c.u, params[1], mpars)
 		if err != nil {
 			c.WriteTo(nil, "501", "%s", err)
 		}
 
 		todo := make([]core.DataChange, 0, len(changes))
 		for _, cha := range changes {
-			ok, err := perm.CheckUserData(u, u, cha.Name, cha.Data)
+			ok, err := perm.CheckUserData(c.u, c.u, cha.Name, cha.Data)
 			if !ok {
 				m := UserModes.GetMode(cha.Name)
-				c.WriteTo(nil, "482", "%s %c: %s", u.Nick(), m,
-					err)
+				c.WriteTo(nil, "482", "%s %c: %s", c.u.Nick(),
+					m, err)
 				continue
 			}
 			todo = append(todo, cha)
 		}
 		if len(todo) != 0 {
-			c.u.SetDataList(u, todo)
+			c.u.SetDataList(c.u, todo)
 		}
 		return
 	}
@@ -270,7 +273,7 @@ func cmdMode(u *core.User, w io.Writer, params [][]byte) {
 		if len(params) == 3 {
 			mpars = strings.Fields(string(params[2]))
 		}
-		changes, err := ChanModes.ParseModeLine(u, ch, params[1], mpars)
+		changes, err := ChanModes.ParseModeLine(c.u, ch, params[1], mpars)
 		if err != nil {
 			c.WriteTo(nil, "501", "%s", err)
 		}
@@ -278,14 +281,14 @@ func cmdMode(u *core.User, w io.Writer, params [][]byte) {
 		todo := make([]core.DataChange, 0, len(changes))
 		for _, cha := range changes {
 			if cha.Member != nil {
-				ok, err := perm.CheckMemberData(u, cha.Member, cha.Name, cha.Data)
+				ok, err := perm.CheckMemberData(c.u, cha.Member, cha.Name, cha.Data)
 				if !ok {
 					m := ChanModes.GetMode(cha.Name)
 					c.WriteTo(nil, "482", "#%s %c: %s", ch.Name(), m, err)
 					continue
 				}
 			} else {
-				ok, err := perm.CheckChanData(u, ch, cha.Name, cha.Data)
+				ok, err := perm.CheckChanData(c.u, ch, cha.Name, cha.Data)
 				if !ok {
 					m := ChanModes.GetMode(cha.Name)
 					c.WriteTo(nil, "482", "#%s %c: %s", ch.Name(), m, err)
@@ -295,28 +298,28 @@ func cmdMode(u *core.User, w io.Writer, params [][]byte) {
 			todo = append(todo, cha)
 		}
 		if todo != nil {
-			ch.SetDataList(u, todo)
+			ch.SetDataList(c.u, todo)
 		}
 
 		return
 	}
 
-	c.WriteTo(nil, "401", "%s %s :%s", u.Nick(), params[0],
+	c.WriteTo(nil, "401", "%s %s :%s", c.u.Nick(), params[0],
 		"No such nick or channel.")
 }
 
-func cmdPrivmsg(u *core.User, w io.Writer, params [][]byte) {
-	c := w.(*Client)
+func cmdPrivmsg(source interface{}, params [][]byte) {
+	c := source.(*Client)
 
 	targets := strings.Split(string(params[0]), ",", -1)
 	for _, t := range targets {
 		if target := core.GetUserByNick(string(t)); target != nil {
-			if ok, err := perm.CheckUserMsg(u, target, params[1], ""); ok {
+			if ok, err := perm.CheckUserMsg(c.u, target, params[1], ""); ok {
 				if v := target.Data("away"); v != "" {
 					c.WriteTo(nil, "301", "%s :%s",
 						target.Nick(), v)
 				}
-				target.Message(u, params[1], "")
+				target.Message(c.u, params[1], "")
 			} else {
 				c.WriteTo(nil, "404", "%s :%s", target.Nick(), err)
 			}
@@ -327,9 +330,9 @@ func cmdPrivmsg(u *core.User, w io.Writer, params [][]byte) {
 			channame := string(t[1:])
 			ch := core.FindChannel("", channame)
 			if ch != nil {
-				if ok, err := perm.CheckChanMsg(u, ch,
+				if ok, err := perm.CheckChanMsg(c.u, ch,
 					params[1], ""); ok {
-					ch.Message(u, params[1], "")
+					ch.Message(c.u, params[1], "")
 				} else {
 					c.WriteTo(nil, "404", "#%s :%s", ch.Name(), err)
 				}
@@ -341,15 +344,15 @@ func cmdPrivmsg(u *core.User, w io.Writer, params [][]byte) {
 	}
 }
 
-func cmdNotice(u *core.User, w io.Writer, params [][]byte) {
-	c := w.(*Client)
+func cmdNotice(source interface{}, params [][]byte) {
+	c := source.(*Client)
 
 	targets := strings.Split(string(params[0]), ",", -1)
 	for _, t := range targets {
 		if target := core.GetUserByNick(string(t)); target != nil {
-			if ok, err := perm.CheckUserMsg(u, target, params[1],
+			if ok, err := perm.CheckUserMsg(c.u, target, params[1],
 				"noreply"); ok {
-				target.Message(u, params[1], "noreply")
+				target.Message(c.u, params[1], "noreply")
 			} else {
 				c.WriteTo(nil, "404", "%s :%s", target.Nick(), err)
 			}
@@ -360,9 +363,9 @@ func cmdNotice(u *core.User, w io.Writer, params [][]byte) {
 			channame := string(t[1:])
 			ch := core.FindChannel("", channame)
 			if ch != nil {
-				if ok, err := perm.CheckChanMsg(u, ch,
+				if ok, err := perm.CheckChanMsg(c.u, ch,
 					params[1], " noreply"); ok {
-					ch.Message(u, params[1], "noreply")
+					ch.Message(c.u, params[1], "noreply")
 				} else {
 					c.WriteTo(nil, "404", "#%s :%s", ch.Name(), err)
 				}
@@ -374,8 +377,8 @@ func cmdNotice(u *core.User, w io.Writer, params [][]byte) {
 	}
 }
 
-func cmdAway(u *core.User, w io.Writer, params [][]byte) {
-	c := w.(*Client)
+func cmdAway(source interface{}, params [][]byte) {
+	c := source.(*Client)
 
 	var message string
 	if len(params) != 0 {
@@ -383,12 +386,12 @@ func cmdAway(u *core.User, w io.Writer, params [][]byte) {
 	}
 
 	if message == "" {
-		u.SetData(u, "away", "")
-		u.SetData(u, "away time", "")
+		c.u.SetData(c.u, "away", "")
+		c.u.SetData(c.u, "away time", "")
 		c.WriteTo(nil, "305", ":You are no longer marked as being away.")
 	} else {
-		u.SetData(u, "away", message)
-		u.SetData(u, "away time", strconv.Itoa64(time.Seconds()))
+		c.u.SetData(c.u, "away", message)
+		c.u.SetData(c.u, "away time", strconv.Itoa64(time.Seconds()))
 		c.WriteTo(nil, "306", ":You have been marked as being away.")
 	}
 }

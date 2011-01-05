@@ -18,6 +18,11 @@ type Client struct {
 	nicked        bool
 }
 
+// User returns this client's user.
+func (c *Client) User() *core.User {
+	return c.u
+}
+
 // Disconnects the client with the given message. This internal method assumes
 // it is being called with the client mutex already held.
 //
