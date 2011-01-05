@@ -13,13 +13,13 @@ import "oddcomm/src/core"
 // An error is returned if unknown modes are encountered, or modes are dropped
 // due to missing parameters. The remainder of the modes are still parsed.
 // e is the user or channel being changed.
-func (p *ModeParser) ParseModeLine(source *core.User, e core.Extensible, modeline []byte, params []string) (*core.DataChange, os.Error) {
+func (p *ModeParser) ParseModeLine(source *core.User, e core.Extensible, modeline []byte, params []string) ([]core.DataChange, os.Error) {
 	var adding bool = true
 	var unknown string
 	var missing string
 	var param int
 	modes := string(modeline)
-	changes := make(map[string]*core.DataChange)
+	changes := make(map[string]core.DataChange)
 
 	for _, char := range modes {
 
@@ -34,13 +34,13 @@ func (p *ModeParser) ParseModeLine(source *core.User, e core.Extensible, modelin
 		if v, ok := p.simple[char]; ok {
 			if v, ok := p.extended[char]; ok {
 				newchanges := v(adding, e, "")
-				for it := newchanges; it != nil; it = it.Next {
+				for _, it := range newchanges {
 					changes[it.Name] = it
 				}
 				continue
 			}
 
-			change := new(core.DataChange)
+			var change core.DataChange
 			change.Name = v
 			if adding {
 				change.Data = "on"
@@ -51,7 +51,7 @@ func (p *ModeParser) ParseModeLine(source *core.User, e core.Extensible, modelin
 		}
 
 		if v, ok := p.parametered[char]; ok {
-			var change *core.DataChange
+			var change core.DataChange
 			if adding {
 				if param >= len(params) {
 					missing += string(char)
@@ -59,28 +59,26 @@ func (p *ModeParser) ParseModeLine(source *core.User, e core.Extensible, modelin
 				}
 
 				if v, ok := p.extended[char]; ok {
-					newchanges := v(adding, e, params[param])
+					newch := v(adding, e, params[param])
 					param++
-					for it := newchanges; it != nil; it = it.Next {
+					for _, it := range newch {
 						changes[it.Name] = it
 					}
 					continue
 				}
 
-				change = new(core.DataChange)
 				change.Name = v
 				change.Data = params[param]
 				param++
 			} else {
 				if v, ok := p.extended[char]; ok {
 					newchanges := v(adding, e, "")
-					for it := newchanges; it != nil; it = it.Next {
+					for _, it := range newchanges {
 						changes[it.Name] = it
 					}
 					continue
 				}
 
-				change = new(core.DataChange)
 				change.Name = v
 			}
 
@@ -93,13 +91,13 @@ func (p *ModeParser) ParseModeLine(source *core.User, e core.Extensible, modelin
 				missing += string(char)
 				continue
 			}
-			change := new(core.DataChange)
+			var change core.DataChange
 			cparam := params[param]
 			param++
 
 			if v, ok := p.extended[char]; ok {
 				newchanges := v(adding, e, cparam)
-				for it := newchanges; it != nil; it = it.Next {
+				for _, it := range newchanges {
 					if it.Data != "" {
 						it.Data += fmt.Sprintf(" setby-%s setat-%d", source.GetSetBy(), time.Seconds())
 					}
@@ -134,7 +132,7 @@ func (p *ModeParser) ParseModeLine(source *core.User, e core.Extensible, modelin
 
 			if v, ok := p.extended[char]; ok {
 				newchanges := v(adding, e, par)
-				for it := newchanges; it != nil; it = it.Next {
+				for _, it := range newchanges {
 					if it.Member != nil {
 						changes["m"+it.Member.User().ID()+" "+it.Name] = it
 					} else {
@@ -155,7 +153,7 @@ func (p *ModeParser) ParseModeLine(source *core.User, e core.Extensible, modelin
 				continue
 			}
 
-			change := new(core.DataChange)
+			var change core.DataChange
 			change.Name = v
 			change.Member = m
 
@@ -170,11 +168,10 @@ func (p *ModeParser) ParseModeLine(source *core.User, e core.Extensible, modelin
 		unknown += string(char)
 	}
 
-	// Turn the modes into a list.
-	var c *core.DataChange
-	for change := range changes {
-		changes[change].Next = c
-		c = changes[change]
+	// Turn the modes into a slice.
+	c := make([]core.DataChange, 0, len(changes))
+	for _, change := range changes {
+		c = append(c, change)
 	}
 
 	// Get the error, if we had one.
@@ -199,15 +196,15 @@ func (p *ModeParser) ParseModeLine(source *core.User, e core.Extensible, modelin
 // ParseChanges parses a list of mode changes into a line of mode changes and
 // parameters. Changes which do not correspond to a mode are dropped.
 // e is the user or channel being changed.
-func (p *ModeParser) ParseChanges(e core.Extensible, c *core.DataChange, old *core.OldData) (modeline string) {
+func (p *ModeParser) ParseChanges(e core.Extensible, changes []core.DataChange, old []string) (modeline string) {
 	var addmodes string
 	var remmodes string
 	var addparams string
 	var remparams string
 
-	for it, o := c, old; it != nil && o != nil; it, o = it.Next, o.Next {
+	for i, it := range changes {
 		if v, ok := p.nameToExt[it.Name]; ok && v != nil {
-			add, addpar, rem, rempar := v(e, it.Name, o.Data, it.Data)
+			add, addpar, rem, rempar := v(e, it.Name, old[i], it.Data)
 			addmodes += string(add)
 			remmodes += string(rem)
 			for _, par := range addpar {
@@ -265,7 +262,7 @@ func (p *ModeParser) ParseChanges(e core.Extensible, c *core.DataChange, old *co
 		for subentry > 2 {
 			if v, ok := p.nameToExt[it.Name[:subentry-1]]; ok &&
 				v != nil {
-				add, addpar, rem, rempar := v(e, it.Name, o.Data, it.Data)
+				add, addpar, rem, rempar := v(e, it.Name, old[i], it.Data)
 				addmodes += string(add)
 				remmodes += string(rem)
 				for _, par := range addpar {

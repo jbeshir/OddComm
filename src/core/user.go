@@ -79,10 +79,9 @@ func IterateUsers(owner string, f func(u *User)) {
 //
 // They will be applied prior to the new user hooks being called, with
 // usual data change hooks called after. It may be nil.
-func NewUser(owner string, owndata interface{}, checked bool, forceid string, data *DataChange) (u *User) {
-	var oldvalues *OldData
-	var lasthook *DataChange
-	var lastold **OldData = &oldvalues
+func NewUser(owner string, owndata interface{}, checked bool, forceid string, data []DataChange) (u *User) {
+	done := make([]DataChange, 0, len(data))
+	old := make([]string, 0, len(data))
 
 	u = new(User)
 
@@ -123,7 +122,7 @@ func NewUser(owner string, owndata interface{}, checked bool, forceid string, da
 		}
 
 		// Apply provided data to the user.
-		for it := data; it != nil; it = it.Next {
+		for _, it := range data {
 
 			// Make the change.
 			var oldvalue string
@@ -133,23 +132,16 @@ func NewUser(owner string, owndata interface{}, checked bool, forceid string, da
 				oldvalue = u.data.Remove(it.Name)
 			}
 
-			// If this was a do-nothing change, cut it out.
+			// If this was a do-nothing change, do not report it.
 			if oldvalue == it.Data {
-				if lasthook != nil {
-					lasthook.Next = it.Next
-				} else {
-					data = it.Next
-				}
 				continue
 			}
 
+			// Add to slices to send to hooks.
 			// Still need to track old data, just in case someone
 			// decides to set a value TWICE for some reason.
-			olddata := new(OldData)
-			olddata.Data = oldvalue
-			*lastold = olddata
-			lasthook = it
-			lastold = &olddata.Next
+			done = append(done, it)
+			old = append(old, oldvalue)
 		}
 
 		// Now fully configured, add them.
@@ -163,9 +155,8 @@ func NewUser(owner string, owndata interface{}, checked bool, forceid string, da
 	// Run user addition and data change hooks.
 	hookRunner <- func() {
 		runUserAddHooks(u, owner)
-		for it, old := data, oldvalues; it != nil && old != nil;
-				it, old = it.Next, old.Next {
-			runUserDataChangeHooks(nil, u, it.Name, old.Data, it.Data)
+		for i, it := range done {
+			runUserDataChangeHooks(nil, u, it.Name, old[i], it.Data)
 		}
 	}
 
@@ -303,14 +294,12 @@ func (u *User) SetData(source *User, name string, value string) {
 		return
 	}
 
-	c := new(DataChange)
+	var c DataChange
 	c.Name = name
 	c.Data = value
-	old := new(OldData)
-	old.Data = value
 	hookRunner <- func() {
 		runUserDataChangeHooks(source, u, name, oldvalue, value)
-		runUserDataChangesHooks(source, u, c, old)
+		runUserDataChangesHooks(source, u, []DataChange{c}, []string{oldvalue})
 	}
 
 	u.mutex.Unlock()
@@ -320,16 +309,15 @@ func (u *User) SetData(source *User, name string, value string) {
 // This is equivalent to lots of SetData calls, except hooks for all data
 // changes will receive it as a single list, and it is cheaper.
 // source may be nil, in which case the metadata is set by the server.
-func (u *User) SetDataList(source *User, c *DataChange) {
-	var oldvalues *OldData
-	var lasthook *DataChange
-	var lastold **OldData = &oldvalues
+func (u *User) SetDataList(source *User, changes []DataChange) {
+	done := make([]DataChange, 0, len(changes))
+	old := make([]string, 0, len(changes))
 
 	// We hold this so hooks are sent to the hook runner in the order that
 	// the data changes were made.
 	u.mutex.Lock()
 
-	for it := c; it != nil; it = it.Next {
+	for _, it := range changes {
 
 		// Make the change.
 		var oldvalue string
@@ -339,29 +327,21 @@ func (u *User) SetDataList(source *User, c *DataChange) {
 			oldvalue = u.data.Remove(it.Name)
 		}
 
-		// If this was a do-nothing change, cut it out.
+		// If this was a do-nothing change, don't report it.
 		if oldvalue == it.Data {
-			if lasthook != nil {
-				lasthook.Next = it.Next
-			} else {
-				c = it.Next
-			}
 			continue
 		}
 
-		olddata := new(OldData)
-		olddata.Data = oldvalue
-		*lastold = olddata
-		lasthook = it
-		lastold = &olddata.Next
+		// Add to slices to pass to hooks.
+		done = append(done, it)
+		old = append(old, oldvalue)
 	}
 
 	hookRunner <- func() {
-		for it, old := c, oldvalues; it != nil && old != nil;
-				it, old = it.Next, old.Next {
-			runUserDataChangeHooks(source, u, it.Name, old.Data, it.Data)
+		for i, it := range done {
+			runUserDataChangeHooks(source, u, it.Name, old[i], it.Data)
 		}
-		runUserDataChangesHooks(source, u, c, oldvalues)
+		runUserDataChangesHooks(source, u, done, old)
 	}
 
 	u.mutex.Unlock()

@@ -14,7 +14,7 @@ type ModeParser struct {
 	uids              bool
 	simple            map[int]string
 	parametered       map[int]string
-	extended          map[int]func(bool, core.Extensible, string) *core.DataChange
+	extended          map[int]func(bool, core.Extensible, string) []core.DataChange
 	list              map[int]string
 	membership        map[int]string
 	nameToSimple      map[string]int
@@ -45,7 +45,7 @@ func NewModeParser(uids bool) (p *ModeParser) {
 	p.parametered = make(map[int]string)
 	p.list = make(map[int]string)
 	p.membership = make(map[int]string)
-	p.extended = make(map[int]func(bool, core.Extensible, string) *core.DataChange)
+	p.extended = make(map[int]func(bool, core.Extensible, string) []core.DataChange)
 	p.nameToSimple = make(map[string]int)
 	p.nameToParametered = make(map[string]int)
 	p.nameToList = make(map[string]int)
@@ -109,7 +109,7 @@ func (p *ModeParser) AddMembership(mode int, metadata string) {
 //
 // XXX: Doesn't work well enough for multiple extban/opflag changes in a line.
 // API changes under consideration.
-func (p *ModeParser) ExtendModeToData(mode int, modeToName func(bool, core.Extensible, string) *core.DataChange) {
+func (p *ModeParser) ExtendModeToData(mode int, modeToName func(bool, core.Extensible, string) []core.DataChange) {
 	p.extended[mode] = modeToName
 }
 

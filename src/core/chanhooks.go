@@ -1,7 +1,7 @@
 package core
 
 var hookChanAdd = make(map[string][]func(*Channel))
-var hookChanDataChanges = make(map[string][]func(*User, *Channel, *DataChange, *OldData))
+var hookChanDataChanges = make(map[string][]func(*User, *Channel, []DataChange, []string))
 var hookChanUserJoin = make(map[string][]func(*Channel, []*User))
 var hookChanUserRemove = make(map[string][]func(*User, *User, *Channel, string))
 var hookChanDelete = make(map[string][]func(*Channel))
@@ -34,7 +34,7 @@ func HookChanDataChange(t, name string, f func(*User, *Channel, string, string))
 // The hook receives the source and target of the change, and lists of
 // DataChanges and OldData as parameters, so multiple changes at once result
 // in a single call. It must be prepared for source to be nil.
-func HookChanDataChanges(t string, f func(*User, *Channel, *DataChange, *OldData)) {
+func HookChanDataChanges(t string, f func(*User, *Channel, []DataChange, []string)) {
 	hookChanDataChanges[t] = append(hookChanDataChanges[t], f)
 }
 
@@ -102,7 +102,7 @@ func runChanDataChangeHooks(t string, source *User, ch *Channel, name, oldvalue,
 	}
 }
 
-func runChanDataChangesHooks(t string, source *User, ch *Channel, c *DataChange, o *OldData) {
+func runChanDataChangesHooks(t string, source *User, ch *Channel, c []DataChange, o []string) {
 	for _, f := range hookChanDataChanges[t] {
 		f(source, ch, c, o)
 	}

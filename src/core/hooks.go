@@ -4,7 +4,7 @@ package core
 type Extensible interface {
 	Data(name string) string
 	SetData(source *User, name, value string)
-	SetDataList(source *User, c *DataChange)
+	SetDataList(source *User, changes []DataChange)
 	DataRange(prefix string, f func(name, value string))
 }
 
@@ -12,19 +12,10 @@ type Extensible interface {
 // The name is the name of the metadata changed, and the data is what it is
 // set to. The member value, only valid for channel metadata changes, is nil
 // for non-membership changes, or the Membership structure which was changed
-// changed for membership changes.
+// cfor membership changes.
 type DataChange struct {
 	Name, Data string
 	Member     *Membership
-	Next       *DataChange
-}
-
-// Represents a previous metadata value.
-// In conjunction with a DataChange list, permits viewing the previous value
-// of a changed metadata item.
-type OldData struct {
-	Data string
-	Next *OldData
 }
 
 

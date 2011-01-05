@@ -52,16 +52,14 @@ func (m *Membership) SetData(source *User, name string, value string) {
 		return
 	}
 
-	c := new(DataChange)
+	var c DataChange
 	c.Name = name
 	c.Data = value
 	c.Member = m
-	old := new(OldData)
-	old.Data = value
 
 	hookRunner <- func() {
 		runMemberDataChangeHooks(m.c.Type(), source, m, name, oldvalue, value)
-		runChanDataChangesHooks(m.c.Type(), source, m.c, c, old)
+		runChanDataChangesHooks(m.c.Type(), source, m.c, []DataChange{c}, []string{oldvalue})
 	}
 
 	m.c.mutex.Unlock()
@@ -71,14 +69,13 @@ func (m *Membership) SetData(source *User, name string, value string) {
 // entry. This is equivalent to lots of SetData calls, except hooks for all
 // data changes will receive it as a single list, and it is cheaper.
 // source may be nil, in which case the metadata is set by the server.
-func (m *Membership) SetDataList(source *User, c *DataChange) {
-	var oldvalues *OldData
-	var lasthook *DataChange
-	var lastold **OldData = &oldvalues
+func (m *Membership) SetDataList(source *User, changes []DataChange) {
+	done := make([]DataChange, 0, len(changes))
+	old := make([]string, 0, len(changes))
 
 	m.c.mutex.Lock()
 
-	for it := c; it != nil; it = it.Next {
+	for _, it := range changes {
 
 		// Make the change.
 		var oldvalue string
@@ -88,28 +85,21 @@ func (m *Membership) SetDataList(source *User, c *DataChange) {
 			oldvalue = m.data.Remove(it.Name)
 		}
 
-		// If this was a do-nothing change, cut it out.
+		// If this was a do-nothing change, do not report it.
 		if oldvalue == it.Data {
-			if lasthook != nil {
-				lasthook.Next = it.Next
-			} else {
-				c = it.Next
-			}
 			continue
 		}
 
-		olddata := new(OldData)
-		olddata.Data = oldvalue
-		*lastold = olddata
-		lasthook = it
-		lastold = &olddata.Next
+		// Otherwise, send it to hooks.
+		done = append(done, it)
+		old = append(old, oldvalue)
 	}
 
 	hookRunner <- func() {
-		for it, old := c, oldvalues; it != nil && old != nil; it, old = it.Next, old.Next {
-			runMemberDataChangeHooks(m.c.Type(), source, m, it.Name, old.Data, it.Data)
+		for i, it := range changes {
+			runMemberDataChangeHooks(m.c.Type(), source, m, it.Name, old[i], it.Data)
 		}
-		runChanDataChangesHooks(m.c.Type(), source, m.c, c, oldvalues)
+		runChanDataChangesHooks(m.c.Type(), source, m.c, done, old)
 	}
 
 	m.c.mutex.Unlock()

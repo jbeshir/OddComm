@@ -1,5 +1,7 @@
 package core
 
+import "sync"
+
 import "oddcomm/lib/trie"
 
 
@@ -10,6 +12,7 @@ var Global Extensible = new(globalData)
 // This lets us provide it with methods to meet the Extensible interface.
 type globalData struct {
 	data trie.StringTrie
+	mutex sync.Mutex
 }
 
 
@@ -19,6 +22,8 @@ type globalData struct {
 func (g *globalData) SetData(source *User, name, value string) {
 	var oldvalue string
 
+	g.mutex.Lock()
+
 	if value != "" {
 		oldvalue = g.data.Insert(name, value)
 	} else {
@@ -26,17 +31,18 @@ func (g *globalData) SetData(source *User, name, value string) {
 	}
 
 	// If nothing changed, don't call hooks.
-	if oldvalue == value {
-		return
+	if oldvalue != value {
+		var c DataChange
+		c.Name = name
+		c.Data = value
+
+		hookRunner <- func() {
+			runGlobalDataChangeHooks(source, name, oldvalue, value)
+			runGlobalDataChangesHooks(source, []DataChange{c}, []string{oldvalue})
+		}
 	}
 
-	c := new(DataChange)
-	c.Name = name
-	c.Data = value
-	old := new(OldData)
-	old.Data = value
-	runGlobalDataChangeHooks(source, name, oldvalue, value)
-	runGlobalDataChangesHooks(source, c, old)
+	g.mutex.Unlock()
 }
 
 
@@ -44,12 +50,13 @@ func (g *globalData) SetData(source *User, name, value string) {
 // This is equivalent to lots of SetData calls, except hooks for all data
 // changes will receive it as a single list, and it is cheaper.
 // source may be nil, in which case the metadata is set by the server.
-func (g *globalData) SetDataList(source *User, c *DataChange) {
-	var oldvalues *OldData
-	var lasthook *DataChange
-	var lastold **OldData = &oldvalues
+func (g *globalData) SetDataList(source *User, changes []DataChange) {
+	done := make([]DataChange, 0, len(changes))
+	old := make([]string, 0, len(changes))
 
-	for it := c; it != nil; it = it.Next {
+	g.mutex.Lock()
+
+	for _, it := range changes {
 
 		// Make the change.
 		var oldvalue string
@@ -59,27 +66,24 @@ func (g *globalData) SetDataList(source *User, c *DataChange) {
 			oldvalue = g.data.Remove(it.Name)
 		}
 
-		// If this was a do-nothing change, cut it out.
+		// If this was a do-nothing change, don't report it.
 		if oldvalue == it.Data {
-			if lasthook != nil {
-				lasthook.Next = it.Next
-			} else {
-				c = it.Next
-			}
 			continue
 		}
 
-		olddata := new(OldData)
-		olddata.Data = oldvalue
-		*lastold = olddata
-		lasthook = it
-		lastold = &olddata.Next
+		// Otherwise, add to be sent to hooks.
+		done = append(done, it)
+		old = append(old, oldvalue)
 	}
 
-	for it, old := c, oldvalues; it != nil && old != nil; it, old = it.Next, old.Next {
-		runGlobalDataChangeHooks(source, c.Name, old.Data, c.Data)
+	hookRunner <- func() {
+		for i, it := range done {
+			runGlobalDataChangeHooks(source, it.Name, old[i], it.Data)
+		}
+		runGlobalDataChangesHooks(source, done, old)
 	}
-	runGlobalDataChangesHooks(source, c, oldvalues)
+
+	g.mutex.Unlock()
 }
 
 

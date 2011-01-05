@@ -1,6 +1,6 @@
 package core
 
-var hookGlobalDataChanges []func(*User, *DataChange, *OldData)
+var hookGlobalDataChanges []func(*User, []DataChange, []string)
 var hookGlobalDataChange = make(map[string][]func(*User, string, string))
 
 
@@ -14,10 +14,10 @@ func HookGlobalDataChange(name string, f func(*User, string, string)) {
 }
 
 // HookGlobalDataChanges adds a hook called for all global data changes.
-// The hook receives the source of the change, and lists of DataChanges and
-// OldData as parameters, so multiple changes at once result in a single call.
-// It must be prepared for source to be nil.
-func HookGlobalDataChanges(f func(*User, *DataChange, *OldData)) {
+// The hook receives the source of the change, a slice of changes, and a slice
+// of old values as parameters, so multiple changes at once result in a single
+// call. It must be prepared for source to be nil.
+func HookGlobalDataChanges(f func(*User, []DataChange, []string)) {
 	hookGlobalDataChanges = append(hookGlobalDataChanges, f)
 }
 
@@ -27,8 +27,8 @@ func runGlobalDataChangeHooks(source *User, name, oldvalue, newvalue string) {
 	}
 }
 
-func runGlobalDataChangesHooks(source *User, c *DataChange, o *OldData) {
+func runGlobalDataChangesHooks(source *User, c []DataChange, old []string) {
 	for _, f := range hookGlobalDataChanges {
-		f(source, c, o)
+		f(source, c, old)
 	}
 }

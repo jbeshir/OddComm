@@ -33,10 +33,8 @@ func addHorde() {
 		data[1].Name, data[1].Data = "hostname", fmt.Sprintf("%d.Horde.FakeUsers.PsuedoUserUnion.org", rng.Int()%1000000)
 		data[2].Name, data[2].Data = "ident", fmt.Sprintf("horde-%d", rng.Int()%1000000)
 		data[3].Name, data[3].Data = "account", fmt.Sprintf("horde-%d", rng.Int()%1000000)
-		data[0].Next, data[1].Next = &data[1], &data[2]
-		data[2].Next = &data[3]
 
-		horde[i] = core.NewUser("oddcomm/modules/dev/horde", nil, true, "", &data[0])
+		horde[i] = core.NewUser("oddcomm/modules/dev/horde", nil, true, "", data)
 		horde[i].SetNick(fmt.Sprintf("horde-%d", rng.Int()%1000000))
 		horde[i].PermitRegistration()
 	}

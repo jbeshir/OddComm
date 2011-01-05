@@ -12,8 +12,8 @@ var hookUserNickChange struct {
 }
 
 var hookUserDataChanges struct {
-	all    []func(*User, *User, *DataChange, *OldData)
-	regged []func(*User, *User, *DataChange, *OldData)
+	all    []func(*User, *User, []DataChange, []string)
+	regged []func(*User, *User, []DataChange, []string)
 }
 
 var hookUserDelete struct {
@@ -85,7 +85,7 @@ func HookUserDataChange(name string, f func(*User, *User, string, string), unreg
 // The hook receives the source and target of the change, and lists of
 // DataChanges and OldData as parameters, so multiple changes at once result
 // in a single call. It must be prepared for source to be nil.
-func HookUserDataChanges(f func(*User, *User, *DataChange, *OldData), unregged bool) {
+func HookUserDataChanges(f func(*User, *User, []DataChange, []string), unregged bool) {
 	if unregged {
 		hookUserDataChanges.all = append(hookUserDataChanges.all, f)
 	} else {
@@ -140,14 +140,14 @@ func runUserNickChangeHooks(u *User, oldnick, newnick string) {
 	}
 }
 
-func runUserDataChangesHooks(source, target *User, changes *DataChange, olddata *OldData) {
+func runUserDataChangesHooks(source, target *User, changes []DataChange, old []string) {
 	for _, f := range hookUserDataChanges.all {
-		f(source, target, changes, olddata)
+		f(source, target, changes, old)
 	}
 
 	if target.Registered() {
 		for _, f := range hookUserDataChanges.regged {
-			f(source, target, changes, olddata)
+			f(source, target, changes, old)
 		}
 	}
 }

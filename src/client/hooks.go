@@ -49,7 +49,7 @@ func init() {
 		},
 		true)
 
-	core.HookUserDataChanges(func(source, target *core.User, c *core.DataChange, old *core.OldData) {
+	core.HookUserDataChanges(func(source, target *core.User, c []core.DataChange, old []string) {
 			cli := GetClient(target)
 			if cli == nil {
 				return
@@ -153,7 +153,7 @@ func init() {
 			}
 		})
 
-	core.HookChanDataChanges("", func(source *core.User, ch *core.Channel, c *core.DataChange, old *core.OldData) {
+	core.HookChanDataChanges("", func(source *core.User, ch *core.Channel, c []core.DataChange, old []string) {
 		modeline := ChanModes.ParseChanges(ch, c, old)
 		if modeline == "" {
 			return

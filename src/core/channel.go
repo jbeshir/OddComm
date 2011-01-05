@@ -86,15 +86,13 @@ func (ch *Channel) SetData(source *User, name string, value string) {
 		return
 	}
 
-	c := new(DataChange)
+	var c DataChange
 	c.Name = name
 	c.Data = value
-	old := new(OldData)
-	old.Data = value
 
 	hookRunner <- func() {
 		runChanDataChangeHooks(ch.Type(), source, ch, name, oldvalue, value)
-		runChanDataChangesHooks(ch.Type(), source, ch, c, old)
+		runChanDataChangesHooks(ch.Type(), source, ch, []DataChange{c}, []string{oldvalue})
 	}
 
 	ch.mutex.Unlock()
@@ -104,14 +102,13 @@ func (ch *Channel) SetData(source *User, name string, value string) {
 // This is equivalent to lots of SetData calls, except hooks for all data
 // changes will receive it as a single list, and it is cheaper.
 // source may be nil, in which case the metadata is set by the server.
-func (ch *Channel) SetDataList(source *User, c *DataChange) {
-	var oldvalues *OldData
-	var lasthook *DataChange
-	var lastold **OldData = &oldvalues
+func (ch *Channel) SetDataList(source *User, changes []DataChange) {
+	done := make([]DataChange, 0, len(changes))
+	old := make([]string, 0, len(changes))
 
 	ch.mutex.Lock()
 
-	for it := c; it != nil; it = it.Next {
+	for _, it := range changes {
 
 		// Figure out what we're making the change to.
 		// The channel, or a member?
@@ -135,35 +132,27 @@ func (ch *Channel) SetDataList(source *User, c *DataChange) {
 			it.Member.u.mutex.Unlock()
 		}
 
-		// If this was a do-nothing change, cut it out.
+		// If this was a do-nothing change, don't report it.
 		if oldvalue == it.Data {
-			if lasthook != nil {
-				lasthook.Next = it.Next
-			} else {
-				c = it.Next
-			}
 			continue
 		}
 
-		// Otherwise, add the old value to the old data list.
-		olddata := new(OldData)
-		olddata.Data = oldvalue
-		*lastold = olddata
-		lasthook = it
-		lastold = &olddata.Next
+		// Otherwise, add to the slices.
+		done = append(done, it)
+		old = append(old, oldvalue)
 	}
 
 	hookRunner <- func() {
-		for it, old := c, oldvalues; it != nil && old != nil; it, old = it.Next, old.Next {
+		for i, it := range done {
 			if it.Member == nil {
-				runChanDataChangeHooks(ch.Type(), source, ch, it.Name,
-					old.Data, it.Data)
+				runChanDataChangeHooks(ch.Type(), source, ch,
+					it.Name, old[i], it.Data)
 			} else {
-				runMemberDataChangeHooks(ch.Type(), source, it.Member,
-					it.Name, old.Data, it.Data)
+				runMemberDataChangeHooks(ch.Type(), source,
+					it.Member, it.Name, old[i], it.Data)
 			}
 		}
-		runChanDataChangesHooks(ch.Type(), source, ch, c, oldvalues)
+		runChanDataChangesHooks(ch.Type(), source, ch, done, old)
 	}
 
 	ch.mutex.Unlock()
@@ -348,16 +337,14 @@ func (ch *Channel) GetTopic() (topic, setby, setat string) {
 
 // SetTopic sets the topic, including recording its setting and set time.
 func (ch *Channel) SetTopic(source *User, topic string) {
-	var changes [3]DataChange
+	changes := make([]DataChange, 3)
 	changes[0].Name = "topic"
 	changes[0].Data = topic
-	changes[0].Next = &changes[1]
 	changes[1].Name = "topic setat"
 	changes[1].Data = strconv.Itoa64(time.Seconds())
+	changes[2].Name = "topic setby"
 	if source != nil {
-		changes[1].Next = &changes[2]
-		changes[2].Name = "topic setby"
 		changes[2].Data = source.GetSetBy()
 	}
-	ch.SetDataList(source, &changes[0])
+	ch.SetDataList(source, changes)
 }

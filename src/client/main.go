@@ -118,9 +118,8 @@ func listen(l *net.TCPListener) {
 		data := make([]core.DataChange, 2)
 		data[0].Name, data[0].Data = "ip", ip
 		data[1].Name, data[1].Data = "hostname", ip
-		data[0].Next = &data[1]
 
-		client.u = core.NewUser("oddcomm/src/client", client, false, "", &data[0])
+		client.u = core.NewUser("oddcomm/src/client", client, false, "", data)
 		incClient(client)
 
 		go input(client)

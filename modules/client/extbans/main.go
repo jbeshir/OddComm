@@ -46,7 +46,7 @@ func init() {
 	client.ChanModes.AddList('I', "unrestrict")
 
 	// Extend ban mode.
-	client.ChanModes.ExtendModeToData('b', func(adding bool, e core.Extensible, param string) *core.DataChange {
+	client.ChanModes.ExtendModeToData('b', func(adding bool, e core.Extensible, param string) []core.DataChange {
 		return processBan("ban", perm.DefaultBan(), adding, e, param)
 	})
 	client.ChanModes.ExtendDataToMode("ban", func(e core.Extensible, name, oldvalue, newvalue string) ([]int, []string, []int, []string) {
@@ -55,7 +55,7 @@ func init() {
 	})
 
 	// Extend ban exception mode.
-	client.ChanModes.ExtendModeToData('e', func(adding bool, e core.Extensible, param string) *core.DataChange {
+	client.ChanModes.ExtendModeToData('e', func(adding bool, e core.Extensible, param string) []core.DataChange {
 		return processBan("banexception", perm.DefaultBan(), adding, e,
 			param)
 	})
@@ -65,7 +65,7 @@ func init() {
 	})
 
 	// Extend unrestrict (invex) mode.
-	client.ChanModes.ExtendModeToData('I', func(adding bool, e core.Extensible, param string) *core.DataChange {
+	client.ChanModes.ExtendModeToData('I', func(adding bool, e core.Extensible, param string) []core.DataChange {
 		return processBan("unrestrict", perm.DefaultBan(), adding, e,
 			param)
 	})
@@ -97,7 +97,7 @@ func init() {
 // Function handling processing of ban syntax into metadata.
 // This is called to handle bans, ban exceptions, and unrestrictions, and
 // returns the data change object, sans the prefix for the metadata name.
-func processBan(prefix, def string, adding bool, e core.Extensible, param string) *core.DataChange {
+func processBan(prefix, def string, adding bool, e core.Extensible, param string) []core.DataChange {
 	var change core.DataChange
 	change.Data = def
 	t := "host"
@@ -333,7 +333,7 @@ func processBan(prefix, def string, adding bool, e core.Extensible, param string
 		change.Data = "on"
 	}
 
-	return &change
+	return []core.DataChange{change}
 }
 
 // Function handling processing of ban metadata changes into ban syntax.

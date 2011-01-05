@@ -242,20 +242,19 @@ func cmdMode(u *core.User, w io.Writer, params [][]byte) {
 			c.WriteTo(nil, "501", "%s", err)
 		}
 
-		prev := &changes
-		for cha := changes; cha != nil; cha = cha.Next {
+		todo := make([]core.DataChange, 0, len(changes))
+		for _, cha := range changes {
 			ok, err := perm.CheckUserData(u, u, cha.Name, cha.Data)
 			if !ok {
 				m := UserModes.GetMode(cha.Name)
 				c.WriteTo(nil, "482", "%s %c: %s", u.Nick(), m,
 					err)
-				(*prev) = cha.Next
-			} else {
-				prev = &cha.Next
+				continue
 			}
+			todo = append(todo, cha)
 		}
-		if changes != nil {
-			c.u.SetDataList(u, changes)
+		if len(todo) != 0 {
+			c.u.SetDataList(u, todo)
 		}
 		return
 	}
@@ -275,30 +274,28 @@ func cmdMode(u *core.User, w io.Writer, params [][]byte) {
 		if err != nil {
 			c.WriteTo(nil, "501", "%s", err)
 		}
-		prev := &changes
-		for cha := changes; cha != nil; cha = cha.Next {
+
+		todo := make([]core.DataChange, 0, len(changes))
+		for _, cha := range changes {
 			if cha.Member != nil {
 				ok, err := perm.CheckMemberData(u, cha.Member, cha.Name, cha.Data)
 				if !ok {
 					m := ChanModes.GetMode(cha.Name)
 					c.WriteTo(nil, "482", "#%s %c: %s", ch.Name(), m, err)
-					(*prev) = cha.Next
-				} else {
-					prev = &cha.Next
+					continue
 				}
 			} else {
 				ok, err := perm.CheckChanData(u, ch, cha.Name, cha.Data)
 				if !ok {
 					m := ChanModes.GetMode(cha.Name)
 					c.WriteTo(nil, "482", "#%s %c: %s", ch.Name(), m, err)
-					(*prev) = cha.Next
-				} else {
-					prev = &cha.Next
+					continue
 				}
 			}
+			todo = append(todo, cha)
 		}
-		if changes != nil {
-			ch.SetDataList(u, changes)
+		if todo != nil {
+			ch.SetDataList(u, todo)
 		}
 
 		return

@@ -34,7 +34,7 @@ func init() {
 	Flags.Add('d', "viewdata")
 
 	// Extend op mode.
-	client.ChanModes.ExtendModeToData('o', func(adding bool, e core.Extensible, param string) *core.DataChange {
+	client.ChanModes.ExtendModeToData('o', func(adding bool, e core.Extensible, param string) []core.DataChange {
 		ch, ok := e.(*core.Channel)
 		if !ok {
 			return nil
@@ -53,7 +53,7 @@ func init() {
 
 // Function handling processing of extended op syntax into metadata.
 // It returns the data change object.
-func processOp(adding bool, ch *core.Channel, param string) *core.DataChange {
+func processOp(adding bool, ch *core.Channel, param string) []core.DataChange {
 	var change core.DataChange
 	change.Name = "op"
 	change.Data = perm.DefaultChanOp()
@@ -195,5 +195,5 @@ func processOp(adding bool, ch *core.Channel, param string) *core.DataChange {
 		change.Data = "on"
 	}
 
-	return &change
+	return []core.DataChange{change}
 }
