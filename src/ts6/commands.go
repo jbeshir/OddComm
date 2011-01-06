@@ -1,9 +1,9 @@
 package ts6
 
 import "oddcomm/lib/irc"
-import "oddcomm/src/core"
 
 
+// Commands added here will be called with either a server or a user.
 var commands irc.CommandDispatcher = irc.NewCommandDispatcher()
 
 
@@ -16,7 +16,7 @@ func init() {
 	c.Handler = cmdPass
 	c.Minargs = 4
 	c.Maxargs = 4
-	c.Unregged = 1
+	c.Unregged = 2
 	commands.Add(c)
 
 	// Add pass command.
@@ -25,7 +25,7 @@ func init() {
 	c.Handler = cmdServer
 	c.Minargs = 3
 	c.Maxargs = 3
-	c.Unregged = 1
+	c.Unregged = 2
 	commands.Add(c)
 }
 
@@ -40,54 +40,50 @@ func cmdPass(source interface{}, params [][]byte) {
 
 	// If this isn't a local server, ignore it.
 	l := s.local
-	if &l.s != s {
-		return
-	}
-
-	// Ignore PASS commands from already authed servers.
-	// They can happen if they have an invalid source.
-	if l.authed {
+	if &l.server != s {
 		return
 	}
 
 	// Set the password.
 	l.pass = string(params[0])
 
-	if l.s.u != nil {
-		// Already got a user.
-		return
-	}
-
 	// Validate the given SID.
-	if len(params[3]) != 3 {
-		l.c.Close()
+	sid := string(params[3])
+	if len(sid) != 3 {
 		return
 	}
-	if params[3][0] < '0' || params[3][0] > '9' {
-		l.c.Close()
+	if sid[0] < '0' || sid[0] > '9' {
 		return
 	}
-	if (params[3][0] < '0' || params[3][0] > '9') && (params[3][1] < 'A' || params[3][1] > 'Z') {
-		l.c.Close()
+	if (sid[1] < '0' || sid[1] > '9') && (sid[1] < 'A' || sid[1] > 'Z') {
 		return
 	}
-	if (params[3][0] < '0' || params[3][0] > '9') && (params[3][2] < 'A' || params[3][2] > 'Z') {
-		l.c.Close()
+	if (sid[2] < '0' || sid[2] > '9') && (sid[2] < 'A' || sid[2] > 'Z') {
 		return
 	}
 
-	// Make the new user.
-	l.s.u = core.NewUser("oddcomm/src/ts6", &(l.s), true,
-		string(params[3]), nil)
-
-	if l.s.u == nil {
-		// SID in use!
-		l.c.Close()
+	// Set the SID, if there's no conflict.
+	if core.NewSID(sid, &l.server) {
+		l.server.sid = sid
+	} else {
 		return
 	}
 }
 
 
 // Server registration command.
+// Either registers a local server, or adds a new remote server.
+// May only be from a server.
 func cmdServer(source interface{}, params [][]byte) {
+	s, ok := source.(*server)
+	if !ok {
+		return
+	}
+
+	// Adding remote servers is not yet implemented.
+	// If this isn't a local server, ignore it.
+	l := s.local
+	if &l.server != s {
+		return
+	}
 }

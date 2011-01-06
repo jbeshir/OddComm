@@ -10,7 +10,7 @@ import "oddcomm/src/core"
 
 // The server struct contains information on a server.
 type server struct {
-	u    *core.User
+	sid  string  // The server's unique ID.
 	up   *server // Parent server.
 	down *server // First child server.
 	next *server // Next sibling server.
@@ -20,7 +20,7 @@ type server struct {
 
 // The local struct contains the state for directly linked servers.
 type local struct {
-	s      server
+	server
 	c      *net.TCPConn
 	authed bool
 	pass   string
@@ -29,9 +29,9 @@ type local struct {
 
 // Write to this local server.
 func (l *local) Write(b []byte) (n int, err os.Error) {
-	l.s.mutex.Lock()
+	l.server.mutex.Lock()
 	n, err = l.c.Write(b)
-	l.s.mutex.Unlock()
+	l.server.mutex.Unlock()
 	return
 }
 
@@ -41,10 +41,10 @@ func (l *local) Write(b []byte) (n int, err os.Error) {
 func (l *local) WriteTo(u *core.User, cmd string, format string, args ...interface{}) {
 	if u != nil {
 		fmt.Fprintf(l, ":%s %s %s %s\r\n", u.ID(), cmd,
-			l.s.u.ID(), fmt.Sprintf(format, args...))
+			l.server.sid, fmt.Sprintf(format, args...))
 	} else {
 		fmt.Fprintf(l, ":%s %s %s %s\r\n", "0ZZ", cmd,
-			l.s.u.ID(), fmt.Sprintf(format, args...))
+			l.server.sid, fmt.Sprintf(format, args...))
 	}
 }
 

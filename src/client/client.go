@@ -123,7 +123,7 @@ func (c *Client) write(line []byte) bool {
 		// If it takes too long or we can't write it all, make an
 		// output buffer and switch to buffered I/O.
 		if n != len(line) {
-			c.outbuf = make([]byte, 0, 4096)
+			c.outbuf = make([]byte, 0, 8192)
 			if !appendfunc(line[n:]) {
 				return false
 			}

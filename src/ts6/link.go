@@ -4,6 +4,7 @@ import "fmt"
 import "net"
 import "time"
 
+import "oddcomm/src/core"
 import "oddcomm/lib/irc"
 
 
@@ -13,10 +14,10 @@ func link(c *net.TCPConn, outgoing bool) {
 	var errMsg string
 	_ = errMsg
 
-	server := new(local)
-	server.c = c
+	l := new(local)
+	l.c = c
 	if outgoing {
-		link_auth(server)
+		link_auth(l)
 	}
 
 	b := make([]byte, 20960)
@@ -30,7 +31,7 @@ func link(c *net.TCPConn, outgoing bool) {
 		}
 
 		// Try to read from the user.
-		n, err := server.c.Read(b[count:cap(b)])
+		n, err := l.c.Read(b[count:cap(b)])
 		if err != nil {
 			// This happens if the user is disconnected
 			// by other code. In this case, the error message
@@ -89,12 +90,41 @@ func link(c *net.TCPConn, outgoing bool) {
 			prefix, command, params, perr := irc.Parse(commands,
 				line, true)
 
-			// Look up the user this command is from.
-			_ = prefix
+			// Look up the server or user this command is from.
+			var source interface{}
+			if len(prefix) == 7 {
+				u := core.GetUser(string(prefix));
+				if u == nil {
+					source = nil
+				} else if u.Owner() != "oddcomm/src/ts6" {
+					source = nil
+				} else {
+					userver := u.Owndata().(*server)
+					if userver.local == l {
+						source = u
+					}
+				}
+			} else if len(prefix) == 3 {
+				s := core.GetSID(string(prefix))
+				if s == nil {
+					source = nil
+				} else if server, ok := s.(*server); ok {
+					if server.local == l {
+						source = server
+					}
+				}
+			} else if len(prefix) == 0 {
+				// No prefix; it's from this server.
+				source = &l.server
+			} else {
+				// Prefix is gibberish.
+				source = nil
+			}
 
-			// If we successfully got a command, run it.
-			if command != nil {
-				command.Handler(server, params)
+
+			// If we successfully got a command and source, run it.
+			if source != nil && command != nil {
+				command.Handler(source, params)
 			} else if perr != nil {
 
 				// The IRC protocol is stupid.
