@@ -15,6 +15,7 @@ func link(c *net.TCPConn, outgoing bool) {
 	_ = errMsg
 
 	l := new(local)
+	l.server.local = l
 	l.c = c
 	if outgoing {
 		link_auth(l)
@@ -88,7 +89,7 @@ func link(c *net.TCPConn, outgoing bool) {
 
 			// Parse the line, ignoring any specified origin.
 			prefix, command, params, perr := irc.Parse(commands,
-				line, true)
+				line, l.authed)
 
 			// Look up the server or user this command is from.
 			var source interface{}
@@ -105,17 +106,17 @@ func link(c *net.TCPConn, outgoing bool) {
 					}
 				}
 			} else if len(prefix) == 3 {
-				s := core.GetSID(string(prefix))
-				if s == nil {
+				v := core.GetSID(string(prefix))
+				if v == nil {
 					source = nil
-				} else if server, ok := s.(*server); ok {
-					if server.local == l {
-						source = server
+				} else if s, ok := v.(*server); ok {
+					if s.local == l {
+						source = s
 					}
 				}
 			} else if len(prefix) == 0 {
 				// No prefix; it's from this server.
-				source = &l.server
+				source = &(l.server)
 			} else {
 				// Prefix is gibberish.
 				source = nil
@@ -167,14 +168,17 @@ func link(c *net.TCPConn, outgoing bool) {
 
 
 // Auth to a locally linked server.
-func link_auth(server *local) {
+func link_auth(l *local) {
 
 	// No configuration!
-	server.c.Write([]byte("PASS ultratest TS 6 :0ZZ\n"))
-	server.c.Write([]byte("SERVER Test.net 1 :Testing\n"))
-	fmt.Fprintf(server.c, "SVINFO 6 6 0 :%d\n", time.Seconds())
+	l.Write([]byte("PASS supertest TS 6 :0ZZ\n"))
+	l.Write([]byte("CAPAB :QS ENCAP\n"))
+	l.Write([]byte("SERVER Test.net 1 :Testing\n"))
+	fmt.Fprintf(l, "SVINFO 6 6 0 :%d\n", time.Seconds())
+	l.auth_sent = true
 }
 
 // Burst to a locally linked server.
-func link_burst(server *local) {
+func link_burst(l *local) {
+	// Not implemented yet.
 }

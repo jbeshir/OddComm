@@ -6,7 +6,12 @@ package ts6
 import "fmt"
 import "net"
 
+import "oddcomm/lib/irc"
 import "oddcomm/src/core"
+
+
+// Commands added here will be called with either a server or a core.User.
+var commands irc.CommandDispatcher = irc.NewCommandDispatcher()
 
 
 // Create a channel for sending messages to the subsystem's goroutine.

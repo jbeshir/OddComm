@@ -11,19 +11,24 @@ import "oddcomm/src/core"
 // The server struct contains information on a server.
 type server struct {
 	sid  string  // The server's unique ID.
+	name string  // The server's name.
+	desc string  // The server's description.
+	bursted bool // Whether it has finished sending its burst.
 	up   *server // Parent server.
 	down *server // First child server.
 	next *server // Next sibling server.
-	local *local // Local server in this server's direction.
+	local *local // The local server that introduced this server.
 	mutex  sync.Mutex
 }
 
 // The local struct contains the state for directly linked servers.
 type local struct {
-	server
-	c      *net.TCPConn
-	authed bool
-	pass   string
+	server // Embed information on this server.
+	c      *net.TCPConn // This server's connection.
+	authed bool // Whether this server has authenticated to us.
+	auth_sent bool // Whether we've authenticated to it.
+	burst_sent bool // Whether we've finished sending our burst.
+	pass   string // The server's password.
 }
 
 
