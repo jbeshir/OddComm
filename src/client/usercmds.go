@@ -40,7 +40,7 @@ func init() {
 
 	c = new(irc.Command)
 	c.Name = "QUIT"
-	c.Handler = irc.CmdQuit
+	c.Handler = cmdQuit
 	c.Maxargs = 1
 	c.Unregged = 1
 	Commands.Add(c)
@@ -394,4 +394,10 @@ func cmdAway(source interface{}, params [][]byte) {
 		c.u.SetData(c.u, "away time", strconv.Itoa64(time.Seconds()))
 		c.WriteTo(nil, "306", ":You have been marked as being away.")
 	}
+}
+
+
+func cmdQuit(source interface{}, params [][]byte) {
+	c := source.(*Client)
+	irc.CmdQuit(c.u, params)
 }

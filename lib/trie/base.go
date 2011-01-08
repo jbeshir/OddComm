@@ -157,7 +157,12 @@ func (t *Trie) Iterate() *Iterator {
 	it := new(Iterator)
 	it.parents = make([]*nodeBox, 1)
 	it.it = first
-	return it
+
+	// If we don't already have a value, iterate to one.
+	if it.it.n.key != "" || it.Next() {
+		return it
+	}
+	return nil
 }
 
 

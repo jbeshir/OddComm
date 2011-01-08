@@ -40,3 +40,18 @@ func ReleaseSID(sid string) {
 	sidTrie.Remove(sid)
 	sidMutex.Unlock()
 }
+
+// IterateSID runs the given function for every SID and value.
+// This can be used to iterate servers.
+func IterateSID(f func(sid string, value interface{})) {
+	it := sidTrie.Iterate()
+	if it != nil {
+		for {
+			f(it.Value())
+
+			if !it.Next() {
+				break
+			}
+		}
+	}
+}

@@ -197,8 +197,8 @@ func cmdPing(source interface{}, params[][]byte) {
 
 	// Echo it back, including the remote destination if it has one.
 	if len(params) == 1 {
-		fmt.Fprintf(s.local, "0ZZ PONG %s\n", params[0])
+		fmt.Fprintf(s.local, "1AA PONG %s\n", params[0])
 	} else {
-		fmt.Fprintf(s.local, "0ZZ PONG %s %s\n", params[0], params[1])
+		fmt.Fprintf(s.local, "1AA PONG %s %s\n", params[0], params[1])
 	}
 }

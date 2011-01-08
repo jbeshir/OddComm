@@ -48,7 +48,7 @@ func (l *local) WriteTo(u *core.User, cmd string, format string, args ...interfa
 		fmt.Fprintf(l, ":%s %s %s %s\r\n", u.ID(), cmd,
 			l.server.sid, fmt.Sprintf(format, args...))
 	} else {
-		fmt.Fprintf(l, ":%s %s %s %s\r\n", "0ZZ", cmd,
+		fmt.Fprintf(l, ":%s %s %s %s\r\n", "1AA", cmd,
 			l.server.sid, fmt.Sprintf(format, args...))
 	}
 }
@@ -61,7 +61,7 @@ func (l *local) WriteFrom(u *core.User, format string, args ...interface{}) {
 		fmt.Fprintf(l, ":%s %s\r\n", u.ID(),
 			fmt.Sprintf(format, args...))
 	} else {
-		fmt.Fprintf(l, ":%s %s\r\n", "0ZZ",
+		fmt.Fprintf(l, ":%s %s\r\n", "1AA",
 			fmt.Sprintf(format, args...))
 		}
 }

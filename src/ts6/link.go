@@ -1,6 +1,7 @@
 package ts6
 
 import "fmt"
+import "io"
 import "net"
 import "time"
 
@@ -93,7 +94,7 @@ func link(c *net.TCPConn, outgoing bool) {
 
 			// Look up the server or user this command is from.
 			var source interface{}
-			if len(prefix) == 7 {
+			if len(prefix) == 9 {
 				u := core.GetUser(string(prefix));
 				if u == nil {
 					source = nil
@@ -171,7 +172,7 @@ func link(c *net.TCPConn, outgoing bool) {
 func link_auth(l *local) {
 
 	// No configuration!
-	l.Write([]byte("PASS supertest TS 6 :0ZZ\n"))
+	l.Write([]byte("PASS supertest TS 6 :1AA\n"))
 	l.Write([]byte("CAPAB :QS ENCAP\n"))
 	l.Write([]byte("SERVER Test.net 1 :Testing\n"))
 	fmt.Fprintf(l, "SVINFO 6 6 0 :%d\n", time.Seconds())
@@ -180,5 +181,26 @@ func link_auth(l *local) {
 
 // Burst to a locally linked server.
 func link_burst(l *local) {
-	// Not implemented yet.
+	core.Sync(
+		func(u *core.User, hook bool) {
+			if !hook {
+				send_uid(l, u)
+			}
+		},
+		func(ch *core.Channel, hook bool) {
+			_, _ = ch, hook
+		},
+		func(hook bool) {
+			if !hook {
+				l.bursted = true
+			}
+		})
+}
+
+
+// Introduce a user through a given writer.
+func send_uid(w io.Writer, u *core.User) {
+	fmt.Fprintf(w, ":1AA UID %s 1 %d +i %s %s %s %s :%s\n", u.Nick(), 0,
+			u.Data("ident"), u.GetHostname(), u.Data("ip"), u.ID(),
+			u.Data("realname"))
 }

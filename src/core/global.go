@@ -6,7 +6,8 @@ import "oddcomm/lib/trie"
 
 
 // Global stores global (meta)data, for server-wide data storage.
-var Global Extensible = new(globalData)
+var global = new(globalData)
+var Global Extensible = global
 
 // Define a type wrapping our global data trie.
 // This lets us provide it with methods to meet the Extensible interface.
