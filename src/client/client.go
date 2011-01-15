@@ -152,7 +152,6 @@ func (c *Client) bufferOn() {
 // output goroutine waiting to run.
 func (c *Client) bufferOff() {
 	c.outbuf = nil
-	c.outchan = nil
 	if c.disconnecting&2 != 0 {
 		c.delete("Output Done")
 	} else {

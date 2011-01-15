@@ -39,6 +39,9 @@ func addHorde() {
 		horde[i].PermitRegistration()
 	}
 
+	// Make a huge channel containing the entire horde.
+	core.GetChannel("", "huge").Join(horde)
+
 	// Make 100 channels containing roughly a twentieth of the horde each.
 	// Each horde user is in an average of roughly five.
 	for i := 0; i < 100; i++ {
