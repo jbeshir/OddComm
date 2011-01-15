@@ -129,7 +129,7 @@ func init() {
 			}
 
 			// Send them NAMES.
-			cmdNames(c, [][]byte{[]byte(ch.Name())})
+			go cmdNames(c, [][]byte{[]byte(ch.Name())})
 
 			// Send them the topic.
 			if topic, setby, setat := ch.GetTopic(); topic != "" {
@@ -236,7 +236,7 @@ func init() {
 		sent := make(map[*Client]bool)
 
 		// Send a KILL message to the user, if they were deleted by
-		// another user and are our client.
+		/// another user and are our client.
 		if c := GetClient(u); c != nil {
 			if source != nil && source != u {
 				c.WriteTo(source, "KILL", "%s (%s)", source.Nick(), message)

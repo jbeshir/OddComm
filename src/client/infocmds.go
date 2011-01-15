@@ -1,5 +1,6 @@
 package client
 
+import "fmt"
 import "strings"
 import "time"
 
@@ -146,8 +147,14 @@ func cmdWho(source interface{}, params [][]byte) {
 		}
 	}
 
-	for it := ch.Users(); it != nil; it = it.ChanNext() {
+	it := ch.Users()
+	c.WriteBlock(func() []byte {
+		if it == nil {
+			return nil
+		}
+
 		user := it.User()
+
 		var prefixes string
 		if user.Data("away") == "" {
 			prefixes += "H"
@@ -158,11 +165,16 @@ func cmdWho(source interface{}, params [][]byte) {
 			prefixes += "*"
 		}
 		prefixes += ChanModes.GetPrefixes(it)
-		c.WriteTo(nil, "352", "#%s %s %s %s %s %s :0 %s",
-			channame, user.GetIdent(),
-			user.GetHostname(), "Server.name",
-			user.Nick(), prefixes, user.Data("realname"))
-	}
+
+		result := fmt.Sprintf(":%s 352 %s #%s %s %s %s %s %s :0 %s\r\n",
+			"Server.name", c.u.Nick(), channame, user.GetIdent(),
+			user.GetHostname(), "Server.name", user.Nick(),
+			prefixes, user.Data("realname"))
+
+		it = it.ChanNext()
+		return []byte(result)
+	})
+
 	c.WriteTo(nil, "315", "#%s :End of /WHO list.", channame)
 }
 
@@ -188,12 +200,6 @@ func cmdNames(source interface{}, params [][]byte) {
 		}
 	}
 
-	var names string
-	for it := ch.Users(); it != nil; it = it.ChanNext() {
-		names += " " + ChanModes.GetPrefixes(it)
-		names += it.User().Nick()
-	}
-
 	var myprefix string
 	if m := ch.GetMember(c.u); m != nil {
 		myprefix = ChanModes.GetPrefixes(m)
@@ -201,7 +207,27 @@ func cmdNames(source interface{}, params [][]byte) {
 	if myprefix == "" {
 		myprefix = "="
 	}
-	c.WriteTo(nil, "353", "%s #%s :%s", myprefix, channame, names)
+
+	it := ch.Users()
+	c.WriteBlock(func() []byte {
+		if it == nil {
+			return nil
+		}
+
+		names := fmt.Sprintf(":%s 353 %s %s #%s :", "Server.name",
+			c.u.Nick(), myprefix, channame)
+
+		for ; it != nil; it = it.ChanNext() {
+			name := ChanModes.GetPrefixes(it) + it.User().Nick()
+			if len(names) + len(name) > 508 {
+				break
+			}
+			names += " " + name
+		}
+
+		names += "\r\n"
+		return []byte(names)
+	})
 	c.WriteTo(nil, "366", "#%s :End of /NAMES list", channame)
 }
 

@@ -128,9 +128,7 @@ func input(c *Client) {
 			// it down and cut the buffer to it.
 			// Otherwise, clear it.
 			if len(b)-eol-1 >= 0 {
-				for i := 0; i < len(b)-eol-1; i++ {
-					b[i] = b[eol+1+i]
-				}
+				copy(b, b[eol+1:])
 				b = b[:len(b)-eol-1]
 			} else {
 				b = b[:0]
@@ -143,48 +141,116 @@ func input(c *Client) {
 }
 
 
-// Output goroutine for a client.
-// Only spawned when writing output blocks for too long, and the client is
-// switched over to buffered output. While existing, it owns writing to the
-// socket, and the holder of the client's mutex may only append to the output
-// buffer. The only permitted way for any other changes, including deletion,
-// to the output buffer to be made, is for this goroutine to do it while
-// holding the mutex, until this goroutine terminates.
-func output(c *Client, n int) {
+// Output goroutine function for a client.
+// Used when the client is switched to buffered writes.
+// This happens in two cases: When writing output blocks for too long, or a
+// goroutine wishes to do blocking writes over time (in which case it "becomes"
+// the output goroutine for the duration).
+//
+// While existing, it owns writing to the socket, and the holder of the
+// client's mutex may only append to the output buffer. The only permitted way
+// for any other changes, including deletion, to the output buffer to be made,
+// is for this goroutine to do it while holding the mutex, until this goroutine
+// terminates.
+//
+// If f is not nil, it will be called as often as the connection can support,
+// and its result written to the client, until it returns a nil slice, at which
+// time this function will spawn a new output goroutine if needed and return.
+// This call will replace an existing output goroutine if necessary.
+//
+// If f is nil, we will assume we are being called either by a previous output
+// goroutine, or a goroutine which has just turned buffering on, and do not
+// need to replace an existing goroutine.
+func output(c *Client, f func()[]byte) {
+	var n int
+	var err os.Error
+
+	// We hold the client mutex whenever not writing.
+	c.mutex.Lock()
+
+	// If we're replacing an existing output goroutine,
+	// add to the count and wait.
+	if f != nil {
+		if c.outbuf != nil {
+			c.outcount++
+			c.mutex.Unlock()
+			<-c.outchan
+			c.mutex.Lock()
+		} else {
+			c.bufferOn()
+		}
+	}
+
+	// Get the current length of the output buffer.
+	n = len(c.outbuf)
+
 	// While we have something to write...
-	for n > 0 {
-		// Write it.
-		var err os.Error
-		n, err = c.conn.Write(c.outbuf[:n])
+	for {
+		// Unlock the client mutex.
+		c.mutex.Unlock()
+
+		// Write from the output buffer, if we have output.
+		if n > 0 {
+			_, err = c.conn.Write(c.outbuf[:n])
+		}
+
+		// If f != nil and the buffer was below half full,
+		// call f and write its result.
+		if f != nil && err == nil && n <= cap(c.outbuf)/2 {
+			buf := f()
+			if buf == nil {
+				// We're done. If there's a waiting output
+				// goroutine, tell them to go. If not and the
+				// output buffer is not empty, spawn a new
+				/// output goroutine.
+				c.mutex.Lock()
+				if c.outcount != 0 {
+					c.outcount--
+					c.outchan <- true
+				} else if len(c.outbuf) != 0 {
+					go output(c, nil)
+				} else {
+					c.bufferOff()
+				}
+				break
+			}
+
+			// Write the result.
+			_, err = c.conn.Write(buf)
+		}
+
+		// Relock the mutex.
+		c.mutex.Lock()
 
 		// If writing failed, delete the user, suppressing writes.
 		if err != nil {
-			c.mutex.Lock()
-			c.outbuf = nil
+			c.bufferOff()
 			c.disconnecting |= 2
 			c.delete(err.String())
-			c.mutex.Unlock()
 			break
 		}
 
+		// If f is nil and we've been asked to stop, do so.
+		// Otherwise, they have to wait until f is done.
+		if f == nil {
+			if c.outcount != 0 {
+				c.outcount--
+				c.outchan <- true
+				break
+			}
+		}
+
 		// Get more to write.
-		// If we run out, turn off buffered I/O.
-		c.mutex.Lock()
-		if len(c.outbuf) == n {
-			c.outbuf = nil
-			if c.disconnecting&2 != 0 {
-				c.delete("Output Done")
-			} else {
-				c.conn.SetWriteTimeout(1000)
-			}
-			n = 0
+		// If we run out and f is nil, turn off buffered I/O.
+		if len(c.outbuf) == n && f == nil {
+			c.bufferOff()
+			break
 		} else {
-			for i := 0; i < len(c.outbuf)-n; i++ {
-				c.outbuf[i] = c.outbuf[n+i]
-			}
+			copy(c.outbuf[:len(c.outbuf)-n], c.outbuf[n:])
 			c.outbuf = c.outbuf[:len(c.outbuf)-n]
 			n = len(c.outbuf)
 		}
-		c.mutex.Unlock()
 	}
+
+	c.mutex.Unlock()
 }

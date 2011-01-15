@@ -14,6 +14,8 @@ type Client struct {
 	conn          *net.TCPConn
 	u             *core.User
 	outbuf        []byte
+	outcount      int
+	outchan       chan bool
 	disconnecting uint8
 	nicked        bool
 }
@@ -101,9 +103,7 @@ func (c *Client) write(line []byte) bool {
 		// Otherwise, append this to it.
 		start := len(c.outbuf)
 		c.outbuf = c.outbuf[:start+len(line)]
-		for i := 0; i < len(line); i++ {
-			c.outbuf[start+i] = line[i]
-		}
+		copy(c.outbuf[start:], line)
 		return true
 	}
 
@@ -120,15 +120,14 @@ func (c *Client) write(line []byte) bool {
 			return false
 		}
 
-		// If it takes too long or we can't write it all, make an
-		// output buffer and switch to buffered I/O.
+		// If it takes too long or we can't write it all, turn on
+		// buffered I/O, start a goroutine, and tell it to go.
 		if n != len(line) {
-			c.outbuf = make([]byte, 0, 8192)
+			c.bufferOn()
 			if !appendfunc(line[n:]) {
 				return false
 			}
-			c.conn.SetWriteTimeout(0)
-			go output(c, len(line)-n)
+			go output(c, nil)
 		}
 	} else {
 		// If we're using buffered output, add it to the buffer.
@@ -138,6 +137,27 @@ func (c *Client) write(line []byte) bool {
 	}
 
 	return true
+}
+
+// Switch the client to buffered I/O. The caller of this becomes the output
+// goroutine and is responsible for ensuring that output happens.
+// Assumes the caller holds the client mutex.
+func (c *Client) bufferOn() {
+	c.outbuf = make([]byte, 0, 8192)
+	c.conn.SetWriteTimeout(0)
+}
+
+// Switch the client from buffered I/O. This can only be called from an output
+// goroutine which is terminating, and holds the client mutex, with no other
+// output goroutine waiting to run.
+func (c *Client) bufferOff() {
+	c.outbuf = nil
+	c.outchan = nil
+	if c.disconnecting&2 != 0 {
+		c.delete("Output Done")
+	} else {
+		c.conn.SetWriteTimeout(1000)
+	}
 }
 
 // Write a raw line to the client.
@@ -180,4 +200,12 @@ func (c *Client) WriteFrom(u *core.User, format string, args ...interface{}) {
 		fmt.Fprintf(c, ":%s %s\r\n", "Server.name",
 			fmt.Sprintf(format, args...))
 	}
+}
+
+// WriteBlock permits blocking writes to the client. It calls the given
+// function repeatedly to generate output until it returns nil, writing it over
+// time. In general, the only place blocking is permitted is in a command
+// handler for that client.
+func (c *Client) WriteBlock(f func() []byte) {
+	output(c, f)
 }

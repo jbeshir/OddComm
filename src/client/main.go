@@ -111,6 +111,7 @@ func listen(l *net.TCPListener) {
 		}
 
 		client := new(Client)
+		client.outchan = make(chan bool, 1)
 		client.conn = c
 		client.conn.SetWriteTimeout(1000)
 
