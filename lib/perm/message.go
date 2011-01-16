@@ -5,17 +5,13 @@ import "os"
 import "oddcomm/src/core"
 
 
-var checkUserMsg map[string]**hook
-var checkUserMsgAll *hook
-var checkChanMsg map[string]map[string]**hook
-var checkChanMsgAll map[string]**hook
+var checkUserMsg = make(map[string][]interface{})
+var checkUserMsgAll[]interface{}
+var checkChanMsg = make(map[string]map[string][]interface{})
+var checkChanMsgAll = make(map[string][]interface{})
 
 
 func init() {
-	checkUserMsg = make(map[string]**hook)
-	checkChanMsg = make(map[string]map[string]**hook)
-	checkChanMsgAll = make(map[string]**hook)
-
 	// Are the core permissions for sending messages to users.
 	HookUserMsg(false, "invite", externalInvite)
 	HookUserMsg(false, "invite", stupidInvite)
@@ -36,14 +32,11 @@ func init() {
 // why. See package comment for permission levels.
 // If all is true, the hook is called for all types of message. Otherwise, t is
 // the type of message it wants to affect.
-func HookUserMsg(all bool, t string, h func(*core.User, *core.User, []byte) (int, os.Error)) {
+func HookUserMsg(all bool, t string, f func(string, *core.User, *core.User, []byte) (int, os.Error)) {
 	if all {
-		hookAdd(&checkUserMsgAll, h)
+		checkUserMsgAll = append(checkUserMsgAll, f)
 	} else {
-		if checkUserMsg[t] == nil {
-			checkUserMsg[t] = new(*hook)
-		}
-		hookAdd(checkUserMsg[t], h)
+		checkUserMsg[t] = append(checkUserMsg[t], f)
 	}
 }
 
@@ -54,48 +47,38 @@ func HookUserMsg(all bool, t string, h func(*core.User, *core.User, []byte) (int
 // why. See package comment for permission levels.
 // If all is true, the hook is called for all types of message. Otherwise, t is
 // the type of message it wants to affect.
-func HookChanMsg(all bool, chantype, t string, h func(*core.User, *core.Channel, []byte) (int, os.Error)) {
+func HookChanMsg(all bool, chantype, t string, f func(string, *core.User, *core.Channel, []byte) (int, os.Error)) {
 	if all {
-		if checkChanMsgAll[chantype] == nil {
-			checkChanMsgAll[chantype] = new(*hook)
-		}
-		hookAdd(checkChanMsgAll[chantype], h)
+		checkChanMsgAll[chantype] = append(checkChanMsgAll[chantype], f)
 	} else {
 		if checkChanMsg[chantype] == nil {
-			checkChanMsg[chantype] = make(map[string]**hook)
+			checkChanMsg[chantype] = make(map[string][]interface{})
 		}
-		if checkChanMsg[chantype][t] == nil {
-			checkChanMsg[chantype][t] = new(*hook)
-		}
-		hookAdd(checkChanMsg[chantype][t], h)
+		checkChanMsg[chantype][t] = append(checkChanMsg[chantype][t], f)
 	}
 }
 
 // CheckUserMsg tests whether the given user can PM the given target, with
 // the given message and message type.
-func CheckUserMsg(source, target *core.User, message []byte, t string) (bool, os.Error) {
-	perm, err := CheckUserMsgPerm(source, target, message, t)
+func CheckUserMsg(pkg string, source, target *core.User, message []byte, t string) (bool, os.Error) {
+	perm, err := CheckUserMsgPerm(pkg, source, target, message, t)
 	return perm > 0, err
 }
 
 // CheckUserMsgPerm returns the full permissions value for CheckUserMsg.
-func CheckUserMsgPerm(source, target *core.User, message []byte, t string) (int, os.Error) {
-	f := func(f interface{}) (int, os.Error) {
-		h, ok := f.(func(*core.User, *core.User, []byte) (int, os.Error))
-		if ok && h != nil {
-			return h(source, target, message)
+func CheckUserMsgPerm(pkg string, source, target *core.User, message []byte, t string) (int, os.Error) {
+	f := func(h interface{}) (int, os.Error) {
+		f, ok := h.(func(string, *core.User, *core.User, []byte) (int, os.Error))
+		if ok && f != nil {
+			return f(pkg, source, target, message)
 		}
 		return 0, nil
 	}
 
-	if checkUserMsg[t] == nil {
-		return checkUserMsgAll.run(f, true)
-	}
-
-	var lists [2]*hook
+	lists := make([][]interface{}, 2)
 	lists[0] = checkUserMsgAll
-	lists[1] = *checkUserMsg[t]
-	return runPermHookLists(lists[:], f, true)
+	lists[1] = checkUserMsg[t]
+	return runPermHooksSlice(lists, f, true)
 }
 
 
@@ -118,23 +101,13 @@ func CheckChanMsgPerm(source *core.User, target *core.Channel, message []byte, t
 
 	chantype := target.Type()
 	allList := checkChanMsgAll[chantype]
-	var typeList **hook
+	var typeList []interface{}
 	if checkChanMsg[chantype] != nil {
 		typeList = checkChanMsg[chantype][t]
 	}
 
-	if allList != nil && typeList != nil {
-		var lists [2]*hook
-		lists[0] = *allList
-		lists[1] = *typeList
-		return runPermHookLists(lists[:], f, true)
-	}
-	if allList != nil {
-		return (*allList).run(f, true)
-	}
-	if typeList != nil {
-		return (*typeList).run(f, true)
-	}
-
-	return 1, nil
+	lists := make([][]interface{}, 2)
+	lists[0] = allList
+	lists[1] = typeList
+	return runPermHooksSlice(lists, f, true)
 }

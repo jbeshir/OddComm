@@ -11,4 +11,4 @@
 */
 package ochanctrl
 
-var MODULENAME string = "modules/client/ochanctrl"
+var me string = "modules/client/ochanctrl"

@@ -6,6 +6,8 @@ import "oddcomm/lib/irc"
 import "oddcomm/lib/perm"
 
 
+
+
 // Add command.
 func init() {
 	c := new(irc.Command)
@@ -26,13 +28,13 @@ func cmdOjoin(source interface{}, params [][]byte) {
 	}
 
 	ch := core.GetChannel("", channame)
-	if perm, err := perm.CheckJoinPerm(c.User(), ch); perm < -1000000 {
+	if perm, err := perm.CheckJoinPerm(me, c.User(), ch); perm < -1000000 {
 		c.WriteTo(nil, "495", "#%s :%s", ch.Name(), err)
 		return
 	}
 
-	ch.Join([]*core.User{c.User()})
+	ch.Join(me, []*core.User{c.User()})
 	if m := ch.GetMember(c.User()); m != nil {
-		m.SetData(nil, "serverop", "on")
+		m.SetData(me, nil, "serverop", "on")
 	}
 }

@@ -9,11 +9,9 @@ import "oddcomm/src/core"
 import "oddcomm/lib/perm"
 
 
-var MODULENAME string = "modules/user/botmark"
-
 func init() {
 	// Users can mark themselves as a bot.
-	perm.HookCheckUserData("bot", func(source, target *core.User, name, value string) (int, os.Error) {
+	perm.HookCheckUserData("bot", func(_ string, source, target *core.User, _, _ string) (int, os.Error) {
 		if source == target {
 			return 100, nil
 		}

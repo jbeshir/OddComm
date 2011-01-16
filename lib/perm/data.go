@@ -6,15 +6,11 @@ import "strings"
 import "oddcomm/src/core"
 
 
-var checkUserData map[string]**hook
-var checkChanData map[string]map[string]**hook
-var checkMemberData map[string]map[string]**hook
+var checkUserData = make(map[string][]interface{})
 
-func init() {
-	checkUserData = make(map[string]**hook)
-	checkChanData = make(map[string]map[string]**hook)
-	checkMemberData = make(map[string]map[string]**hook)
-}
+var checkChanData = make(map[string]map[string][]interface{})
+
+var checkMemberData = make(map[string]map[string][]interface{})
 
 
 // HookCheckUserData adds the given hook to CheckUserData checks for data with
@@ -24,11 +20,8 @@ func init() {
 // It should return a number indicating granted or denied permission, and the
 // level of it. If the number is negative, err should be non-nil and indicate
 // why. See package comment for permission levels.
-func HookCheckUserData(name string, h func(*core.User, *core.User, string, string) (int, os.Error)) {
-	if checkUserData[name] == nil {
-		checkUserData[name] = new(*hook)
-	}
-	hookAdd(checkUserData[name], h)
+func HookCheckUserData(name string, f func(string, *core.User, *core.User, string, string) (int, os.Error)) {
+	checkUserData[name] = append(checkUserData[name], f)
 }
 
 // HookCheckChanData adds the given hook to CheckChanData checks for data with
@@ -38,14 +31,11 @@ func HookCheckUserData(name string, h func(*core.User, *core.User, string, strin
 // It should return a number indicating granted or denied permission, and the
 // level of it. If the number is negative, err should be non-nil and indicate
 // why. See package comment for permission levels.
-func HookCheckChanData(chantype, name string, h func(*core.User, *core.Channel, string, string) (int, os.Error)) {
+func HookCheckChanData(chantype, name string, f func(string, *core.User, *core.Channel, string, string) (int, os.Error)) {
 	if checkChanData[chantype] == nil {
-		checkChanData[chantype] = make(map[string]**hook)
+		checkChanData[chantype] = make(map[string][]interface{})
 	}
-	if checkChanData[chantype][name] == nil {
-		checkChanData[chantype][name] = new(*hook)
-	}
-	hookAdd(checkChanData[chantype][name], h)
+	checkChanData[chantype][name] = append(checkChanData[chantype][name], f)
 }
 
 // HookCheckMemberData adds the given hook to CheckMemberData checks for data
@@ -55,30 +45,27 @@ func HookCheckChanData(chantype, name string, h func(*core.User, *core.Channel, 
 // It should return a number indicating granted or denied permission, and the
 // level of it. If the number is negative, err should be non-nil and indicate
 // why. See package comment for permission levels.
-func HookCheckMemberData(chantype, name string, h func(*core.User, *core.Membership, string, string) (int, os.Error)) {
+func HookCheckMemberData(chantype, name string, f func(string, *core.User, *core.Membership, string, string) (int, os.Error)) {
 	if checkMemberData[chantype] == nil {
-		checkMemberData[chantype] = make(map[string]**hook)
+		checkMemberData[chantype] = make(map[string][]interface{})
 	}
-	if checkMemberData[chantype][name] == nil {
-		checkMemberData[chantype][name] = new(*hook)
-	}
-	hookAdd(checkMemberData[chantype][name], h)
+	checkMemberData[chantype][name] = append(checkMemberData[chantype][name], f)
 }
 
 
 // CheckUserData tests whether the given user can set data with the given name
 // and value on the given user.
-func CheckUserData(source, target *core.User, name, value string) (bool, os.Error) {
-	perm, err := CheckUserDataPerm(source, target, name, value)
+func CheckUserData(pkg string, source, target *core.User, name, value string) (bool, os.Error) {
+	perm, err := CheckUserDataPerm(pkg, source, target, name, value)
 	return perm > 0, err
 }
 
 // CheckUserDataPerm returns the full permissions value for CheckUserData.
-func CheckUserDataPerm(source, target *core.User, name, value string) (int, os.Error) {
-	f := func(f interface{}) (int, os.Error) {
-		h, ok := f.(func(*core.User, *core.User, string, string) (int, os.Error))
-		if ok && h != nil {
-			return h(source, target, name, value)
+func CheckUserDataPerm(pkg string, source, target *core.User, name, value string) (int, os.Error) {
+	f := func(h interface{}) (int, os.Error) {
+		f, ok := h.(func(string, *core.User, *core.User, string, string) (int, os.Error))
+		if ok && f != nil {
+			return f(pkg, source, target, name, value)
 		}
 		return 0, nil
 	}
@@ -96,12 +83,12 @@ func CheckUserDataPerm(source, target *core.User, name, value string) (int, os.E
 			break
 		}
 	}
+	lists := make([][]interface{}, 0, len)
 
-	lists := make([]*hook, len)
-	for i, prefix := 0, name; i < len; {
+	prefix = name
+	for {
 		if v := checkUserData[prefix]; v != nil {
-			lists[i] = *v
-			i++
+			lists = append(lists, v)
 		}
 
 		if v := strings.LastIndex(prefix, " "); v != -1 {
@@ -111,34 +98,31 @@ func CheckUserDataPerm(source, target *core.User, name, value string) (int, os.E
 		}
 	}
 
-	return runPermHookLists(lists, f, false)
+	return runPermHooksSlice(lists, f, false)
 }
 
 // CheckChanData tests whether the given user can set data with the given name
 // and value on the given channel.
-func CheckChanData(u *core.User, ch *core.Channel, name, value string) (bool, os.Error) {
-	perm, err := CheckChanDataPerm(u, ch, name, value)
+func CheckChanData(pkg string, u *core.User, ch *core.Channel, name, value string) (bool, os.Error) {
+	perm, err := CheckChanDataPerm(pkg, u, ch, name, value)
 	return perm > 0, err
 }
 
 // CheckChanDataPerm returns the full permissions value for CheckChanData.
-func CheckChanDataPerm(u *core.User, ch *core.Channel, name, value string) (int, os.Error) {
-	f := func(f interface{}) (int, os.Error) {
-		h, ok := f.(func(*core.User, *core.Channel, string, string) (int, os.Error))
-		if ok && h != nil {
-			return h(u, ch, name, value)
+func CheckChanDataPerm(pkg string, u *core.User, ch *core.Channel, name, value string) (int, os.Error) {
+	f := func(h interface{}) (int, os.Error) {
+		f, ok := h.(func(string, *core.User, *core.Channel, string, string) (int, os.Error))
+		if ok && f != nil {
+			return f(pkg, u, ch, name, value)
 		}
 		return 0, nil
 	}
-
-	if checkChanData[ch.Type()] == nil {
-		return -1, os.NewError("Permission denied.")
-	}
+	chantype := ch.Type()
 
 	var prefix = name
 	var len int
 	for {
-		if v := checkChanData[ch.Type()][prefix]; v != nil {
+		if v := checkChanData[chantype][prefix]; v != nil {
 			len++
 		}
 
@@ -148,12 +132,12 @@ func CheckChanDataPerm(u *core.User, ch *core.Channel, name, value string) (int,
 			break
 		}
 	}
+	lists := make([][]interface{}, 0, len)
 
-	lists := make([]*hook, len)
-	for i, prefix := 0, name; i < len; {
-		if v := checkChanData[ch.Type()][prefix]; v != nil {
-			lists[i] = *v
-			i++
+	prefix = name
+	for {
+		if v := checkChanData[chantype][prefix]; v != nil {
+			lists = append(lists, v)
 		}
 
 		if v := strings.LastIndex(prefix, " "); v != -1 {
@@ -163,31 +147,27 @@ func CheckChanDataPerm(u *core.User, ch *core.Channel, name, value string) (int,
 		}
 	}
 
-	return runPermHookLists(lists, f, false)
+	return runPermHooksSlice(lists, f, false)
 }
 
 // CheckMemberData tests whether the given user can set data with the given
 // name and value on the given membership entry.
-func CheckMemberData(u *core.User, m *core.Membership, name, value string) (bool, os.Error) {
-	perm, err := CheckMemberDataPerm(u, m, name, value)
+func CheckMemberData(pkg string, u *core.User, m *core.Membership, name, value string) (bool, os.Error) {
+	perm, err := CheckMemberDataPerm(pkg, u, m, name, value)
 	return perm > 0, err
 }
 
 // CheckMemberDataPerm returns the full permissions value for CheckMemberData.
-func CheckMemberDataPerm(u *core.User, m *core.Membership, name, value string) (int, os.Error) {
-	f := func(f interface{}) (int, os.Error) {
-		h, ok := f.(func(*core.User, *core.Membership, string, string) (int, os.Error))
+func CheckMemberDataPerm(pkg string, u *core.User, m *core.Membership, name, value string) (int, os.Error) {
+	f := func(h interface{}) (int, os.Error) {
+		f, ok := h.(func(string, *core.User, *core.Membership, string, string) (int, os.Error))
 		if ok && h != nil {
-			return h(u, m, name, value)
+			return f(pkg, u, m, name, value)
 		}
 		return 0, nil
 	}
 	chantype := m.Channel().Type()
 
-	if checkMemberData[chantype] == nil {
-		return -1, os.NewError("Permission denied.")
-	}
-
 	var prefix = name
 	var len int
 	for {
@@ -201,12 +181,12 @@ func CheckMemberDataPerm(u *core.User, m *core.Membership, name, value string) (
 			break
 		}
 	}
+	lists := make([][]interface{}, len)
 
-	lists := make([]*hook, len)
-	for i, prefix := 0, name; i < len; {
+	prefix = name
+	for {
 		if v := checkMemberData[chantype][prefix]; v != nil {
-			lists[i] = *v
-			i++
+			lists = append(lists, v)
 		}
 
 		if v := strings.LastIndex(prefix, " "); v != -1 {
@@ -216,14 +196,14 @@ func CheckMemberDataPerm(u *core.User, m *core.Membership, name, value string) (
 		}
 	}
 
-	return runPermHookLists(lists, f, false)
+	return runPermHooksSlice(lists, f, false)
 }
 
 
 // Permits ops with the given flag to set metadata with the given name, or
 // beginning with the given name, on the given type of channel.
 func PermitChanDataOp(chantype, flag, name string) {
-	HookCheckChanData(chantype, name, func(u *core.User, ch *core.Channel, name, value string) (int, os.Error) {
+	HookCheckChanData(chantype, name, func(_ string, u *core.User, ch *core.Channel, _, _ string) (int, os.Error) {
 		if HasOpFlag(u, ch, flag) {
 			return 10000, nil
 		}
@@ -234,7 +214,7 @@ func PermitChanDataOp(chantype, flag, name string) {
 // Permits ops with the given flag to set member metadata with the given name,
 // or beginning with the given name, on the given type of channel.
 func PermitMemberDataOp(chantype, flag, name string) {
-	HookCheckMemberData(chantype, name, func(u *core.User, m *core.Membership, name, value string) (int, os.Error) {
+	HookCheckMemberData(chantype, name, func(_ string, u *core.User, m *core.Membership, _, _ string) (int, os.Error) {
 		if HasOpFlag(u, m.Channel(), flag) {
 			return 10000, nil
 		}

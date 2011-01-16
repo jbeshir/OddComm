@@ -10,8 +10,6 @@ package opermode
 import "oddcomm/src/client"
 
 
-var MODULENAME = "modules/client/opermode"
-
 func init() {
 	client.ChanModes.AddMembership('A', "serverop")
 	client.ChanModes.AddPrefix('!', "serverop", 1000000)

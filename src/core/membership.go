@@ -36,7 +36,7 @@ func (m *Membership) UserNext() (next *Membership) {
 // SetData sets the given single piece of metadata on the membership entry.
 // source may be nil, in which case the metadata is set by the server.
 // Setting it to "" unsets it.
-func (m *Membership) SetData(source *User, name string, value string) {
+func (m *Membership) SetData(pkg string, source *User, name, value string) {
 	var oldvalue string
 
 	m.c.mutex.Lock()
@@ -58,8 +58,8 @@ func (m *Membership) SetData(source *User, name string, value string) {
 	c.Member = m
 
 	hookRunner <- func() {
-		runMemberDataChangeHooks(m.c.Type(), source, m, name, oldvalue, value)
-		runChanDataChangesHooks(m.c.Type(), source, m.c, []DataChange{c}, []string{oldvalue})
+		runMemberDataChangeHooks(pkg, m.c.Type(), source, m, name, oldvalue, value)
+		runChanDataChangesHooks(pkg, m.c.Type(), source, m.c, []DataChange{c}, []string{oldvalue})
 	}
 
 	m.c.mutex.Unlock()
@@ -69,7 +69,7 @@ func (m *Membership) SetData(source *User, name string, value string) {
 // entry. This is equivalent to lots of SetData calls, except hooks for all
 // data changes will receive it as a single list, and it is cheaper.
 // source may be nil, in which case the metadata is set by the server.
-func (m *Membership) SetDataList(source *User, changes []DataChange) {
+func (m *Membership) SetDataList(pkg string, source *User, changes []DataChange) {
 	done := make([]DataChange, 0, len(changes))
 	old := make([]string, 0, len(changes))
 
@@ -97,9 +97,9 @@ func (m *Membership) SetDataList(source *User, changes []DataChange) {
 
 	hookRunner <- func() {
 		for i, it := range changes {
-			runMemberDataChangeHooks(m.c.Type(), source, m, it.Name, old[i], it.Data)
+			runMemberDataChangeHooks(pkg, m.c.Type(), source, m, it.Name, old[i], it.Data)
 		}
-		runChanDataChangesHooks(m.c.Type(), source, m.c, done, old)
+		runChanDataChangesHooks(pkg, m.c.Type(), source, m.c, done, old)
 	}
 
 	m.c.mutex.Unlock()
@@ -126,7 +126,7 @@ func (m *Membership) DataRange(prefix string, f func(name, value string)) {
 
 // Remove removes this membership entry; the user is removed from the channel.
 // The specified source is responsible. It may be nil.
-func (m *Membership) Remove(source *User, message string) {
+func (m *Membership) Remove(pkg string, source *User, message string) {
 
 	m.c.mutex.Lock()
 	m.u.mutex.Lock()
@@ -157,7 +157,7 @@ func (m *Membership) Remove(source *User, message string) {
 	}
 
 	hookRunner <- func() {
-		runChanUserRemoveHooks(m.c.t, source, m.u, m.c, message)
+		runChanUserRemoveHooks(pkg, m.c.t, source, m.u, m.c, message)
 	}
 
 	m.u.mutex.Unlock()

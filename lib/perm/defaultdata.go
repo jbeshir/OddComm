@@ -26,7 +26,7 @@ func init() {
 	PermitMemberDataOp("", "op", "op")
 
 	// Permit chanops to deop themselves.
-	HookCheckMemberData("", "op", func(u *core.User, m *core.Membership, name, value string) (int, os.Error) {
+	HookCheckMemberData("", "op", func(_ string, u *core.User, m *core.Membership, _, value string) (int, os.Error) {
 		if u == m.User() && value == "" {
 			return 10000, nil
 		}
@@ -34,13 +34,13 @@ func init() {
 	})
 
 	// Block invalid utf8 from user specified strings.
-	var dataNoInvalid = func(_, _ *core.User, _, s string) (int, os.Error) {
+	var dataNoInvalid = func(_ string, _, _ *core.User, _, s string) (int, os.Error) {
 		if strings.IndexRune(s, unicode.ReplacementChar) != -1 {
 			return -1e9, os.NewError("Invalid unicode specified.")
 		}
 		return 0, nil
 	}
-	HookCheckNick(func(_ *core.User, s string) (int, os.Error) {
+	HookCheckNick(func(_ string,_ *core.User, s string) (int, os.Error) {
 		if strings.IndexRune(s, unicode.ReplacementChar) != -1 {
 			return -1e9, os.NewError("Invalid unicode specified.")
 		}
@@ -52,7 +52,7 @@ func init() {
 	// Add core nick validation.
 	// This only restricts the absolute minimum, as there is no way to
 	// override this via another module.
-	HookCheckNick(func(u *core.User, nick string) (int, os.Error) {
+	HookCheckNick(func(_ string, u *core.User, nick string) (int, os.Error) {
 		// Block nicknames ambiguous with a unique ID, starting with a
 		// number, and nine characters long, unless they are that
 		// user's unique ID.

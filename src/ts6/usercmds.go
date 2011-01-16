@@ -56,19 +56,20 @@ func cmdUid(source interface{}, params [][]byte) {
 	data[4].Name, data[4].Data = "realname", string(params[8])
 
 	// Add the user, set their nick, and register.
-	u := core.NewUser("oddcomm/src/ts6", s, true, uid, data)
+	u := core.NewUser(me, s, true, uid, data)
 	if u == nil {
 		// Duplicate UID!
 		return
 	}
 
 	// Set their nick.
-	if u.SetNick(string(params[0])) != nil {
-		u.SetNick("")
+	if u.SetNick(me, string(params[0])) != nil {
+		u.SetNick(me, "")
+
 	}
 
 	// They are now registered.
-	u.PermitRegistration()
+	u.PermitRegistration(me)
 }
 
 
@@ -81,7 +82,7 @@ func cmdPrivmsg(source interface{}, params [][]byte) {
 	t := string(params[0])
 
 	if target := core.GetUser(t); target != nil {
-		target.Message(u, params[1], "")
+		target.Message(me, u, params[1], "")
 		return
 	}
 
@@ -89,9 +90,9 @@ func cmdPrivmsg(source interface{}, params [][]byte) {
 		channame := t[1:]
 		ch := core.FindChannel("", channame)
 		if ch != nil {
-			ch.Message(u, params[1], "")
+			ch.Message(me, u, params[1], "")
 			return
-		} 
+		}
 	}
 }
 
@@ -105,7 +106,7 @@ func cmdNotice(source interface{}, params [][]byte) {
 	t := string(params[0])
 
 	if target := core.GetUser(t); target != nil {
-		target.Message(u, params[1], "noreply")
+		target.Message(me, u, params[1], "noreply")
 		return
 	}
 
@@ -113,8 +114,8 @@ func cmdNotice(source interface{}, params [][]byte) {
 		channame := t[1:]
 		ch := core.FindChannel("", channame)
 		if ch != nil {
-			ch.Message(u, params[1], "noreply")
+			ch.Message(me, u, params[1], "noreply")
 			return
-		} 
+		}
 	}
 }

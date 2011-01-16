@@ -12,8 +12,7 @@ import "time"
 import "oddcomm/src/core"
 
 
-// Must be set, must be unique.
-var MODULENAME string = "dev/horde"
+var me string = "modules/dev/horde"
 
 
 func init() {
@@ -35,12 +34,12 @@ func addHorde() {
 		data[3].Name, data[3].Data = "account", fmt.Sprintf("horde-%d", rng.Int()%1000000)
 
 		horde[i] = core.NewUser("oddcomm/modules/dev/horde", nil, true, "", data)
-		horde[i].SetNick(fmt.Sprintf("horde-%d", rng.Int()%1000000))
-		horde[i].PermitRegistration()
+		horde[i].SetNick(me, fmt.Sprintf("horde-%d", rng.Int()%1000000))
+		horde[i].PermitRegistration(me)
 	}
 
 	// Make a huge channel containing the entire horde.
-	core.GetChannel("", "huge").Join(horde)
+	core.GetChannel("", "huge").Join(me, horde)
 
 	// Make 100 channels containing roughly a twentieth of the horde each.
 	// Each horde user is in an average of roughly five.
@@ -49,7 +48,8 @@ func addHorde() {
 		for i, _ := range joiners {
 			joiners[i] = horde[rand.Int()%len(horde)]
 		}
-		core.GetChannel("", fmt.Sprintf("big_%d", i)).Join(joiners)
+		name := fmt.Sprintf("big_%d", i)
+		core.GetChannel("", name).Join(me, joiners)
 	}
 
 	// Make 2000 channels containing roughly 1/400th of the horde each.
@@ -59,7 +59,8 @@ func addHorde() {
 		for i, _ := range joiners {
 			joiners[i] = horde[rand.Int()%len(horde)]
 		}
-		core.GetChannel("", fmt.Sprintf("medium_%d", i)).Join(joiners)
+		name := fmt.Sprintf("medium_%d", i)
+		core.GetChannel("", name).Join(me, joiners)
 	}
 
 	// Make horde*2 channels containing roughly four of the horde each.
@@ -69,6 +70,7 @@ func addHorde() {
 		for i, _ := range joiners {
 			joiners[i] = horde[rand.Int()%len(horde)]
 		}
-		core.GetChannel("", fmt.Sprintf("small_%d", i)).Join(joiners)
+		name := fmt.Sprintf("small_%d", i)
+		core.GetChannel("", name).Join(me, joiners)
 	}
 }

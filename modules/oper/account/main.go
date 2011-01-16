@@ -7,7 +7,8 @@ import "strings"
 
 import "oddcomm/src/core"
 
-var MODULENAME string = "modules/oper/account"
+
+var me string = "modules/oper/account"
 
 
 // Maps accounts to sets of oper flags.
@@ -26,15 +27,15 @@ func init() {
 	operCommands["TESTACCOUNT"] = "OJOIN OMODE DIE"
 
 	// Oper people when they login to their account.
-	core.HookUserDataChange("account", func(source, target *core.User, oldvalue, newvalue string) {
+	core.HookUserDataChange("account", func(_ string, source, target *core.User, oldvalue, newvalue string) {
 		account := strings.ToUpper(newvalue)
 		if v, ok := operType[account]; ok {
-			target.SetData(nil, "optype", v)
+			target.SetData(me, nil, "optype", v)
 		}
 		if v, ok := operFlags[account]; ok {
-			target.SetData(nil, "op", v)
+			target.SetData(me, nil, "op", v)
 			if v, ok := operCommands[account]; ok {
-				target.SetData(nil, "opcommands", v)
+				target.SetData(me, nil, "opcommands", v)
 			}
 		}
 	},

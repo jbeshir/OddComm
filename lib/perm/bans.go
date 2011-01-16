@@ -8,22 +8,18 @@ import "strings"
 import "oddcomm/src/core"
 
 
-var banTypes map[string]func(u *core.User, mask string) bool
+var banTypes = make(map[string]func(*core.User, string) bool)
 
 var defaultBan string = "join mute nick"
 var defaultUnrestrict string = "join"
-
-func init() {
-	banTypes = make(map[string]func(u *core.User, mask string) bool)
-}
 
 
 // AddBanType adds the given ban type handler to the ban type map.
 // The handler will receive the user and mask, and must return a bool
 // indicating whether the user matched the ban or not.
 // This may only be used during init.
-func AddBanType(t string, h func(u *core.User, mask string) bool) {
-	banTypes[t] = h
+func AddBanType(t string, f func(*core.User, string) bool) {
+	banTypes[t] = f
 }
 
 // DefaultBan returns the default list of restrictions for a default ban.

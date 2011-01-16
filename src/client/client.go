@@ -44,7 +44,7 @@ func (c *Client) delete(message string) {
 		c.disconnecting |= 1
 
 		// If the user has not already been deleted, delete it.
-		c.u.Delete(nil, message)
+		c.u.Delete(me, nil, message)
 	}
 
 	// Send them a goodbye message if we've not already sent one.

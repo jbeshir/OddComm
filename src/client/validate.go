@@ -10,7 +10,7 @@ func init() {
 	// Impose the IRC client module's limitations on nicks.
 	// These are strictly what renders the protocol ambiguous, or will
 	// very likely break clients.
-	perm.HookCheckNick(func(u *core.User, nick string) (int, os.Error) {
+	perm.HookCheckNick(func(_ string, u *core.User, nick string) (int, os.Error) {
 
 		// Do not permit space or comma anywhere in a nick.
 		if strings.IndexAny(nick, " ,") != -1 {
@@ -43,7 +43,7 @@ func init() {
 	})
 
 	// Impose the IRC client restriction on idents.
-	perm.HookCheckUserData("ident", func(_, _ *core.User, _, ident string) (int, os.Error) {
+	perm.HookCheckUserData("ident", func(_ string, _, _ *core.User, _, ident string) (int, os.Error) {
 		// Do not permit @ or space in an ident.
 		if strings.IndexAny(ident, "@ ") != -1 {
 			return -1e9, os.NewError("Ident contains @ or space characters.")

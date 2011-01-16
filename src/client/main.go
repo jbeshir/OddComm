@@ -13,6 +13,10 @@ import "sync"
 
 import "oddcomm/src/core"
 
+
+var me string = "client"
+
+
 // Create a channel for sending messages to the subsystem's goroutine.
 var subsysMsg chan string = make(chan string)
 
@@ -78,9 +82,9 @@ func clientMain(msg chan string, exit chan int) {
 			exiting = true
 
 			// Stop every current client by deleting their user.
-			core.IterateUsers("oddcomm/src/client",
+			core.IterateUsers(me,
 				func(u *core.User) {
-					u.Delete(u, "Server Terminating")
+					u.Delete(me, u, "Server Terminating")
 				})
 		}
 
@@ -120,7 +124,7 @@ func listen(l *net.TCPListener) {
 		data[0].Name, data[0].Data = "ip", ip
 		data[1].Name, data[1].Data = "hostname", ip
 
-		client.u = core.NewUser("oddcomm/src/client", client, false, "", data)
+		client.u = core.NewUser(me, client, false, "", data)
 		incClient(client)
 
 		go input(client)
@@ -147,7 +151,7 @@ func incClient(c *Client) {
 func decClient(c *Client) {
 	cliMutex.Lock()
 	clicount--
-	
+
 	// Poke the client subsystem goroutine if this is the last one, so it
 	// knows that shutdown is okay, if it wants to shut down.
 	if clicount == 0 {
@@ -163,7 +167,7 @@ func decClient(c *Client) {
 func GetClient(u *core.User) (c *Client) {
 
 	// Check whether they're marked as ours before getting their struct.
-	if u.Owner() != "oddcomm/src/client" {
+	if u.Owner() != me {
 		return nil
 	}
 

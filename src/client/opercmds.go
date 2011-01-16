@@ -37,7 +37,7 @@ func cmdKill(source interface{}, params [][]byte) {
 	for _, t := range targets {
 
 		if target := core.GetUserByNick(string(t)); target != nil {
-			perm, err := perm.CheckKillPerm(c.u, target)
+			perm, err := perm.CheckKillPerm(me, c.u, target)
 			if perm < -1000000 {
 				c.WriteTo(nil, "404", "%s :%s", target.Nick(), err)
 				continue
@@ -51,7 +51,7 @@ func cmdKill(source interface{}, params [][]byte) {
 			}
 
 			// Kill the user.
-			target.Delete(c.u, message)
+			target.Delete(me, c.u, message)
 
 			continue
 		}

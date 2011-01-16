@@ -6,7 +6,7 @@ import "oddcomm/src/core"
 
 
 func init() {
-	core.HookUserNickChange(func(u *core.User, oldnick, newnick string) {
+	core.HookUserNickChange(func(_ string, u *core.User, oldnick, newnick string) {
 		sent := make(map[*Client]bool)
 
 		// Send the nick change to every user on a common channel.
@@ -36,33 +36,30 @@ func init() {
 			u.Data("ident"), u.Data("hostname"), u.Nick())
 	}, false)
 
-	core.RegistrationHold("oddcomm/src/client")
-	core.HookUserDataChange("ident",
-		func(source, target *core.User, oldvalue, newvalue string) {
-			if target.Owner() != "oddcomm/src/client" {
+	core.RegistrationHold(me)
+	core.HookUserDataChange("ident", func(_ string, source, target *core.User, oldvalue, newvalue string) {
+			if target.Owner() != me {
 				return
 			}
 
 			if oldvalue == "" {
-				target.PermitRegistration()
+				target.PermitRegistration(me)
 			}
-		},
-		true)
+	}, true)
 
-	core.HookUserDataChanges(func(source, target *core.User, c []core.DataChange, old []string) {
-			cli := GetClient(target)
-			if cli == nil {
-				return
-			}
+	core.HookUserDataChanges(func(_ string, source, target *core.User, c []core.DataChange, old []string) {
+		cli := GetClient(target)
+		if cli == nil {
+			return
+		}
 
-			modeline := UserModes.ParseChanges(target, c, old)
-			if modeline != "" {
-				cli.WriteTo(source, "MODE", modeline)
-			}
-		},
-		false)
+		modeline := UserModes.ParseChanges(target, c, old)
+		if modeline != "" {
+			cli.WriteTo(source, "MODE", modeline)
+		}
+	}, false)
 
-	core.HookUserRegister(func(u *core.User) {
+	core.HookUserRegister(func(_ string, u *core.User) {
 		c := GetClient(u)
 		if c == nil {
 			return
@@ -77,7 +74,7 @@ func init() {
 		c.WriteTo(u, "MODE", "+%s", modeline)
 	})
 
-	core.HookUserMessage("", func(source, target *core.User, message []byte) {
+	core.HookUserMessage("", func(_ string, source, target *core.User, message []byte) {
 		c := GetClient(target)
 		if c == nil {
 			return
@@ -87,26 +84,26 @@ func init() {
 	})
 
 	core.HookUserMessage("noreply",
-		func(source, target *core.User, message []byte) {
+		func(_ string, source, target *core.User, message []byte) {
 			c := GetClient(target)
 			if c == nil {
 				return
 			}
-			
+
 			c.WriteTo(source, "NOTICE", ":%s", message)
 		})
 
 	core.HookUserMessage("invite",
-		func(source, target *core.User, message []byte) {
+		func(_ string, source, target *core.User, message []byte) {
 			c := GetClient(target)
 			if c == nil {
 				return
 			}
-			
+
 			c.WriteTo(source, "INVITE", ":#%s", message)
 		})
 
-	core.HookChanUserJoin("", func(ch *core.Channel, users []*core.User) {
+	core.HookChanUserJoin("", func(pkg string, ch *core.Channel, users []*core.User) {
 
 		// Send the JOINs to all clients in the same channel.
 		for m := ch.Users(); m != nil; m = m.ChanNext() {
@@ -121,7 +118,13 @@ func init() {
 			}
 		}
 
-		// If this is one of our clients, we need to send them info.
+		// If we did the join, that's it.
+		if pkg == me {
+			return
+		}
+
+		// Otherwise, if this is one of our clients,
+		// we need to send them info.
 		for _, u := range users {
 			c := GetClient(u)
 			if c == nil {
@@ -141,19 +144,18 @@ func init() {
 		}
 	})
 
-	core.HookChanDataChange("", "topic",
-		func(source *core.User, ch *core.Channel, oldvalue, newvalue string) {
-			for m := ch.Users(); m != nil; m = m.ChanNext() {
-				c := GetClient(m.User())
-				if c == nil {
-					continue
-				}
-
-				c.WriteFrom(source, "TOPIC #%s :%s", ch.Name(), newvalue)
+	core.HookChanDataChange("", "topic", func(_ string, source *core.User, ch *core.Channel, _, newvalue string) {
+		for m := ch.Users(); m != nil; m = m.ChanNext() {
+			c := GetClient(m.User())
+			if c == nil {
+				continue
 			}
-		})
 
-	core.HookChanDataChanges("", func(source *core.User, ch *core.Channel, c []core.DataChange, old []string) {
+			c.WriteFrom(source, "TOPIC #%s :%s", ch.Name(), newvalue)
+		}
+	})
+
+	core.HookChanDataChanges("", func(_ string, source *core.User, ch *core.Channel, c []core.DataChange, old []string) {
 		modeline := ChanModes.ParseChanges(ch, c, old)
 		if modeline == "" {
 			return
@@ -167,7 +169,7 @@ func init() {
 		}
 	})
 
-	core.HookChanUserRemove("", func(source, u *core.User, ch *core.Channel, message string) {
+	core.HookChanUserRemove("", func(_ string, source, u *core.User, ch *core.Channel, message string) {
 		// If the user doesn't exist anymore (quit, for example),
 		// don't bother to show their removal, we'll just show the
 		// quit.
@@ -198,7 +200,7 @@ func init() {
 		}
 	})
 
-	core.HookChanMessage("", "", func(source *core.User, ch *core.Channel, message []byte) {
+	core.HookChanMessage("", "", func(_ string, source *core.User, ch *core.Channel, message []byte) {
 		for m := ch.Users(); m != nil; m = m.ChanNext() {
 			if m.User() == source {
 				continue
@@ -210,29 +212,27 @@ func init() {
 		}
 	})
 
-	core.HookChanMessage("", "noreply",
-		func(source *core.User, ch *core.Channel, message []byte) {
-			for m := ch.Users(); m != nil; m = m.ChanNext() {
-				if m.User() == source {
-					continue
-				}
-				if c := GetClient(m.User()); c != nil {
-					c.WriteFrom(source, "NOTICE #%s :%s",
-						ch.Name(), message)
-				}
+	core.HookChanMessage("", "noreply", func(_ string, source *core.User, ch *core.Channel, message []byte) {
+		for m := ch.Users(); m != nil; m = m.ChanNext() {
+			if m.User() == source {
+				continue
 			}
-		})
-
-	core.HookChanMessage("", "invite",
-		func(source *core.User, ch *core.Channel, message []byte) {
-			for m := ch.Users(); m != nil; m = m.ChanNext() {
-				if c := GetClient(m.User()); c != nil {
-					c.WriteFrom(nil, "NOTICE #%s :*** INVITE: %s invited %s into the channel.", ch.Name(), source.Nick(), message)
-				}
+			if c := GetClient(m.User()); c != nil {
+				c.WriteFrom(source, "NOTICE #%s :%s",
+					ch.Name(), message)
 			}
-		})
+		}
+	})
 
-	core.HookUserDelete(func(source, u *core.User, message string) {
+	core.HookChanMessage("", "invite", func(_ string, source *core.User, ch *core.Channel, message []byte) {
+		for m := ch.Users(); m != nil; m = m.ChanNext() {
+			if c := GetClient(m.User()); c != nil {
+				c.WriteFrom(nil, "NOTICE #%s :*** INVITE: %s invited %s into the channel.", ch.Name(), source.Nick(), message)
+			}
+		}
+	})
+
+	core.HookUserDelete(func(_ string, source, u *core.User, message string) {
 		sent := make(map[*Client]bool)
 
 		// Send a KILL message to the user, if they were deleted by

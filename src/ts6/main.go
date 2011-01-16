@@ -10,6 +10,9 @@ import "oddcomm/lib/irc"
 import "oddcomm/src/core"
 
 
+var me string = "ts6"
+
+
 // Commands added here will be called with either a server or a core.User.
 var commands irc.CommandDispatcher = irc.NewCommandDispatcher()
 

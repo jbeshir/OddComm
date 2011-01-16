@@ -12,8 +12,6 @@ import "oddcomm/src/core"
 import "oddcomm/lib/irc"
 import "oddcomm/lib/perm"
 
-var MODULENAME string = "modules/client/opflags"
-
 
 // Flags is the mapper of op flag characters to op flags.
 var Flags *irc.CMapper
@@ -43,7 +41,7 @@ func init() {
 	})
 
 	// Block colons from use in nicks.
-	perm.HookCheckNick(func(_ *core.User, nick string) (int, os.Error) {
+	perm.HookCheckNick(func(_ string, _ *core.User, nick string) (int, os.Error) {
 		if strings.IndexRune(nick, ':') != -1 {
 			return -1e9, os.NewError("Nick contains colon.")
 		}

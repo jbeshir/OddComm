@@ -70,7 +70,7 @@ func (ch *Channel) TS() (ts int64) {
 // SetData sets the given single piece of metadata on the channel.
 // source may be nil, in which case the metadata is set by the server.
 // Setting it to "" unsets it.
-func (ch *Channel) SetData(source *User, name string, value string) {
+func (ch *Channel) SetData(pkg string, source *User, name, value string) {
 	var oldvalue string
 
 	ch.mutex.Lock()
@@ -91,8 +91,10 @@ func (ch *Channel) SetData(source *User, name string, value string) {
 	c.Data = value
 
 	hookRunner <- func() {
-		runChanDataChangeHooks(ch.Type(), source, ch, name, oldvalue, value)
-		runChanDataChangesHooks(ch.Type(), source, ch, []DataChange{c}, []string{oldvalue})
+		runChanDataChangeHooks(pkg, ch.Type(), source, ch, name,
+			oldvalue, value)
+		runChanDataChangesHooks(pkg, ch.Type(), source, ch,
+			[]DataChange{c}, []string{oldvalue})
 	}
 
 	ch.mutex.Unlock()
@@ -102,7 +104,7 @@ func (ch *Channel) SetData(source *User, name string, value string) {
 // This is equivalent to lots of SetData calls, except hooks for all data
 // changes will receive it as a single list, and it is cheaper.
 // source may be nil, in which case the metadata is set by the server.
-func (ch *Channel) SetDataList(source *User, changes []DataChange) {
+func (ch *Channel) SetDataList(pkg string, source *User, changes []DataChange) {
 	done := make([]DataChange, 0, len(changes))
 	old := make([]string, 0, len(changes))
 
@@ -145,14 +147,14 @@ func (ch *Channel) SetDataList(source *User, changes []DataChange) {
 	hookRunner <- func() {
 		for i, it := range done {
 			if it.Member == nil {
-				runChanDataChangeHooks(ch.Type(), source, ch,
-					it.Name, old[i], it.Data)
+				runChanDataChangeHooks(pkg, ch.Type(), source,
+					ch, it.Name, old[i], it.Data)
 			} else {
-				runMemberDataChangeHooks(ch.Type(), source,
+				runMemberDataChangeHooks(pkg, ch.Type(), source,
 					it.Member, it.Name, old[i], it.Data)
 			}
 		}
-		runChanDataChangesHooks(ch.Type(), source, ch, done, old)
+		runChanDataChangesHooks(pkg, ch.Type(), source, ch, done, old)
 	}
 
 	ch.mutex.Unlock()
@@ -201,7 +203,8 @@ func (ch *Channel) GetMember(u *User) (m *Membership) {
 // Join adds a set of users to the channel.
 // Multiple joins by the same user are not guaranteed to be reported
 // in the order they happened.
-func (ch *Channel) Join(users []*User) {
+// Returns the users that actually joined.
+func (ch *Channel) Join(pkg string, users []*User) []*User {
 	var joinedusers []*User
 
 	ch.mutex.Lock()
@@ -244,17 +247,19 @@ func (ch *Channel) Join(users []*User) {
 	}
 
 	hookRunner <- func() {
-		runChanUserJoinHooks(ch.t, ch, joinedusers)
+		runChanUserJoinHooks(pkg, ch.t, ch, joinedusers)
 	}
 
 	ch.mutex.Unlock()
+
+	return joinedusers
 }
 
 // Remove removes the given user from the channel.
 // source may be nil, indicating that they are being removed by the server.
 // This behaves as iterates the user list, and then calling Remove() on the
 // Membership struct would, but is faster.
-func (ch *Channel) Remove(source, u *User, message string) {
+func (ch *Channel) Remove(pkg string, source, u *User, message string) {
 	var m *Membership
 
 	// Unregistered users may not remove other users.
@@ -292,7 +297,8 @@ func (ch *Channel) Remove(source, u *User, message string) {
 
 	if m != nil {
 		hookRunner <- func() {
-			runChanUserRemoveHooks(m.c.t, source, m.u, m.c, message)
+			runChanUserRemoveHooks(pkg, m.c.t, source, m.u, m.c,
+				message)
 		}
 	}
 
@@ -303,7 +309,7 @@ func (ch *Channel) Remove(source, u *User, message string) {
 // Message sends a message to the channel.
 // source may be nil, indicating a message from the server.
 // t may be "" (for default), and indicates the type of message.
-func (ch *Channel) Message(source *User, message []byte, t string) {
+func (ch *Channel) Message(pkg string, source *User, message []byte, t string) {
 
 	// Unregistered users may not send messages.
 	if !source.Registered() {
@@ -311,7 +317,7 @@ func (ch *Channel) Message(source *User, message []byte, t string) {
 	}
 
 	// We actually just call hooks, and let the subsystems handle it.
-	runChanMessageHooks(ch.t, t, source, ch, message)
+	runChanMessageHooks(pkg, ch.t, t, source, ch, message)
 }
 
 // Delete deletes the channel.
@@ -336,7 +342,7 @@ func (ch *Channel) GetTopic() (topic, setby, setat string) {
 }
 
 // SetTopic sets the topic, including recording its setting and set time.
-func (ch *Channel) SetTopic(source *User, topic string) {
+func (ch *Channel) SetTopic(pkg string, source *User, topic string) {
 	changes := make([]DataChange, 3)
 	changes[0].Name = "topic"
 	changes[0].Data = topic
@@ -346,5 +352,5 @@ func (ch *Channel) SetTopic(source *User, topic string) {
 	if source != nil {
 		changes[2].Data = source.GetSetBy()
 	}
-	ch.SetDataList(source, changes)
+	ch.SetDataList(pkg, source, changes)
 }

@@ -60,8 +60,23 @@ func cmdJoin(source interface{}, params [][]byte) {
 		}
 
 		ch := core.GetChannel("", channame)
-		if ok, err := perm.CheckJoin(c.u, ch); ok {
-			ch.Join([]*core.User{c.u})
+		if ok, err := perm.CheckJoin(me, c.u, ch); ok {
+
+			// Join, skipping sending info if they're already in.
+			if len(ch.Join(me, []*core.User{c.u})) == 0 {
+				continue
+			}
+
+			// Send them NAMES.
+			cmdNames(c, [][]byte{[]byte(ch.Name())})
+
+			// Send them the topic.
+			if topic, setby, setat := ch.GetTopic(); topic != "" {
+				c.WriteTo(nil, "332", "#%s :%s", ch.Name(),
+					topic)
+				c.WriteTo(nil, "333", "#%s %s %s", ch.Name(),
+					setby, setat)
+			}
 		} else {
 			c.WriteTo(nil, "495", "#%s :%s", ch.Name(), err)
 		}
@@ -83,7 +98,7 @@ func cmdPart(source interface{}, params [][]byte) {
 			if len(params) > 1 {
 				message = string(params[1])
 			}
-			ch.Remove(c.u, c.u, message)
+			ch.Remove(me, c.u, c.u, message)
 		}
 	}
 }
@@ -106,12 +121,12 @@ func cmdKick(source interface{}, params [][]byte) {
 		if target == nil {
 			continue
 		}
-		if ok, err := perm.CheckRemove(c.u, target, ch); ok {
+		if ok, err := perm.CheckRemove(me, c.u, target, ch); ok {
 			var message string
 			if len(params) > 2 {
 				message = string(params[2])
 			}
-			ch.Remove(c.u, target, message)
+			ch.Remove(me, c.u, target, message)
 		} else {
 			c.WriteTo(nil, "482", "#%s :%s", ch.Name(), err)
 		}
@@ -147,7 +162,7 @@ func cmdTopic(source interface{}, params [][]byte) {
 	}
 
 	// Otherwise, we're setting the topic.
-	ch.SetTopic(c.u, string(params[1]))
+	ch.SetTopic(me, c.u, string(params[1]))
 }
 
 func cmdInvite(source interface{}, params [][]byte) {
@@ -172,14 +187,14 @@ func cmdInvite(source interface{}, params [][]byte) {
 			continue
 		}
 
-		if ok, err := perm.CheckUserMsg(c.u, target, []byte(ch.Name()),
-			"invite"); ok {
+		if ok, err := perm.CheckUserMsg(me, c.u, target,
+			[]byte(ch.Name()), "invite"); ok {
 			if v := target.Data("away"); v != "" {
 				c.WriteTo(nil, "301", "%s :%s",
 					target.Nick(), v)
 			}
-			target.Message(c.u, []byte(ch.Name()), "invite")
-			ch.Message(c.u, []byte(target.Nick()), "invite")
+			target.Message(me, c.u, []byte(ch.Name()), "invite")
+			ch.Message(me, c.u, []byte(target.Nick()), "invite")
 			c.WriteTo(nil, "341", "%s #%s", target.Nick(),
 				ch.Name())
 		} else {

@@ -16,8 +16,6 @@ import "oddcomm/src/core"
 import "oddcomm/lib/irc"
 import "oddcomm/lib/perm"
 
-var MODULENAME string = "modules/client/extbans"
-
 
 // ExtBanRestrict is the mapper for extban characters to ban restrictions.
 var ExtBanRestrict *irc.CMapper
@@ -75,13 +73,13 @@ func init() {
 	})
 
 	// Block colons from use in nicks and idents.
-	perm.HookCheckNick(func(_ *core.User, nick string) (int, os.Error) {
+	perm.HookCheckNick(func(_ string, _ *core.User, nick string) (int, os.Error) {
 		if strings.IndexRune(nick, ':') != -1 {
 			return -1e9, os.NewError("Nick contains colon.")
 		}
 		return 0, nil
 	})
-	perm.HookCheckUserData("ident", func(_, _ *core.User, _, ident string) (int, os.Error) {
+	perm.HookCheckUserData("ident", func(_ string, _, _ *core.User, _, ident string) (int, os.Error) {
 		if strings.IndexRune(ident, ':') != -1 {
 			return -1e9, os.NewError("Ident contains colon.")
 		}

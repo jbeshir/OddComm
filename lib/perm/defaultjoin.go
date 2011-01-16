@@ -6,7 +6,7 @@ import "oddcomm/src/core"
 
 
 // If a user has a ban with the join restriction, they don't get to join.
-func joinBanned(source *core.User, target *core.Channel) (int, os.Error) {
+func joinBanned(_ string, source *core.User, target *core.Channel) (int, os.Error) {
 	if Banned(source, target, "join") {
 		return -10000, os.NewError("You are banned and cannot join the channel.")
 	}
@@ -14,7 +14,7 @@ func joinBanned(source *core.User, target *core.Channel) (int, os.Error) {
 }
 
 // If a user is affected by joining being restricted, they don't get to speak.
-func inviteOnly(source *core.User, target *core.Channel) (int, os.Error) {
+func inviteOnly(_ string, source *core.User, target *core.Channel) (int, os.Error) {
 	if Restricted(source, target, "join") {
 		return -100, os.NewError("Channel is invite-only. You must be invited or otherwise have permission to join.")
 	}
@@ -22,7 +22,7 @@ func inviteOnly(source *core.User, target *core.Channel) (int, os.Error) {
 }
 
 // Users can remove themselves by default.
-func selfOverride(source, target *core.User, ch *core.Channel) (int, os.Error) {
+func selfOverride(_ string, source, target *core.User, ch *core.Channel) (int, os.Error) {
 	if source == target {
 		return 100, nil
 	}
@@ -31,7 +31,7 @@ func selfOverride(source, target *core.User, ch *core.Channel) (int, os.Error) {
 
 // Channel operators are immune to being removed by anything below server op
 // level aside themselves. They must be deopped first.
-func opKickImmune(source, target *core.User, ch *core.Channel) (int, os.Error) {
+func opKickImmune(_ string, source, target *core.User, ch *core.Channel) (int, os.Error) {
 	if source == target {
 		return 0, nil
 	}
@@ -44,7 +44,7 @@ func opKickImmune(source, target *core.User, ch *core.Channel) (int, os.Error) {
 }
 
 // Channel operators with the "ban" flag can remove other users, too.
-func opKickOverride(source, target *core.User, ch *core.Channel) (int, os.Error) {
+func opKickOverride(_ string, source, target *core.User, ch *core.Channel) (int, os.Error) {
 	if HasOpFlag(source, ch, "ban") {
 		return 10000, nil
 	}

@@ -1,8 +1,11 @@
 /*
 	The core of the server.
 
-	Tracks users and channels, and their associations. Exports methods to
-	do things with them.
+	Tracks users and channels, and their associations. Exports functions to
+	add, get, and do things with them.
+
+	Functions with a "pkg" parameter expect the package making the call to
+	pass their name.
 */
 package core
 

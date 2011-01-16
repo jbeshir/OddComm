@@ -3,24 +3,10 @@ package perm
 import "os"
 
 
-// A permissions hook. Contains a function to run.
-type hook struct {
-	next *hook
-	f    interface{}
-}
-
-// Add a permissions hook to a hook list.
-func hookAdd(l **hook, f interface{}) {
-	h := new(hook)
-	h.f = f
-	h.next = *l
-	*l = h
-}
-
 // Run a permission hook list.
 // Returns whether the action is to be permitted or denied. def specifies the
 // default value.
-func (l *hook) run(f func(interface{}) (int, os.Error), def bool) (perm int, err os.Error) {
+func runPermHooks(l []interface{}, f func(interface{}) (int, os.Error), def bool) (perm int, err os.Error) {
 	var absperm int = 1
 	if def {
 		perm = 1
@@ -28,8 +14,8 @@ func (l *hook) run(f func(interface{}) (int, os.Error), def bool) (perm int, err
 		perm = -1
 	}
 
-	for h := l; h != nil; h = h.next {
-		result, thisErr := f(h.f)
+	for _, h := range l {
+		result, thisErr := f(h)
 
 		// A result of -1e9 or below indicates that the operation will
 		// break the server if it is permitted. This is an automatic,
@@ -63,7 +49,7 @@ func (l *hook) run(f func(interface{}) (int, os.Error), def bool) (perm int, err
 }
 
 // Run a slice of permission hook lists, and combine results.
-func runPermHookLists(lists []*hook, f func(interface{}) (int, os.Error), def bool) (perm int, err os.Error) {
+func runPermHooksSlice(lists [][]interface{}, f func(interface{}) (int, os.Error), def bool) (perm int, err os.Error) {
 	if def {
 		perm = 1
 	} else {
@@ -71,8 +57,8 @@ func runPermHookLists(lists []*hook, f func(interface{}) (int, os.Error), def bo
 	}
 
 	var absPerm int
-	for i := range lists {
-		thisPerm, thisErr := lists[i].run(f, def)
+	for _, l := range lists {
+		thisPerm, thisErr := runPermHooks(l, f, def)
 		if thisPerm <= -1e9 {
 			return -1e9, thisErr
 		}

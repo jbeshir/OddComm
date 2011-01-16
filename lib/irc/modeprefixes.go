@@ -34,7 +34,7 @@ func (p *ModeParser) AddPrefix(prefixchar int, metadata string, level int) {
 	*place = pr
 
 	// Update the prefix when the metadata is set or unset.
-	core.HookMemberDataChange("", metadata, func(u *core.User, m *core.Membership, oldvalue, newvalue string) {
+	core.HookMemberDataChange("", metadata, func(_ string, u *core.User, m *core.Membership, _, _ string) {
 		p.updatePrefix(m)
 	})
 }
@@ -71,5 +71,5 @@ func (p *ModeParser) updatePrefix(m *core.Membership) {
 			prefix += string(it.prefix)
 		}
 	}
-	m.SetData(nil, strconv.Uitoa64(p.id)+" prefixes", prefix)
+	m.SetData("", nil, strconv.Uitoa64(p.id)+" prefixes", prefix)
 }

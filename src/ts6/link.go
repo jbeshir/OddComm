@@ -98,7 +98,7 @@ func link(c *net.TCPConn, outgoing bool) {
 				u := core.GetUser(string(prefix));
 				if u == nil {
 					source = nil
-				} else if u.Owner() != "oddcomm/src/ts6" {
+				} else if u.Owner() != me {
 					source = nil
 				} else {
 					userver := u.Owndata().(*server)

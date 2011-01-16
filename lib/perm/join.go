@@ -5,14 +5,11 @@ import "os"
 import "oddcomm/src/core"
 
 
-var checkJoin map[string]**hook
-var checkRemove map[string]**hook
+var checkJoin = make(map[string][]interface{})
+var checkRemove = make(map[string][]interface{})
 
 
 func init() {
-	checkJoin = make(map[string]**hook)
-	checkRemove = make(map[string]**hook)
-
 	// Add the core permissions for joining channels.
 	HookJoin("", joinBanned)
 	HookJoin("", inviteOnly)
@@ -29,11 +26,8 @@ func init() {
 // It should return a number indicating granted or denied permission, and the
 // level of it. If the number is negative, err should be non-nil and indicate
 // why. See package comment for permission levels.
-func HookJoin(chantype string, h func(*core.User, *core.Channel) (int, os.Error)) {
-	if checkJoin[chantype] == nil {
-		checkJoin[chantype] = new(*hook)
-	}
-	hookAdd(checkJoin[chantype], h)
+func HookJoin(chantype string, f func(string, *core.User, *core.Channel) (int, os.Error)) {
+	checkJoin[chantype] = append(checkJoin[chantype], f)
 }
 
 // HookRemove adds the given hook to CheckRemove checks.
@@ -41,57 +35,46 @@ func HookJoin(chantype string, h func(*core.User, *core.Channel) (int, os.Error)
 // It should return a number indicating granted or denied permission, and the
 // level of it. If the number is negative, err should be non-nil and indicate
 // why. See package comment for permission levels.
-func HookRemove(chantype string, h func(*core.User, *core.User, *core.Channel) (int, os.Error)) {
-	if checkRemove[chantype] == nil {
-		checkRemove[chantype] = new(*hook)
-	}
-	hookAdd(checkRemove[chantype], h)
+func HookRemove(chantype string, f func(string, *core.User, *core.User, *core.Channel) (int, os.Error)) {
+	checkRemove[chantype] = append(checkRemove[chantype], f)
 }
 
 
 // CheckJoin tests whether the given user can join the given channel.
-func CheckJoin(source *core.User, target *core.Channel) (bool, os.Error) {
-	perm, err := CheckJoinPerm(source, target)
+func CheckJoin(pkg string, source *core.User, target *core.Channel) (bool, os.Error) {
+	perm, err := CheckJoinPerm(pkg, source, target)
 	return perm > 0, err
 }
 
 // CheckJoinPerm returns the full permissions value for CheckJoin.
-func CheckJoinPerm(source *core.User, ch *core.Channel) (int, os.Error) {
-	f := func(f interface{}) (int, os.Error) {
-		h, ok := f.(func(*core.User, *core.Channel) (int, os.Error))
-		if ok && h != nil {
-			return h(source, ch)
+func CheckJoinPerm(pkg string, source *core.User, ch *core.Channel) (int, os.Error) {
+	f := func(h interface{}) (int, os.Error) {
+		f, ok := h.(func(string, *core.User, *core.Channel) (int, os.Error))
+		if ok && f != nil {
+			return f(pkg, source, ch)
 		}
 		return 0, nil
 	}
 
-	list := checkJoin[ch.Type()]
-	if list != nil {
-		return (*list).run(f, true)
-	}
-	return 1, nil
+	return runPermHooks(checkJoin[ch.Type()], f, true)
 }
 
 // CheckRemove tests whether the given user can remove the given target from
 // the given channel.
-func CheckRemove(source, target *core.User, ch *core.Channel) (bool, os.Error) {
-	perm, err := CheckRemovePerm(source, target, ch)
+func CheckRemove(pkg string, source, target *core.User, ch *core.Channel) (bool, os.Error) {
+	perm, err := CheckRemovePerm(pkg, source, target, ch)
 	return perm > 0, err
 }
 
 // CheckRemovePerm returns the full permissions value for CheckRemove.
-func CheckRemovePerm(source, target *core.User, ch *core.Channel) (int, os.Error) {
-	f := func(f interface{}) (int, os.Error) {
-		h, ok := f.(func(*core.User, *core.User, *core.Channel) (int, os.Error))
-		if ok && h != nil {
-			return h(source, target, ch)
+func CheckRemovePerm(pkg string, source, target *core.User, ch *core.Channel) (int, os.Error) {
+	f := func(h interface{}) (int, os.Error) {
+		f, ok := h.(func(string, *core.User, *core.User, *core.Channel) (int, os.Error))
+		if ok && f != nil {
+			return f(pkg, source, target, ch)
 		}
 		return 0, nil
 	}
 
-	list := checkRemove[ch.Type()]
-	if list != nil {
-		return (*list).run(f, false)
-	}
-	return 1, nil
+	return runPermHooks(checkRemove[ch.Type()], f, false)
 }

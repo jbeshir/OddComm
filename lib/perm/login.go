@@ -5,7 +5,7 @@ import "os"
 import "oddcomm/src/core"
 
 
-var checkLogin *hook
+var checkLogin []interface{}
 
 
 // HookCheckLogin adds the given hook to CheckLogin checks.
@@ -20,27 +20,27 @@ var checkLogin *hook
 // If the number is negative, err should be non-nil and indicate why. If it is
 // positive, as a special case, err should be non-nil and convert to the
 // account name to which login is granted.
-func HookCheckLogin(h func(*core.User, string, string, string) (int, os.Error)) {
-	hookAdd(&checkLogin, h)
+func HookCheckLogin(f func(*core.User, string, string, string) (int, os.Error)) {
+	checkLogin = append(checkLogin, f)
 }
 
 
 // CheckLogin tests whether the given user can login using the given
 // username, authentication data type, and authentication data string.
-func CheckLogin(u *core.User, user, authtype, auth string) (bool, os.Error) {
-	perm, err := CheckLoginPerm(u, user, authtype, auth)
+func CheckLogin(pkg string, u *core.User, user, authtype, auth string) (bool, os.Error) {
+	perm, err := CheckLoginPerm(pkg, u, user, authtype, auth)
 	return perm > 0, err
 }
 
 // CheckLoginPerm returns the full permissions value for CheckLogin.
-func CheckLoginPerm(u *core.User, user, authtype, auth string) (int, os.Error) {
-	f := func(f interface{}) (int, os.Error) {
-		h, ok := f.(func(*core.User, string, string, string) (int, os.Error))
-		if ok && h != nil {
-			return h(u, user, authtype, auth)
+func CheckLoginPerm(pkg string, u *core.User, user, authtype, auth string) (int, os.Error) {
+	f := func(h interface{}) (int, os.Error) {
+		f, ok := h.(func(string, *core.User, string, string, string) (int, os.Error))
+		if ok && f != nil {
+			return f(pkg, u, user, authtype, auth)
 		}
 		return 0, nil
 	}
 
-	return checkLogin.run(f, false)
+	return runPermHooks(checkLogin, f, false)
 }

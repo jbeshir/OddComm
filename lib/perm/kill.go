@@ -5,7 +5,7 @@ import "os"
 import "oddcomm/src/core"
 
 
-var checkKill *hook
+var checkKill []interface{}
 
 
 func init() {
@@ -19,32 +19,32 @@ func init() {
 // It should return a number indicating granted or denied permission, and the
 // level of it. If the number is negative, err should be non-nil and indicate
 // why. See package comment for permission levels.
-func HookKill(h func(*core.User, *core.User) (int, os.Error)) {
-	hookAdd(&checkKill, h)
+func HookKill(f func(string, *core.User, *core.User) (int, os.Error)) {
+	checkKill = append(checkKill, f)
 }
 
 
 // CheckKill tests whether the given user can disconnect the other given user.
-func CheckKill(source, target *core.User) (bool, os.Error) {
-	perm, err := CheckKillPerm(source, target)
+func CheckKill(pkg string, source, target *core.User) (bool, os.Error) {
+	perm, err := CheckKillPerm(pkg, source, target)
 	return perm > 0, err
 }
 
 // CheckKillPerm returns the full permissions value for CheckKill.
-func CheckKillPerm(source, target *core.User) (int, os.Error) {
-	f := func(f interface{}) (int, os.Error) {
-		h, ok := f.(func(*core.User, *core.User) (int, os.Error))
-		if ok && h != nil {
-			return h(source, target)
+func CheckKillPerm(pkg string, source, target *core.User) (int, os.Error) {
+	f := func(h interface{}) (int, os.Error) {
+		f, ok := h.(func(string, *core.User, *core.User) (int, os.Error))
+		if ok && f != nil {
+			return f(pkg, source, target)
 		}
 		return 0, nil
 	}
 
-	return checkKill.run(f, false)
+	return runPermHooks(checkKill, f, false)
 }
 
 
 // Permit no one without oper powers to kill another user.
-func noKilling(source, target *core.User) (int, os.Error) {
+func noKilling(_ string, source, target *core.User) (int, os.Error) {
 	return -1000000, os.NewError("You are not a server operator.")
 }

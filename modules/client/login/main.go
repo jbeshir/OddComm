@@ -10,7 +10,7 @@ import "oddcomm/lib/irc"
 import "oddcomm/lib/perm"
 
 
-var MODULENAME = "modules/client/account"
+var me = "modules/client/account"
 
 
 func init() {
@@ -68,8 +68,8 @@ func cmdLogin(source interface{}, params [][]byte) {
 	}
 
 	// Try to log them in.
-	if ok, err := perm.CheckLogin(c.User(), account, "password", pass); ok {
-		c.User().SetData(nil, "account", err.String())
+	if ok, err := perm.CheckLogin(me, c.User(), account, "password", pass); ok {
+		c.User().SetData(me, nil, "account", err.String())
 	} else {
 		c.WriteTo(nil, "491", ":%s", err)
 	}

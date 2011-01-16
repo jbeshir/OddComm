@@ -141,7 +141,7 @@ func cmdWho(source interface{}, params [][]byte) {
 	// If the user isn't on the channel, don't let them check unless they
 	// can view private channel data.
 	if m := ch.GetMember(c.u); m == nil {
-		if ok, err := perm.CheckChanViewData(c.u, ch, "members"); !ok {
+		if ok, err := perm.CheckChanViewData(me, c.u, ch, "members"); !ok {
 			c.WriteTo(nil, "482", "#%s :%s", ch.Name(), err)
 			return
 		}
@@ -194,7 +194,7 @@ func cmdNames(source interface{}, params [][]byte) {
 	// If the user isn't on the channel, don't let them check unless they
 	// can view private channel data.
 	if m := ch.GetMember(c.u); m == nil {
-		if ok, err := perm.CheckChanViewData(c.u, ch, "members"); !ok {
+		if ok, err := perm.CheckChanViewData(me, c.u, ch, "members"); !ok {
 			c.WriteTo(nil, "482", "#%s :%s", ch.Name(), err)
 			return
 		}
@@ -252,7 +252,7 @@ func cmdOpflags(source interface{}, params [][]byte) {
 	// If the user isn't on the channel, don't let them check unless they
 	// can view private channel data.
 	if m := ch.GetMember(c.u); m == nil {
-		if ok, err := perm.CheckChanViewData(c.u, ch, "members"); !ok {
+		if ok, err := perm.CheckChanViewData(me, c.u, ch, "members"); !ok {
 			c.WriteTo(nil, "482", "#%s :%s", ch.Name(), err)
 			return
 		}
@@ -269,7 +269,7 @@ func cmdOpflags(source interface{}, params [][]byte) {
 		c.WriteTo(nil, "304", ":OPFLAGS #%s: %s is not in the channel.", ch.Name(), target.Nick())
 		return
 	}
-	if ok, err := perm.CheckMemberViewData(c.u, m, "op"); !ok {
+	if ok, err := perm.CheckMemberViewData(me, c.u, m, "op"); !ok {
 		c.WriteTo(nil, "482", "#%s :%s: %s", ch.Name(), target.Nick(), err)
 		return
 	}
