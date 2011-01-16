@@ -428,15 +428,20 @@ func (u *User) Delete(pkg string, source *User, message string) {
 	regged := (u.regstate == 0)
 	u.regstate = -1
 
+	// Wait until on-delete hooks have run before continuing, so they
+	// have the user's channels available. We can't just call it from this
+	// goroutine because we need it to be called after hooks 
+	wait := make(chan bool, 1)
+	hookRunner <- func() {
+		runUserDeleteHooks(pkg, source, u, message, regged)
+		wait <- true
+	}
+
 	// To unlock this, we must be able to otherwise assume that deleted
 	// users will not have their channel membership written to.
 	// We ensure this elsewhere.
 	u.mutex.Unlock()
-
-	// Run on-delete hooks in this goroutine, ensuring they're called
-	// before the user leaves channels.
-	runUserDeleteHooks(pkg, source, u, message, regged)
-
+	<-wait
 	u.mutex.Lock()
 
 	// Get the user's channel list, wiping it here in the process.
