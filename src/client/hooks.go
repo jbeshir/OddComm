@@ -170,9 +170,11 @@ func init() {
 	})
 
 	core.HookChanUserRemove("", func(_ string, source, u *core.User, ch *core.Channel, message string) {
-		// If the user doesn't exist anymore (quit, for example),
-		// don't bother to show their removal, we'll just show the
-		// quit.
+		// If the user isn't registered anymore, they quit.
+		// Don't bother to show their part.
+		if !u.Registered() {
+			return
+		}
 
 		// Send a PART or KICK to the user themselves.
 		if c := GetClient(u); c != nil {

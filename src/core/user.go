@@ -407,12 +407,10 @@ func (u *User) Message(pkg string, source *User, message []byte, t string) {
 func (u *User) Delete(pkg string, source *User, message string) {
 	var chans *Membership
 
-	// Holding the global user mutex for hook ordering throughout
-	// also means we know we're not called concurrently.
 	userMutex.Lock()
 	u.mutex.Lock()
 
-	// And this check ensures we're not called more than once.
+	// This check ensures we're not called more than once.
 	if u.regstate == -1 {
 		u.mutex.Unlock()
 		userMutex.Unlock()
@@ -424,16 +422,26 @@ func (u *User) Delete(pkg string, source *User, message string) {
 	users.Remove(u.id)
 	usersByNick.Remove(NICK)
 
-	// Mark the user as deleted, and get their membership list.
-	u.regstate = -1
-	chans = u.chans
-	u.chans = nil
+	userMutex.Unlock()
 
-	// This is required by the ordering on mutexes, but means we
-	// must be able to otherwise assume that deleted users will not
-	// have their channel membership written to.
+	// Mark the user as deleted, and get their membership list.
+	regged := (u.regstate == 0)
+	u.regstate = -1
+
+	// To unlock this, we must be able to otherwise assume that deleted
+	// users will not have their channel membership written to.
 	// We ensure this elsewhere.
 	u.mutex.Unlock()
+
+	// Run on-delete hooks in this goroutine, ensuring they're called
+	// before the user leaves channels.
+	runUserDeleteHooks(pkg, source, u, message, regged)
+
+	u.mutex.Lock()
+
+	// Get the user's channel list, wiping it here in the process.
+	chans = u.chans
+	u.chans = nil
 
 	// Remove them from all channel lists.
 	var prev, it *Membership
@@ -461,9 +469,6 @@ func (u *User) Delete(pkg string, source *User, message string) {
 		it.c.mutex.Unlock()
 	}
 
-	hookRunner <- func() {
-		runUserDeleteHooks(pkg, source, u, message)
-	}
-
+	u.mutex.Unlock()
 	userMutex.Unlock()
 }

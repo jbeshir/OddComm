@@ -152,12 +152,12 @@ func runUserDataChangesHooks(pkg string, source, target *User, changes []DataCha
 	}
 }
 
-func runUserDeleteHooks(pkg string, source, target *User, message string) {
+func runUserDeleteHooks(pkg string, source, target *User, message string, regged bool) {
 	for _, f := range hookUserDelete.all {
 		f(pkg, source, target, message)
 	}
 
-	if target.Registered() {
+	if regged {
 		for _, f := range hookUserDelete.regged {
 			f(pkg, source, target, message)
 		}

@@ -13,6 +13,14 @@ func init() {
 		}
 	})
 
+	core.HookUserDelete(func(pkg string, source, u *core.User, msg string) {
+		if pkg == me {
+			return
+		}
+
+		fmt.Fprintf(all, ":%s QUIT %s\r\n", u.ID(), msg)
+	}, false)
+
 	core.HookUserMessage("", func(pkg string, source, target *core.User, msg []byte) {
 
 		if pkg == me || target.Owner() != me {
@@ -20,7 +28,7 @@ func init() {
 		}
 
 		s := target.Owndata().(*server)
-		fmt.Fprintf(s.local, ":%s PRIVMSG %s :%s\n", source.ID(),
+		fmt.Fprintf(s.local, ":%s PRIVMSG %s :%s\r\n", source.ID(),
 			target.ID(), msg)
 	})
 
@@ -31,7 +39,7 @@ func init() {
 		}
 
 		s := target.Owndata().(*server)
-		fmt.Fprintf(s.local, ":%s NOTICE %s :%s\n", source.ID(),
+		fmt.Fprintf(s.local, ":%s NOTICE %s :%s\r\n", source.ID(),
 			target.ID(), msg)
 	})
 }
