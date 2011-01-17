@@ -44,6 +44,8 @@ func cmdUid(source interface{}, params [][]byte) {
 	// Servers can only introduce users whose UID begins with their SID.
 	uid := string(params[7])
 	if len(uid) != 9 || uid[:3] != s.sid {
+		// Bad UID, kill.
+		s.local.SendLine(nil, uid, "KILL", "Bad UID")
 		return
 	}
 
@@ -58,14 +60,18 @@ func cmdUid(source interface{}, params [][]byte) {
 	// Add the user, set their nick, and register.
 	u := core.NewUser(me, s, true, uid, data)
 	if u == nil {
-		// Duplicate UID!
+		// Duplicate UID, kill.
+		s.local.SendLine(nil, uid, "KILL", "Duplicate UID")
 		return
 	}
 
 	// Set their nick.
-	if u.SetNick(me, string(params[0])) != nil {
-		u.SetNick(me, "")
+	for u.SetNick(me, string(params[0])) != nil {
 
+		// Nick collision, kill them.
+		s.local.SendLine(nil, uid, "KILL", "Nick Collision")
+		u.Delete(me, nil, "Nick Collision")
+		break
 	}
 
 	// They are now registered.

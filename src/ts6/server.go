@@ -40,28 +40,31 @@ func (l *local) Write(b []byte) (n int, err os.Error) {
 	return
 }
 
-// Write a formatted line from the given user, addressed to this server.
-// u may be nil, in which case, the line will be from this server.
-// A line ending will be automatically appended.
-func (l *local) WriteTo(u *core.User, cmd string, format string, args ...interface{}) {
-	if u != nil {
-		fmt.Fprintf(l, ":%s %s %s %s\r\n", u.ID(), cmd,
-			l.server.sid, fmt.Sprintf(format, args...))
-	} else {
-		fmt.Fprintf(l, ":%s %s %s %s\r\n", "1AA", cmd,
-			l.server.sid, fmt.Sprintf(format, args...))
-	}
+// Send a formatted line from the given user or server,
+// to the given user or server.
+func (l *local) SendLine(source, target interface{}, cmd string, format string, args ...interface{}) {
+	fmt.Fprintf(l, ":%s %s %s %s\r\n", prefix(source), cmd, prefix(target),
+		fmt.Sprintf(format, args...))
 }
 
-// Write the given line, prefixed by the given source.
-// u may be nil, in which case, the line will be from this server.
-// A line ending will be automatically appended.
-func (l *local) WriteFrom(u *core.User, format string, args ...interface{}) {
-	if u != nil {
-		fmt.Fprintf(l, ":%s %s\r\n", u.ID(),
-			fmt.Sprintf(format, args...))
-	} else {
-		fmt.Fprintf(l, ":%s %s\r\n", "1AA",
-			fmt.Sprintf(format, args...))
-		}
+// Write a given prewritten line from the given user or server.
+// source may be a nil interface or a nil value, in which case the line will
+func (l *local) SendFrom(source interface{}, format string, args ...interface{}) {
+	fmt.Fprintf(l, ":%s %s\r\n", prefix(source),
+		fmt.Sprintf(format, args...))
+}
+
+
+// Returns the prefix to be used for a line from the given user or server.
+// This may be a nil interface or nil value, in which case the line will be
+// from this server.
+func prefix(source interface{}) string {
+	if u, ok := source.(*core.User); ok && u != nil {
+		return u.ID()
+	} else if s, ok := source.(*server); ok && u != nil {
+		return s.sid
+	} else if s, ok := source.(string); ok && s != "" {
+		return s
+	}
+	return "1AA"
 }

@@ -422,56 +422,51 @@ func (u *User) Delete(pkg string, source *User, message string) {
 	users.Remove(u.id)
 	usersByNick.Remove(NICK)
 
-	userMutex.Unlock()
 
 	// Mark the user as deleted, and get their membership list.
 	regged := (u.regstate == 0)
 	u.regstate = -1
 
-	// Wait until on-delete hooks have run before continuing, so they
-	// have the user's channels available. We can't just call it from this
-	// goroutine because we need it to be called after hooks 
-	wait := make(chan bool, 1)
+	// Run on delete hooks, then on remove hooks for all channels the user
+	// is in, at the same time removing them from the channel lists.
+	// This ensures the user is still in their channels when deletion hooks
+	// are run.
 	hookRunner <- func() {
 		runUserDeleteHooks(pkg, source, u, message, regged)
-		wait <- true
-	}
 
-	// To unlock this, we must be able to otherwise assume that deleted
-	// users will not have their channel membership written to.
-	// We ensure this elsewhere.
-	u.mutex.Unlock()
-	<-wait
-	u.mutex.Lock()
-
-	// Get the user's channel list, wiping it here in the process.
-	chans = u.chans
-	u.chans = nil
-
-	// Remove them from all channel lists.
-	var prev, it *Membership
-	for it = chans; it != nil; it = it.unext {
-
-		u.mutex.Unlock()
-		it.c.mutex.Lock()
 		u.mutex.Lock()
 
-		if it.cprev == nil {
-			it.c.users = it.cnext
-		} else {
-			it.cprev.cnext = it.cnext
-		}
-		if it.cnext != nil {
-			it.cnext.cprev = it.cprev
+		// Get the user's channel list, wiping it here in the process.
+		chans = u.chans
+		u.chans = nil
+
+		// Remove them from all channel lists and run hooks.
+		var prev, it *Membership
+		for it = chans; it != nil; it = it.unext {
+
+			u.mutex.Unlock()
+			it.c.mutex.Lock()
+			u.mutex.Lock()
+
+			if it.cprev == nil {
+				it.c.users = it.cnext
+			} else {
+				it.cprev.cnext = it.cnext
+			}
+			if it.cnext != nil {
+				it.cnext.cprev = it.cprev
+			}
+
+			prev = it
+			if prev != nil {
+				hookRunner <- func() {
+					runChanUserRemoveHooks(pkg, prev.c.t, u, u, prev.c, message)
+				}
+			}
+			it.c.mutex.Unlock()
 		}
 
-		prev = it
-		if prev != nil {
-			hookRunner <- func() {
-				runChanUserRemoveHooks(pkg, prev.c.t, u, u, prev.c, message)
-			}
-		}
-		it.c.mutex.Unlock()
+		u.mutex.Unlock()
 	}
 
 	u.mutex.Unlock()

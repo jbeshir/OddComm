@@ -20,7 +20,7 @@ var checkLogin []interface{}
 // If the number is negative, err should be non-nil and indicate why. If it is
 // positive, as a special case, err should be non-nil and convert to the
 // account name to which login is granted.
-func HookCheckLogin(f func(*core.User, string, string, string) (int, os.Error)) {
+func HookCheckLogin(f func(string, *core.User, string, string, string) (int, os.Error)) {
 	checkLogin = append(checkLogin, f)
 }
 

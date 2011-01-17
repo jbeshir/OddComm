@@ -1,7 +1,5 @@
 package ts6
 
-import "fmt"
-
 import "oddcomm/src/core"
 
 
@@ -9,7 +7,7 @@ func init() {
 	core.HookUserRegister(func(_ string, u *core.User) {
 		// Don't introduce them if they came *from* this module.
 		if u.Owner() != me {
-			send_uid(all, u)
+			all(func(l *local) { send_uid(l, u) })
 		}
 	})
 
@@ -18,7 +16,19 @@ func init() {
 			return
 		}
 
-		fmt.Fprintf(all, ":%s QUIT %s\r\n", u.ID(), msg)
+		if source == u {
+			all(func(l *local) {
+				l.SendFrom(u, "QUIT :Quit: %s", msg)
+			})
+		} else if source != nil {
+			all(func(l *local) {
+				l.SendFrom(source, "KILL %s :%s", u.ID(), msg)
+			})
+		} else {
+			all(func(l *local) {
+				l.SendFrom(u, "QUIT :%s", msg)
+			})
+		}
 	}, false)
 
 	core.HookUserMessage("", func(pkg string, source, target *core.User, msg []byte) {
@@ -28,8 +38,7 @@ func init() {
 		}
 
 		s := target.Owndata().(*server)
-		fmt.Fprintf(s.local, ":%s PRIVMSG %s :%s\r\n", source.ID(),
-			target.ID(), msg)
+		s.local.SendLine(source, target, "PRIVMSG", ":%s", msg)
 	})
 
 	core.HookUserMessage("noreply", func(pkg string, source, target *core.User, msg []byte) {
@@ -39,7 +48,6 @@ func init() {
 		}
 
 		s := target.Owndata().(*server)
-		fmt.Fprintf(s.local, ":%s NOTICE %s :%s\r\n", source.ID(),
-			target.ID(), msg)
+		s.local.SendLine(source, target, "NOTICE", ":%s", msg)
 	})
 }

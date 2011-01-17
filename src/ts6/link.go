@@ -1,7 +1,6 @@
 package ts6
 
 import "fmt"
-import "io"
 import "net"
 import "time"
 
@@ -132,21 +131,20 @@ func link(c *net.TCPConn, outgoing bool) {
 				// The IRC protocol is stupid.
 				switch perr.Num {
 				case irc.CmdNotFound:
-				//	server.c.WriteTo(nil, "421", "%s :%s",
-				//		perr.CmdName, perr)
+					l.SendLine(nil, &(l.server),
+						"421", "%s :%s", perr.CmdName,
+						perr)
 				case irc.CmdForRegistered:
-				//	server.c.WriteFrom(nil, "451 %s :%s",
-				//		perr.CmdName, perr)
+					l.SendFrom(nil, "451 %s :%s",
+						perr.CmdName, perr)
 				case irc.CmdForUnregistered:
-				//	server.c.WriteFrom(nil, "462 %s :%s",
-				//		c.u.Nick(), perr)
+					l.SendFrom(nil, "462 %s :%s",
+						l.server.sid, perr)
 				default:
-				//	server.c.WriteFrom(nil, "461 %s %s :%s",
-				//		c.u.Nick(), perr.CmdName,
-				//		perr)
+					l.SendFrom(nil, "461 %s %s :%s",
+						l.server.sid, perr.CmdName,
+						perr)
 				}
-				fmt.Fprintf(c, "421 %s :%s\n", perr.CmdName,
-					perr)
 			}
 
 			// If we have remaining input for the next line, move
@@ -172,10 +170,10 @@ func link(c *net.TCPConn, outgoing bool) {
 func link_auth(l *local) {
 
 	// No configuration!
-	l.Write([]byte("PASS supertest TS 6 :1AA\n"))
-	l.Write([]byte("CAPAB :QS ENCAP\n"))
-	l.Write([]byte("SERVER Test.net 1 :Testing\n"))
-	fmt.Fprintf(l, "SVINFO 6 6 0 :%d\n", time.Seconds())
+	l.Write([]byte("PASS supertest TS 6 :1AA\r\n"))
+	l.Write([]byte("CAPAB :QS ENCAP\r\n"))
+	l.Write([]byte("SERVER Test.net 1 :Testing\r\n"))
+	fmt.Fprintf(l, "SVINFO 6 6 0 :%d\r\n", time.Seconds())
 	l.auth_sent = true
 }
 
@@ -198,9 +196,29 @@ func link_burst(l *local) {
 }
 
 
-// Introduce a user through a given writer.
-func send_uid(w io.Writer, u *core.User) {
-	fmt.Fprintf(w, ":1AA UID %s 1 %d +i %s %s %s %s :%s\n", u.Nick(), 0,
-			u.Data("ident"), u.GetHostname(), u.Data("ip"), u.ID(),
-			u.Data("realname"))
+// Introduce a user to a given local server.
+func send_uid(l *local, u *core.User) {
+	l.SendFrom(nil, "UID %s 1 %d +i %s %s %s %s :%s", u.Nick(), 0,
+		u.Data("ident"), u.GetHostname(), u.Data("ip"), u.ID(),
+		u.Data("realname"))
+}
+
+// Iterates all servers, running the given function on each.
+func all(f func(l *local)) {
+	core.IterateSID(func(sid string, value interface{}) {
+		s, ok := value.(*server)
+		if !ok {
+			return
+		}
+
+		if &(s.local.server) != s {
+			return
+		}
+
+		if s.local.bursted != true {
+			return
+		}
+
+		f(s.local)
+	})
 }

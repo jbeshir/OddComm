@@ -1,7 +1,5 @@
 package ts6
 
-import "fmt"
-
 import "oddcomm/src/core"
 import "oddcomm/lib/irc"
 
@@ -159,7 +157,6 @@ func cmdSvinfo(source interface{}, params [][]byte) {
 	// If this isn't a local server, ignore it.
 	l := s.local
 	if &(l.server) != s {
-		fmt.Printf("%v %v", &(l.server), l)
 		return
 	}
 
@@ -197,8 +194,8 @@ func cmdPing(source interface{}, params[][]byte) {
 
 	// Echo it back, including the remote destination if it has one.
 	if len(params) == 1 {
-		fmt.Fprintf(s.local, "1AA PONG %s\n", params[0])
+		s.local.SendFrom(nil, "PONG %s", params[0])
 	} else {
-		fmt.Fprintf(s.local, "1AA PONG %s %s\n", params[0], params[1])
+		s.local.SendFrom(nil, "PONG %s %s", params[0], params[1])
 	}
 }
