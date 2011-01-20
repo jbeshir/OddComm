@@ -11,6 +11,16 @@ func init() {
 		}
 	})
 
+	core.HookUserNickChange(func(pkg string, u *core.User, _, newnick string, ts int64) {
+		if pkg == me {
+			return
+		}
+
+		all(func(l *local) {
+			l.SendFrom(u, "NICK %s %d", newnick, ts)
+		})
+	}, false)
+
 	core.HookUserDelete(func(pkg string, source, u *core.User, msg string) {
 		if pkg == me {
 			return

@@ -17,7 +17,7 @@ func init() {
 	// Join the server on startup.
 	core.HookStart(addCat)
 
-	core.HookUserNickChange(func(_ string, u *core.User, oldnick, newnick string) {
+	core.HookUserNickChange(func(_ string, u *core.User, oldnick, newnick string, _ int64) {
 		// If someone was stealing our nick, and they changed nick, try
 		// to connect again.
 		if u != cat && strings.ToUpper(oldnick) == "CATSERV" {

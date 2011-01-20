@@ -6,7 +6,7 @@ import "oddcomm/src/core"
 
 
 func init() {
-	core.HookUserNickChange(func(_ string, u *core.User, oldnick, newnick string) {
+	core.HookUserNickChange(func(_ string, u *core.User, oldnick, newnick string, _ int64) {
 		sent := make(map[*Client]bool)
 
 		// Send the nick change to every user on a common channel.

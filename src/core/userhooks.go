@@ -7,8 +7,8 @@ var hookUserAdd []func(string, *User)
 var hookUserRegister []func(string, *User)
 
 var hookUserNickChange struct {
-	all    []func(string, *User, string, string)
-	regged []func(string, *User, string, string)
+	all    []func(string, *User, string, string, int64)
+	regged []func(string, *User, string, string, int64)
 }
 
 var hookUserDataChanges struct {
@@ -56,7 +56,7 @@ func HookUserRegister(f func(string, *User)) {
 // HookUserNickChange adds a hook called whenever a user changes nick.
 // If unregged is false, it is not called for unregistered users.
 // The hook receives the old and new nicks as parameters.
-func HookUserNickChange(f func(string, *User, string, string), unregged bool) {
+func HookUserNickChange(f func(string, *User, string, string, int64), unregged bool) {
 	if unregged {
 		hookUserNickChange.all = append(hookUserNickChange.all, f)
 	} else {
@@ -128,14 +128,14 @@ func runUserRegisterHooks(pkg string, u *User) {
 	}
 }
 
-func runUserNickChangeHooks(pkg string, u *User, oldnick, newnick string) {
+func runUserNickChangeHooks(pkg string, u *User, oldnick, newnick string, ts int64) {
 	for _, f := range hookUserNickChange.all {
-		f(pkg, u, oldnick, newnick)
+		f(pkg, u, oldnick, newnick, ts)
 	}
 
 	if u.Registered() {
 		for _, f := range hookUserNickChange.regged {
-			f(pkg, u, oldnick, newnick)
+			f(pkg, u, oldnick, newnick, ts)
 		}
 	}
 }

@@ -198,6 +198,9 @@ func (u *User) ID() string {
 // If ts is not -1, it sets the nick timestamp to store.
 // If successful, err is nil. If not, err is a message why.
 func (u *User) SetNick(pkg, nick string, ts int64) (err os.Error) {
+	if ts == -1 {
+		ts = time.Seconds()
+	}
 
 	oldnick := u.nick
 	OLDNICK := strings.ToUpper(oldnick)
@@ -219,11 +222,7 @@ func (u *User) SetNick(pkg, nick string, ts int64) (err os.Error) {
 		}
 
 		// Apply the new nick timestamp.
-		if ts != -1 {
-			u.nickts = ts
-		} else {
-			u.nickts = time.Seconds()
-		}
+		u.nickts = ts
 
 		userMutex.Unlock()
 
@@ -232,12 +231,13 @@ func (u *User) SetNick(pkg, nick string, ts int64) (err os.Error) {
 		// or change nick timestamp.
 		u.mutex.Lock()
 		u.nick = nick
+		ts = u.nickts
 	}
 
 	if oldnick != nick {
 		if err == nil {
 			hookRunner <- func() {
-				runUserNickChangeHooks(pkg, u, oldnick, nick)
+				runUserNickChangeHooks(pkg, u, oldnick, nick, ts)
 			}
 		}
 		u.mutex.Unlock()
