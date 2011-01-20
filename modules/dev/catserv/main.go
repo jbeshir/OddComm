@@ -58,7 +58,7 @@ func addCat() {
 
 	// If I suffer a collision, quit for now; I will return when they go
 	// away.
-	if err := cat.SetNick(me, "CatServ"); err != nil {
+	if err := cat.SetNick(me, "CatServ", 0); err != nil {
 		cat.Delete(me, nil, err.String())
 		return
 	}

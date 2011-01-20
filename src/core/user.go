@@ -3,6 +3,7 @@ package core
 import "os"
 import "strings"
 import "sync"
+import "time"
 import "unsafe"
 
 
@@ -14,6 +15,7 @@ type User struct {
 	mutex    sync.Mutex
 	id       string
 	nick     string
+	nickts   int64
 	checked  bool
 	regstate int
 	chans    *Membership
@@ -193,8 +195,9 @@ func (u *User) ID() string {
 }
 
 // SetNick sets the user's nick. This may fail if the nickname is in use.
+// If ts is not -1, it sets the nick timestamp to store.
 // If successful, err is nil. If not, err is a message why.
-func (u *User) SetNick(pkg, nick string) (err os.Error) {
+func (u *User) SetNick(pkg, nick string, ts int64) (err os.Error) {
 
 	oldnick := u.nick
 	OLDNICK := strings.ToUpper(oldnick)
@@ -215,10 +218,18 @@ func (u *User) SetNick(pkg, nick string) (err os.Error) {
 			usersByNick.Insert(NICK, unsafe.Pointer(u))
 		}
 
+		// Apply the new nick timestamp.
+		if ts != -1 {
+			u.nickts = ts
+		} else {
+			u.nickts = time.Seconds()
+		}
+
 		userMutex.Unlock()
 
 	} else if oldnick != nick {
-		// Just a change in case; no need to alter the tables.
+		// Just a change in case; no need to alter the tables,
+		// or change nick timestamp.
 		u.mutex.Lock()
 		u.nick = nick
 	}
@@ -239,6 +250,11 @@ func (u *User) SetNick(pkg, nick string) (err os.Error) {
 // Nick returns the user's nick.
 func (u *User) Nick() (nick string) {
 	return u.nick
+}
+
+// NickTS returns the user's nick timestamp.
+func (u *User) NickTS() (ts int64) {
+	return u.nickts
 }
 
 // PermitRegistration marks the user as permitted to register.

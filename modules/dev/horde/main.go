@@ -34,7 +34,7 @@ func addHorde() {
 		data[3].Name, data[3].Data = "account", fmt.Sprintf("horde-%d", rng.Int()%1000000)
 
 		horde[i] = core.NewUser("oddcomm/modules/dev/horde", nil, true, "", data)
-		horde[i].SetNick(me, fmt.Sprintf("horde-%d", rng.Int()%1000000))
+		horde[i].SetNick(me, fmt.Sprintf("horde-%d", rng.Int()%1000000), -1)
 		horde[i].PermitRegistration(me)
 	}
 

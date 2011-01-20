@@ -131,7 +131,7 @@ func link(c *net.TCPConn, outgoing bool) {
 				// The IRC protocol is stupid.
 				switch perr.Num {
 				case irc.CmdNotFound:
-					l.SendLine(nil, &(l.server),
+					l.SendLine(nil, l.server.sid,
 						"421", "%s :%s", perr.CmdName,
 						perr)
 				case irc.CmdForRegistered:
@@ -198,8 +198,8 @@ func link_burst(l *local) {
 
 // Introduce a user to a given local server.
 func send_uid(l *local, u *core.User) {
-	l.SendFrom(nil, "UID %s 1 %d +i %s %s %s %s :%s", u.Nick(), 0,
-		u.Data("ident"), u.GetHostname(), u.Data("ip"), u.ID(),
+	l.SendFrom(nil, "UID %s 1 %d +i %s %s %s %s :%s", u.Nick(), u.NickTS(),
+		u.GetIdent(), u.GetHostname(), u.GetIP(), u.ID(),
 		u.Data("realname"))
 }
 

@@ -12,12 +12,24 @@ func (u *User) GetIdent() (ident string) {
 	return
 }
 
-// GetHostname gets a hostname for a user, substituting the server name if none
-// exists.
+// GetHostname gets a hostname for a user,
+// substituting the server name if none exists.
 func (u *User) GetHostname() (hostname string) {
 	hostname = u.Data("hostname")
 	if hostname == "" {
+		hostname = u.Data("ip")
+	}
+	if hostname == "" {
 		hostname = "Server.name"
+	}
+	return
+}
+
+// GetIP gets an IP for a user, substituting 0.0.0.0 if none exists.
+func (u *User) GetIP() (ip string) {
+	ip = u.Data("ip")
+	if ip == "" {
+		ip = "0.0.0.0"
 	}
 	return
 }

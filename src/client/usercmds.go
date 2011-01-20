@@ -90,7 +90,7 @@ func cmdNick(source interface{}, params [][]byte) {
 		return
 	}
 
-	if err := c.u.SetNick(me, nick); err != nil {
+	if err := c.u.SetNick(me, nick, -1); err != nil {
 		if c, ok := source.(*Client); ok {
 			c.WriteTo(nil, "433", "%s :%s", nick, err)
 		}
