@@ -19,7 +19,7 @@ import _   "oddcomm/modules/client/opflags"
 import _     "oddcomm/modules/oper/account"
 import _  "oddcomm/modules/oper/pmoverride"
 import _      "oddcomm/modules/dev/catserv"
-//import _        "oddcomm/modules/dev/horde"
+import _        "oddcomm/modules/dev/horde"
 import _  "oddcomm/modules/dev/testaccount"
 import _       "oddcomm/modules/dev/tmmode"
 

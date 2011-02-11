@@ -1,5 +1,6 @@
 package ts6
 
+import "bytes"
 import "fmt"
 import "net"
 import "time"
@@ -186,7 +187,30 @@ func link_burst(l *local) {
 			}
 		},
 		func(ch *core.Channel, hook bool) {
-			_, _ = ch, hook
+			b := bytes.NewBuffer(make([]byte, 0, 512))
+			user := bytes.NewBuffer(make([]byte, 0, 50))
+			if !hook {
+				it := ch.Users()
+				for {
+					fmt.Fprintf(b, "SJOIN %d #%s +n :", 0, ch.Name())
+					for ;it != nil; it = it.ChanNext() {
+						user.WriteString(it.User().ID())
+						user.Write([]byte(" "))
+						if b.Len() + user.Len() > 509 {
+							break
+						}
+						user.WriteTo(b)
+						user.Reset()
+					}
+					b.Write([]byte("\r\n"))
+					b.WriteTo(l)
+					b.Reset()
+
+					if it == nil {
+						break
+					}
+				}
+			}
 		},
 		func(hook bool) {
 			if !hook {
@@ -204,6 +228,7 @@ func send_uid(l *local, u *core.User) {
 }
 
 // Iterates all servers, running the given function on each.
+// Does not guarantee that the burst is complete.
 func all(f func(l *local)) {
 	core.IterateSID(func(sid string, value interface{}) {
 		s, ok := value.(*server)
@@ -212,10 +237,6 @@ func all(f func(l *local)) {
 		}
 
 		if &(s.local.server) != s {
-			return
-		}
-
-		if s.local.bursted != true {
 			return
 		}
 
