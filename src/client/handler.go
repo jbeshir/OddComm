@@ -24,120 +24,40 @@ func input(c *Client) {
 		c.mutex.Unlock()
 	}()
 
-	b := make([]byte, 2096)
-	var count int
-	for {
-		// If we have no room in our input buffer to read, the user
-		// has overrun their input buffer.
-		if count == cap(b) {
-			errMsg = "Input Buffer Exceeded"
-			break
-		}
 
-		// Try to read from the user.
-		n, err := c.conn.Read(b[count:cap(b)])
-		if err != nil {
-			// This happens if the user is disconnected
-			// by other code. In this case, the error message
-			// will be ignored.
-			errMsg = err.String()
-			break
-		}
-		count += n
-		b = b[:count]
+	irc.ReadLine(c.conn, make([]byte, 2096), func(line []byte) {
+		// Parse the line, ignoring any specified origin.
+		_, command, params, perr := irc.Parse(Commands, line,
+			c.u.Registered())
 
-		for {
-			// Search for an end of line, then keep going until we
-			// stop finding eol characters, to eat as many as
-			// possible in the same operation.
-			eol := -1
-			for i := range b {
-				if b[i] == '\r' || b[i] == '\n' || b[i] == 0 {
-					eol = i
-				} else if eol != -1 {
-					break
-				}
+		// If we successfully got a command, run it.
+		if command != nil {
+
+			// If it's an oper command, check permissions.
+			if command.OperFlag != "" && !perm.HasOperCommand(c.u, command.OperFlag, command.Name) {
+				c.SendLineTo(nil, "481", ":You do not have the appropriate privileges to use this command.")
+				return
 			}
+			command.Handler(c, params)
+		} else if perr != nil {
 
-			// If we didn't find one, wait for more input.
-			if eol == -1 {
-				break
-			}
-
-			// Get the line, with no line endings.
-			line := b[:eol]
-			end := len(line)
-			for end > 0 {
-				endchar := line[end-1]
-				if endchar == '\r' || endchar == '\n' {
-					end--
-				} else {
-					break
-				}
-			}
-			if end != len(line) {
-				line = line[:end]
-			}
-
-			// Ignore blank lines.
-			if len(line) == 0 {
-				if len(b)-eol-1 >= 0 {
-					b = b[:len(b)-eol-1]
-					continue
-				} else {
-					b = b[:0]
-					break
-				}
-			}
-
-			// Parse the line, ignoring any specified origin.
-			_, command, params, perr := irc.Parse(Commands, line,
-				c.u.Registered())
-
-			// If we successfully got a command, run it.
-			if command != nil {
-
-				// If it's an oper command, check permissions.
-				if command.OperFlag != "" && !perm.HasOperCommand(c.u, command.OperFlag, command.Name) {
-					c.SendLineTo(nil, "481", ":You do not have the appropriate privileges to use this command.")
-				} else {
-					command.Handler(c, params)
-				}
-			} else if perr != nil {
-
-				// The IRC protocol is stupid.
-				switch perr.Num {
-				case irc.CmdNotFound:
-					if c.u.Registered() {
-						c.SendLineTo(nil, "421", "%s :%s", perr.CmdName, perr)
-					}
-				case irc.CmdForRegistered:
-					c.SendFrom(nil, "451 %s :%s",
+			// The IRC protocol is stupid.
+			switch perr.Num {
+			case irc.CmdNotFound:
+				if c.u.Registered() {
+					c.SendLineTo(nil, "421", "%s :%s",
 						perr.CmdName, perr)
-				case irc.CmdForUnregistered:
-					c.SendFrom(nil, "462 %s :%s",
-						c.u.Nick(), perr)
-				default:
-					c.SendFrom(nil, "461 %s %s :%s",
-						c.u.Nick(), perr.CmdName,
-						perr)
 				}
-			}
-
-			// If we have remaining input for the next line, move
-			// it down and cut the buffer to it.
-			// Otherwise, clear it.
-			if len(b)-eol-1 >= 0 {
-				copy(b, b[eol+1:])
-				b = b[:len(b)-eol-1]
-			} else {
-				b = b[:0]
-				break
+			case irc.CmdForRegistered:
+				c.SendFrom(nil, "451 %s :%s", perr.CmdName, perr)
+			case irc.CmdForUnregistered:
+				c.SendFrom(nil, "462 %s :%s", c.u.Nick(), perr)
+			default:
+				c.SendFrom(nil, "461 %s %s :%s", c.u.Nick(),
+					perr.CmdName, perr)
 			}
 		}
-
-		count = len(b)
-	}
+	})
 }
 
 

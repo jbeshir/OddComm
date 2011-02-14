@@ -1,6 +1,96 @@
 package irc
 
 import "bytes"
+import "io"
+
+// Read line reads lines from the input, using the given byte buffer, and calls the
+// given function with each line. When an error occurs, it returns an error message
+// explaining it.
+func ReadLine(r io.Reader, b []byte, f func(line []byte)) (errMsg string) {
+	var count int
+	for {
+		// If we have no room in our input buffer to read, the user
+		// has overrun their input buffer.
+		if count == cap(b) {
+			errMsg = "Input Buffer Exceeded"
+			break
+		}
+
+		// Try to read from the user.
+		n, err := r.Read(b[count:cap(b)])
+		if err != nil {
+			// This happens if the user is disconnected
+			// by other code. In this case, the error message
+			// will be ignored.
+			errMsg = err.String()
+			break
+		}
+		count += n
+		b = b[:count]
+
+		for {
+			// Search for an end of line, then keep going until we
+			// stop finding eol characters, to eat as many as
+			// possible in the same operation.
+			eol := -1
+			for i := range b {
+				if b[i] == '\r' || b[i] == '\n' || b[i] == 0 {
+					eol = i
+				} else if eol != -1 {
+					break
+				}
+			}
+
+			// If we didn't find one, wait for more input.
+			if eol == -1 {
+				break
+			}
+
+			// Get the line, with no line endings.
+			line := b[:eol]
+			end := len(line)
+			for end > 0 {
+				endchar := line[end-1]
+				if endchar == '\r' || endchar == '\n' {
+					end--
+				} else {
+					break
+				}
+			}
+			if end != len(line) {
+				line = line[:end]
+			}
+
+			// Ignore blank lines.
+			if len(line) == 0 {
+				if len(b)-eol-1 >= 0 {
+					b = b[:len(b)-eol-1]
+					continue
+				} else {
+					b = b[:0]
+					break
+				}
+			}
+
+			// Run the function.
+			f(line)
+
+			// If we have remaining input for the next line, move
+			// it down and cut the buffer to it.
+			// Otherwise, clear it.
+			if len(b)-eol-1 >= 0 {
+				copy(b, b[eol+1:])
+				b = b[:len(b)-eol-1]
+			} else {
+				b = b[:0]
+				break
+			}
+		}
+
+		count = len(b)
+	}
+	return
+}
 
 func Parse(d CommandDispatcher, line []byte, regged bool) (origin []byte, command *Command, params [][]byte, err *ParseError) {
 
