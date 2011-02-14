@@ -69,7 +69,7 @@ func cmdPass(source interface{}, params [][]byte) {
 
 	// If the remote server isn't speaking TS6, drop it.
 	if string(params[2]) != "6" {
-		l.c.Close()
+		l.Delete("Not TS6")
 		return
 	}
 
@@ -93,11 +93,13 @@ func cmdPass(source interface{}, params [][]byte) {
 
 	// Set the SID, if there's no conflict.
 	if core.NewSID(sid, &(l.server)) {
-		if l.server.sid != "" {
-			core.ReleaseSID(l.server.sid)
+		if l.sid != "" {
+			core.ReleaseSID(l.sid)
 		}
-		l.server.sid = sid
+		l.sid = sid
 	} else {
+		// If there's a SID conflict, drop it.
+		l.Delete("SID conflict")
 		return
 	}
 }
@@ -162,7 +164,7 @@ func cmdSvinfo(source interface{}, params [][]byte) {
 
 	// Check the given TS version is 6.
 	if string(params[0]) != "6" {
-		l.c.Close()
+		l.Delete("Unsupported TS6 version")
 		return
 	}
 
@@ -179,7 +181,9 @@ func cmdSvinfo(source interface{}, params [][]byte) {
 		}
 		link_burst(l)
 	} else {
-		l.c.Close()
+		// If they failed to authenticate, delete them.
+		l.Delete("Authentication failure")
+		return
 	}
 }
 

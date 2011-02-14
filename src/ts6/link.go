@@ -13,11 +13,26 @@ import "oddcomm/lib/irc"
 // outgoing indicates whether it is outgoing or incoming.
 func link(c *net.TCPConn, outgoing bool) {
 	var errMsg string
-	_ = errMsg
 
+	serverMutex.Lock()
+
+	// Create a new server, and add it to the server list.
 	l := new(local)
-	l.server.local = l
+	l.local = l
+	l.next = servers
+	if servers != nil {
+		servers.prev = &(l.server)
+	}
+	servers = &(l.server)
 	l.c = c
+
+	serverMutex.Unlock()
+
+	// Defer deletion of the server. If it's already deleted, no harm done.
+	defer func() {
+		l.Delete(errMsg)
+	}()
+
 	if outgoing {
 		link_auth(l)
 	}
@@ -123,7 +138,6 @@ func link(c *net.TCPConn, outgoing bool) {
 				source = nil
 			}
 
-
 			// If we successfully got a command and source, run it.
 			if source != nil && command != nil {
 				command.Handler(source, params)
@@ -132,19 +146,16 @@ func link(c *net.TCPConn, outgoing bool) {
 				// The IRC protocol is stupid.
 				switch perr.Num {
 				case irc.CmdNotFound:
-					l.SendLine(nil, l.server.sid,
-						"421", "%s :%s", perr.CmdName,
-						perr)
-				case irc.CmdForRegistered:
-					l.SendFrom(nil, "451 %s :%s",
+					l.SendLine(nil, l.sid, "421", "%s :%s",
 						perr.CmdName, perr)
-				case irc.CmdForUnregistered:
-					l.SendFrom(nil, "462 %s :%s",
-						l.server.sid, perr)
-				default:
-					l.SendFrom(nil, "461 %s %s :%s",
-						l.server.sid, perr.CmdName,
+				case irc.CmdForRegistered:
+					l.SendFrom(nil, "451 %s :%s", perr.CmdName,
 						perr)
+				case irc.CmdForUnregistered:
+					l.SendFrom(nil, "462 %s :%s", l.sid, perr)
+				default:
+					l.SendFrom(nil, "461 %s %s :%s", l.sid,
+						perr.CmdName, perr)
 				}
 			}
 
@@ -214,7 +225,7 @@ func link_burst(l *local) {
 		},
 		func(hook bool) {
 			if !hook {
-				l.bursted = true
+				l.burst_sent = true
 			}
 		})
 }
@@ -228,18 +239,15 @@ func send_uid(l *local, u *core.User) {
 }
 
 // Iterates all servers, running the given function on each.
-// Does not guarantee that the burst is complete.
+// May omit deleted servers, who no longer are cared about.
+// May omit servers added after the start of the call, who presumably do not need to
+// know about whatever event already happened to result in this call.
 func all(f func(l *local)) {
-	core.IterateSID(func(sid string, value interface{}) {
-		s, ok := value.(*server)
-		if !ok {
-			return
-		}
-
-		if &(s.local.server) != s {
-			return
-		}
-
+	serverMutex.Lock()
+	for s := servers; s != nil; s = s.next {
+		serverMutex.Unlock()
 		f(s.local)
-	})
+		serverMutex.Lock()
+	}
+	serverMutex.Unlock()
 }

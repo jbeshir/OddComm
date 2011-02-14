@@ -5,6 +5,7 @@ package ts6
 
 import "fmt"
 import "net"
+import "sync"
 
 import "oddcomm/lib/irc"
 import "oddcomm/src/core"
@@ -13,9 +14,17 @@ import "oddcomm/src/core"
 var me string = "ts6"
 
 
-// Commands added here will be called with either a server or a core.User.
-var commands irc.CommandDispatcher = irc.NewCommandDispatcher()
+// An ordering is defined on mutexes in this package; only one server mutex may be held
+// at once, and if the server list mutex is also held, it must be locked after the
+// specific server mutex. This prevents deadlocks.
 
+
+// Points to the first server.
+var servers *server
+var serverMutex sync.Mutex
+
+// Commands added here will be called with either a server or a core.User.
+var commands = irc.NewCommandDispatcher()
 
 // Create a channel for sending messages to the subsystem's goroutine.
 var subsysMsg chan string = make(chan string)
@@ -42,17 +51,18 @@ func ts6_main(msg chan string, exit chan int) {
 	l, err := net.ListenTCP("tcp4", &addr)
 	if err != nil {
 		fmt.Printf("No bind: %s\n", err)
+		exit <- 0
 	} else {
 		go listen(l)
-	}
 
-	// Again, no configuration.
-	addr.Port = 13725
-	c, err := net.DialTCP("tcp4", nil, &addr)
-	if err != nil {
-		fmt.Printf("No connection: %s\n", err)
-	} else {
-		go link(c, true)
+		// Again, no configuration.
+		addr.Port = 13725
+		c, err := net.DialTCP("tcp4", nil, &addr)
+		if err != nil {
+			fmt.Printf("No connection: %s\n", err)
+		} else {
+			go link(c, true)
+		}
 	}
 
 	// Handle messages.
@@ -66,8 +76,6 @@ func ts6_main(msg chan string, exit chan int) {
 // Listen goroutine function, handling listening for one socket.
 // Owns its socket.
 func listen(l *net.TCPListener) {
-
-	// Stubbed out!
 	for {
 		c, err := l.AcceptTCP()
 		if err != nil {

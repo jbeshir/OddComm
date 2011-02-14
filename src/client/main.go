@@ -58,6 +58,7 @@ func clientMain(msg chan string, exit chan int) {
 	l, err := net.ListenTCP("tcp4", &addr)
 	if err != nil {
 		fmt.Printf("No bind: %s\n", err)
+		exit <- 0
 	} else {
 		go listen(l)
 	}
