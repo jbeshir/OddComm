@@ -272,8 +272,13 @@ func (t *Trie) Insert(key string, value interface{}) (old interface{}) {
 			// already, and set our value.
 			if c == len(remaining) {
 				old = n.value
-				n.value = value
-				n.key = key
+
+				newn := new(node)
+				*newn = *n
+				newn.value = value
+				newn.key = key
+				i.n = newn
+
 				return
 			}
 

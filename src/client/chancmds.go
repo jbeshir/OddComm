@@ -55,7 +55,7 @@ func cmdJoin(source interface{}, params [][]byte) {
 
 	chans := strings.Split(string(params[0]), ",", -1)
 	for _, channame := range chans {
-		if channame[0] == '#' {
+		if len(channame) > 0 && channame[0] == '#' {
 			channame = channame[1:]
 		}
 
@@ -67,15 +67,17 @@ func cmdJoin(source interface{}, params [][]byte) {
 				continue
 			}
 
+			// Tell them they're joined.
+			c.SendFrom(c.u, "JOIN #%s", ch.Name())
+
 			// Send them NAMES.
 			cmdNames(c, [][]byte{[]byte(ch.Name())})
 
 			// Send them the topic.
 			if topic, setby, setat := ch.GetTopic(); topic != "" {
-				c.SendLineTo(nil, "332", "#%s :%s", ch.Name(),
-					topic)
-				c.SendLineTo(nil, "333", "#%s %s %s", ch.Name(),
-					setby, setat)
+				c.SendLineTo(nil, "332", "#%s :%s", ch.Name(), topic)
+				c.SendLineTo(nil, "333", "#%s %s %s", ch.Name(), setby,
+					setat)
 			}
 		} else {
 			c.SendLineTo(nil, "495", "#%s :%s", ch.Name(), err)

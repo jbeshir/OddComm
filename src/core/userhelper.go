@@ -47,7 +47,7 @@ func (u *User) GetSetBy() (setby string) {
 		if hostname == "" {
 			hostname = "Server.name"
 		}
-		setby = u.nick + "!" + ident + "@" + hostname
+		setby = *(u.nick) + "!" + ident + "@" + hostname
 	}
 
 	return

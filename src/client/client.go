@@ -189,7 +189,7 @@ func (c *Client) SendLineTo(u *core.User, cmd string, format string, args ...int
 		nuh := u.Nick() + "!" + u.GetIdent() + "@" + u.GetHostname()
 		irc.SendLine(c, nuh, c.u.Nick(), cmd, format, args...)
 	} else {
-		irc.SendLine(c, "00A", c.u.Nick(), cmd, format, args...)
+		irc.SendLine(c, "Server.name", c.u.Nick(), cmd, format, args...)
 	}
 }
 
@@ -200,6 +200,6 @@ func (c *Client) SendFrom(u *core.User, format string, args ...interface{}) {
 		nuh := u.Nick() + "!" + u.GetIdent() + "@" + u.GetHostname()
 		irc.SendFrom(c, nuh, format, args...)
 	} else {
-		irc.SendFrom(c, "00A", format, args...)
+		irc.SendFrom(c, "Server.name", format, args...)
 	}
 }

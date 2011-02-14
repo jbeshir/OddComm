@@ -14,8 +14,8 @@ import "oddcomm/lib/trie"
 type User struct {
 	mutex    sync.Mutex
 	id       string
-	nick     string
-	nickts   int64
+	nick     *string // Must be a pointer; can be changed and is multiword.
+	nickts   *int64  // Must be a pointer; can be changed and is multiword.
 	checked  bool
 	regstate int
 	chans    *Membership
@@ -82,6 +82,7 @@ func IterateUsers(owner string, f func(u *User)) {
 // They will be applied prior to the new user hooks being called, with
 // usual data change hooks called after. It may be nil.
 func NewUser(owner string, owndata interface{}, checked bool, forceid string, data []DataChange) (u *User) {
+	ts := time.Seconds()
 	done := make([]DataChange, 0, len(data))
 	old := make([]string, 0, len(data))
 
@@ -111,7 +112,8 @@ func NewUser(owner string, owndata interface{}, checked bool, forceid string, da
 		u.mutex.Lock()
 
 		// Set their nick, owner, and owndata.
-		u.nick = u.id
+		u.nick = &u.id
+		u.nickts = &ts
 		u.owner = owner
 		u.owndata = owndata
 
@@ -148,7 +150,7 @@ func NewUser(owner string, owndata interface{}, checked bool, forceid string, da
 
 		// Now fully configured, add them.
 		users.Insert(u.id, unsafe.Pointer(u))
-		usersByNick.Insert(u.nick, unsafe.Pointer(u))
+		usersByNick.Insert(*(u.nick), unsafe.Pointer(u))
 	} else {
 		userMutex.Unlock()
 		return
@@ -204,7 +206,7 @@ func (u *User) SetNick(pkg, nick string, ts int64) (err os.Error) {
 
 	u.mutex.Lock()
 
-	oldnick := u.nick
+	oldnick := *(u.nick)
 	OLDNICK := strings.ToUpper(oldnick)
 	NICK := strings.ToUpper(nick)
 
@@ -218,8 +220,8 @@ func (u *User) SetNick(pkg, nick string, ts int64) (err os.Error) {
 		} else {
 			usersByNick.Remove(strings.ToUpper(oldnick))
 			usersByNick.Insert(NICK, unsafe.Pointer(u))
-			u.nick = nick
-			u.nickts = ts
+			u.nick = &nick
+			u.nickts = &ts
 		}
 
 		userMutex.Unlock()
@@ -227,8 +229,8 @@ func (u *User) SetNick(pkg, nick string, ts int64) (err os.Error) {
 	} else if oldnick != nick {
 		// Just a change in case; no need to alter the tables,
 		// or change nick timestamp.
-		u.nick = nick
-		ts = u.nickts
+		u.nick = &nick
+		ts = *(u.nickts)
 	}
 
 	if oldnick != nick {
@@ -246,12 +248,12 @@ func (u *User) SetNick(pkg, nick string, ts int64) (err os.Error) {
 
 // Nick returns the user's nick.
 func (u *User) Nick() (nick string) {
-	return u.nick
+	return *(u.nick)
 }
 
 // NickTS returns the user's nick timestamp.
 func (u *User) NickTS() (ts int64) {
-	return u.nickts
+	return *(u.nickts)
 }
 
 // PermitRegistration marks the user as permitted to register.
@@ -431,7 +433,7 @@ func (u *User) Delete(pkg string, source *User, message string) {
 	}
 
 	// Delete the user from the user tables.
-	NICK := strings.ToUpper(u.nick)
+	NICK := strings.ToUpper(*u.nick)
 	users.Remove(u.id)
 	usersByNick.Remove(NICK)
 

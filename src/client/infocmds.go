@@ -175,13 +175,13 @@ func cmdWho(source interface{}, params [][]byte) {
 		return []byte(result)
 	})
 
-	c.SendLineTo(nil, "315", "#%s :End of /WHO list.", channame)
+	c.SendLineTo(nil, "315", "%s :End of /WHO list.", params[0])
 }
 
 func cmdNames(source interface{}, params [][]byte) {
 	c := source.(*Client)
 	channame := string(params[0])
-	if channame[0] == '#' {
+	if len(channame) > 0 && channame[0] == '#' {
 		channame = channame[1:]
 	}
 
@@ -193,19 +193,16 @@ func cmdNames(source interface{}, params [][]byte) {
 
 	// If the user isn't on the channel, don't let them check unless they
 	// can view private channel data.
+	// Otherwise, get their prefixes.
+	var myprefix string
 	if m := ch.GetMember(c.u); m == nil {
 		if ok, err := perm.CheckChanViewData(me, c.u, ch, "members"); !ok {
 			c.SendLineTo(nil, "482", "#%s :%s", ch.Name(), err)
 			return
 		}
-	}
-
-	var myprefix string
-	if m := ch.GetMember(c.u); m != nil {
-		myprefix = ChanModes.GetPrefixes(m)
-	}
-	if myprefix == "" {
 		myprefix = "="
+	} else {
+		myprefix = ChanModes.GetPrefixes(m)
 	}
 
 	it := ch.Users()
@@ -228,6 +225,7 @@ func cmdNames(source interface{}, params [][]byte) {
 		names += "\r\n"
 		return []byte(names)
 	})
+
 	c.SendLineTo(nil, "366", "#%s :End of /NAMES list", channame)
 }
 

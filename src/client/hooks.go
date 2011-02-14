@@ -117,6 +117,9 @@ func init() {
 			}
 
 			for _, u := range users {
+				if chu == u && pkg == me {
+					continue
+				}
 				c.SendFrom(u, "JOIN #%s", ch.Name())
 			}
 		}
@@ -134,16 +137,19 @@ func init() {
 				continue
 			}
 
-			// Send them NAMES.
-			go cmdNames(c, [][]byte{[]byte(ch.Name())})
+			// Done concurrently, since sending NAMES can block.
+			go func() {
+				// Send them NAMES.
+				cmdNames(c, [][]byte{[]byte(ch.Name())})
 
-			// Send them the topic.
-			if topic, setby, setat := ch.GetTopic(); topic != "" {
-				c.SendLineTo(nil, "332", "#%s :%s", ch.Name(),
-					topic)
-				c.SendLineTo(nil, "333", "#%s %s %s", ch.Name(),
-					setby, setat)
-			}
+				// Send them the topic.
+				if topic, setby, setat := ch.GetTopic(); topic != "" {
+					c.SendLineTo(nil, "332", "#%s :%s", ch.Name(),
+						topic)
+					c.SendLineTo(nil, "333", "#%s %s %s",
+						ch.Name(), setby, setat)
+				}
+			}()
 		}
 	})
 
