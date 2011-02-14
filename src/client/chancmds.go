@@ -72,13 +72,13 @@ func cmdJoin(source interface{}, params [][]byte) {
 
 			// Send them the topic.
 			if topic, setby, setat := ch.GetTopic(); topic != "" {
-				c.WriteTo(nil, "332", "#%s :%s", ch.Name(),
+				c.SendLineTo(nil, "332", "#%s :%s", ch.Name(),
 					topic)
-				c.WriteTo(nil, "333", "#%s %s %s", ch.Name(),
+				c.SendLineTo(nil, "333", "#%s %s %s", ch.Name(),
 					setby, setat)
 			}
 		} else {
-			c.WriteTo(nil, "495", "#%s :%s", ch.Name(), err)
+			c.SendLineTo(nil, "495", "#%s :%s", ch.Name(), err)
 		}
 	}
 }
@@ -128,7 +128,7 @@ func cmdKick(source interface{}, params [][]byte) {
 			}
 			ch.Remove(me, c.u, target, message)
 		} else {
-			c.WriteTo(nil, "482", "#%s :%s", ch.Name(), err)
+			c.SendLineTo(nil, "482", "#%s :%s", ch.Name(), err)
 		}
 	}
 }
@@ -142,7 +142,7 @@ func cmdTopic(source interface{}, params [][]byte) {
 		ch = core.FindChannel("", channame)
 	}
 	if ch == nil {
-		c.WriteTo(nil, "403", "%s %s :No such channel.", c.u.Nick(),
+		c.SendLineTo(nil, "403", "%s %s :No such channel.", c.u.Nick(),
 			params[0])
 		return
 	}
@@ -151,11 +151,11 @@ func cmdTopic(source interface{}, params [][]byte) {
 	if len(params) < 2 {
 		topic, setby, setat := ch.GetTopic()
 		if topic != "" {
-			c.WriteTo(nil, "332", "#%s :%s", ch.Name(), topic)
-			c.WriteTo(nil, "333", "#%s %s %s", ch.Name(), setby,
+			c.SendLineTo(nil, "332", "#%s :%s", ch.Name(), topic)
+			c.SendLineTo(nil, "333", "#%s %s %s", ch.Name(), setby,
 				setat)
 		} else {
-			c.WriteTo(nil, "331", "#%s :No topic is set.",
+			c.SendLineTo(nil, "331", "#%s :No topic is set.",
 				ch.Name())
 		}
 		return
@@ -169,13 +169,13 @@ func cmdInvite(source interface{}, params [][]byte) {
 	c := source.(*Client)
 
 	if len(params[1]) < 2 || params[1][0] != '#' {
-		c.WriteTo(nil, "403", "%s :%s", params[1], "No such channel.")
+		c.SendLineTo(nil, "403", "%s :%s", params[1], "No such channel.")
 		return
 	}
 
 	ch := core.FindChannel("", string(params[1][1:]))
 	if ch == nil {
-		c.WriteTo(nil, "403", "%s :%s", params[1], "No such channel.")
+		c.SendLineTo(nil, "403", "%s :%s", params[1], "No such channel.")
 		return
 	}
 
@@ -183,22 +183,22 @@ func cmdInvite(source interface{}, params [][]byte) {
 	for _, t := range targets {
 		target := core.GetUserByNick(string(t))
 		if target == nil {
-			c.WriteTo(nil, "401", "%s :%s", t, "No such nick.")
+			c.SendLineTo(nil, "401", "%s :%s", t, "No such nick.")
 			continue
 		}
 
 		if ok, err := perm.CheckUserMsg(me, c.u, target,
 			[]byte(ch.Name()), "invite"); ok {
 			if v := target.Data("away"); v != "" {
-				c.WriteTo(nil, "301", "%s :%s",
+				c.SendLineTo(nil, "301", "%s :%s",
 					target.Nick(), v)
 			}
 			target.Message(me, c.u, []byte(ch.Name()), "invite")
 			ch.Message(me, c.u, []byte(target.Nick()), "invite")
-			c.WriteTo(nil, "341", "%s #%s", target.Nick(),
+			c.SendLineTo(nil, "341", "%s #%s", target.Nick(),
 				ch.Name())
 		} else {
-			c.WriteTo(nil, "404", "%s :%s", target.Nick(), err)
+			c.SendLineTo(nil, "404", "%s :%s", target.Nick(), err)
 		}
 		continue
 	}

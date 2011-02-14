@@ -71,6 +71,6 @@ func cmdLogin(source interface{}, params [][]byte) {
 	if ok, err := perm.CheckLogin(me, c.User(), account, "password", pass); ok {
 		c.User().SetData(me, nil, "account", err.String())
 	} else {
-		c.WriteTo(nil, "491", ":%s", err)
+		c.SendLineTo(nil, "491", ":%s", err)
 	}
 }

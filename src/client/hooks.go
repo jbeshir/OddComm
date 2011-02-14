@@ -34,18 +34,20 @@ func init() {
 
 		fmt.Fprintf(c, ":%s!%s@%s NICK %s\r\n", oldnick,
 			u.Data("ident"), u.Data("hostname"), u.Nick())
-	}, false)
+	},
+		false)
 
 	core.RegistrationHold(me)
 	core.HookUserDataChange("ident", func(_ string, source, target *core.User, oldvalue, newvalue string) {
-			if target.Owner() != me {
-				return
-			}
+		if target.Owner() != me {
+			return
+		}
 
-			if oldvalue == "" {
-				target.PermitRegistration(me)
-			}
-	}, true)
+		if oldvalue == "" {
+			target.PermitRegistration(me)
+		}
+	},
+		true)
 
 	core.HookUserDataChanges(func(_ string, source, target *core.User, c []core.DataChange, old []string) {
 		cli := GetClient(target)
@@ -55,9 +57,10 @@ func init() {
 
 		modeline := UserModes.ParseChanges(target, c, old)
 		if modeline != "" {
-			cli.WriteTo(source, "MODE", modeline)
+			cli.SendLineTo(source, "MODE", modeline)
 		}
-	}, false)
+	},
+		false)
 
 	core.HookUserRegister(func(_ string, u *core.User) {
 		c := GetClient(u)
@@ -65,13 +68,13 @@ func init() {
 			return
 		}
 
-		c.WriteTo(nil, "001", ":Welcome to the %s IRC Network %s!%s@%s", "Testnet", u.Nick(), u.GetIdent(), u.GetHostname())
-		c.WriteTo(nil, "002", "Your host is %s, running version OddComm-%s", "Server.name", core.Version)
-		c.WriteTo(nil, "004", "%s OddComm-%s %s%s%s %s %s%s%s", "Server.name", core.Version, UserModes.AllSimple(), UserModes.AllParametered(), UserModes.AllList(), ChanModes.AllSimple(), ChanModes.AllParametered(), ChanModes.AllList(), ChanModes.AllMembership())
-		c.WriteTo(nil, "005", "%s :are supported by this server", supportLine)
-		c.WriteTo(nil, "005", "%s :your unique ID", u.ID())
+		c.SendLineTo(nil, "001", ":Welcome to the %s IRC Network %s!%s@%s", "Testnet", u.Nick(), u.GetIdent(), u.GetHostname())
+		c.SendLineTo(nil, "002", "Your host is %s, running version OddComm-%s", "Server.name", core.Version)
+		c.SendLineTo(nil, "004", "%s OddComm-%s %s%s%s %s %s%s%s", "Server.name", core.Version, UserModes.AllSimple(), UserModes.AllParametered(), UserModes.AllList(), ChanModes.AllSimple(), ChanModes.AllParametered(), ChanModes.AllList(), ChanModes.AllMembership())
+		c.SendLineTo(nil, "005", "%s :are supported by this server", supportLine)
+		c.SendLineTo(nil, "005", "%s :your unique ID", u.ID())
 		modeline := UserModes.GetModes(u)
-		c.WriteTo(u, "MODE", "+%s", modeline)
+		c.SendLineTo(u, "MODE", "+%s", modeline)
 	})
 
 	core.HookUserMessage("", func(_ string, source, target *core.User, message []byte) {
@@ -80,7 +83,7 @@ func init() {
 			return
 		}
 
-		c.WriteTo(source, "PRIVMSG", ":%s", message)
+		c.SendLineTo(source, "PRIVMSG", ":%s", message)
 	})
 
 	core.HookUserMessage("noreply",
@@ -90,7 +93,7 @@ func init() {
 				return
 			}
 
-			c.WriteTo(source, "NOTICE", ":%s", message)
+			c.SendLineTo(source, "NOTICE", ":%s", message)
 		})
 
 	core.HookUserMessage("invite",
@@ -100,7 +103,7 @@ func init() {
 				return
 			}
 
-			c.WriteTo(source, "INVITE", ":#%s", message)
+			c.SendLineTo(source, "INVITE", ":#%s", message)
 		})
 
 	core.HookChanUserJoin("", func(pkg string, ch *core.Channel, users []*core.User) {
@@ -114,7 +117,7 @@ func init() {
 			}
 
 			for _, u := range users {
-				c.WriteFrom(u, "JOIN #%s", ch.Name())
+				c.SendFrom(u, "JOIN #%s", ch.Name())
 			}
 		}
 
@@ -136,9 +139,9 @@ func init() {
 
 			// Send them the topic.
 			if topic, setby, setat := ch.GetTopic(); topic != "" {
-				c.WriteTo(nil, "332", "#%s :%s", ch.Name(),
+				c.SendLineTo(nil, "332", "#%s :%s", ch.Name(),
 					topic)
-				c.WriteTo(nil, "333", "#%s %s %s", ch.Name(),
+				c.SendLineTo(nil, "333", "#%s %s %s", ch.Name(),
 					setby, setat)
 			}
 		}
@@ -151,7 +154,7 @@ func init() {
 				continue
 			}
 
-			c.WriteFrom(source, "TOPIC #%s :%s", ch.Name(), newvalue)
+			c.SendFrom(source, "TOPIC #%s :%s", ch.Name(), newvalue)
 		}
 	})
 
@@ -165,7 +168,7 @@ func init() {
 			if c == nil {
 				continue
 			}
-			c.WriteFrom(source, "MODE #%s %s", ch.Name(), modeline)
+			c.SendFrom(source, "MODE #%s %s", ch.Name(), modeline)
 		}
 	})
 
@@ -179,10 +182,10 @@ func init() {
 		// Send a PART or KICK to the user themselves.
 		if c := GetClient(u); c != nil {
 			if source == u {
-				c.WriteFrom(u, "PART #%s :%s", ch.Name(),
+				c.SendFrom(u, "PART #%s :%s", ch.Name(),
 					message)
 			} else {
-				c.WriteFrom(source, "KICK #%s %s :%s",
+				c.SendFrom(source, "KICK #%s %s :%s",
 					ch.Name(), u.Nick(), message)
 			}
 		}
@@ -191,10 +194,10 @@ func init() {
 		for m := ch.Users(); m != nil; m = m.ChanNext() {
 			if c := GetClient(m.User()); c != nil {
 				if source == u {
-					c.WriteFrom(u, "PART #%s :%s",
+					c.SendFrom(u, "PART #%s :%s",
 						ch.Name(), message)
 				} else {
-					c.WriteFrom(source, "KICK #%s %s :%s",
+					c.SendFrom(source, "KICK #%s %s :%s",
 						ch.Name(), u.Nick(),
 						message)
 				}
@@ -208,7 +211,7 @@ func init() {
 				continue
 			}
 			if c := GetClient(m.User()); c != nil {
-				c.WriteFrom(source, "PRIVMSG #%s :%s",
+				c.SendFrom(source, "PRIVMSG #%s :%s",
 					ch.Name(), message)
 			}
 		}
@@ -220,7 +223,7 @@ func init() {
 				continue
 			}
 			if c := GetClient(m.User()); c != nil {
-				c.WriteFrom(source, "NOTICE #%s :%s",
+				c.SendFrom(source, "NOTICE #%s :%s",
 					ch.Name(), message)
 			}
 		}
@@ -229,7 +232,7 @@ func init() {
 	core.HookChanMessage("", "invite", func(_ string, source *core.User, ch *core.Channel, message []byte) {
 		for m := ch.Users(); m != nil; m = m.ChanNext() {
 			if c := GetClient(m.User()); c != nil {
-				c.WriteFrom(nil, "NOTICE #%s :*** INVITE: %s invited %s into the channel.", ch.Name(), source.Nick(), message)
+				c.SendFrom(nil, "NOTICE #%s :*** INVITE: %s invited %s into the channel.", ch.Name(), source.Nick(), message)
 			}
 		}
 	})
@@ -241,7 +244,7 @@ func init() {
 		/// another user and are our client.
 		if c := GetClient(u); c != nil {
 			if source != nil && source != u {
-				c.WriteTo(source, "KILL", "%s (%s)", source.Nick(), message)
+				c.SendLineTo(source, "KILL", "%s (%s)", source.Nick(), message)
 			}
 		}
 
@@ -267,7 +270,7 @@ func init() {
 				if c == nil || sent[c] {
 					continue
 				}
-				c.WriteFrom(u, "QUIT :%s", message)
+				c.SendFrom(u, "QUIT :%s", message)
 				sent[c] = true
 			}
 		}

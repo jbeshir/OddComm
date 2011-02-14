@@ -146,16 +146,17 @@ func link(c *net.TCPConn, outgoing bool) {
 				// The IRC protocol is stupid.
 				switch perr.Num {
 				case irc.CmdNotFound:
-					l.SendLine(nil, l.sid, "421", "%s :%s",
-						perr.CmdName, perr)
+					irc.SendLine(l, from(nil), l.sid, "421",
+						"%s :%s", perr.CmdName, perr)
 				case irc.CmdForRegistered:
-					l.SendFrom(nil, "451 %s :%s", perr.CmdName,
-						perr)
-				case irc.CmdForUnregistered:
-					l.SendFrom(nil, "462 %s :%s", l.sid, perr)
-				default:
-					l.SendFrom(nil, "461 %s %s :%s", l.sid,
+					irc.SendFrom(l, from(nil), "451 %s :%s",
 						perr.CmdName, perr)
+				case irc.CmdForUnregistered:
+					irc.SendFrom(l, from(nil), "462 %s :%s",
+						l.sid, perr)
+				default:
+					irc.SendFrom(l, from(nil), "461 %s %s :%s",
+						l.sid, perr.CmdName, perr)
 				}
 			}
 
@@ -233,8 +234,8 @@ func link_burst(l *local) {
 
 // Introduce a user to a given local server.
 func send_uid(l *local, u *core.User) {
-	l.SendFrom(nil, "UID %s 1 %d +i %s %s %s %s :%s", u.Nick(), u.NickTS(),
-		u.GetIdent(), u.GetHostname(), u.GetIP(), u.ID(),
+	irc.SendFrom(l, from(nil), "UID %s 1 %d +i %s %s %s %s :%s", u.Nick(),
+		u.NickTS(), u.GetIdent(), u.GetHostname(), u.GetIP(), u.ID(),
 		u.Data("realname"))
 }
 

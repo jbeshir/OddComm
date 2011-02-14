@@ -63,7 +63,7 @@ func cmdUid(source interface{}, params [][]byte) {
 	uid := string(params[7])
 	if len(uid) != 9 || uid[:3] != s.sid {
 		// Bad UID, kill.
-		s.local.SendLine(nil, uid, "KILL", ":Bad UID")
+		irc.SendLine(s.local, from(nil), uid, "KILL", ":Bad UID")
 		return
 	}
 
@@ -78,7 +78,7 @@ func cmdUid(source interface{}, params [][]byte) {
 	u := core.NewUser(me, s, true, uid, data)
 	if u == nil {
 		// Duplicate UID, kill.
-		s.local.SendLine(nil, uid, "KILL", ":Duplicate UID")
+		irc.SendLine(s.local, from(nil), uid, "KILL", ":Duplicate UID")
 		return
 	}
 
@@ -231,10 +231,10 @@ func collideUser(u *core.User) bool {
 	// At present, just a lazy kill.
 	if u.Registered() || u.Owner() == me {
 		all(func(l *local) {
-			l.SendLine(nil, u.ID(), "KILL", ":Nick Collision")
+			irc.SendLine(l, from(nil), u.ID(), "KILL", ":Nick Collision")
 		})
 	}
 	u.Delete(me, nil, "Nick Collision")
 
-	return true
+	return false
 }

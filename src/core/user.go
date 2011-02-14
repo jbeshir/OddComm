@@ -202,34 +202,31 @@ func (u *User) SetNick(pkg, nick string, ts int64) (err os.Error) {
 		ts = time.Seconds()
 	}
 
+	u.mutex.Lock()
+
 	oldnick := u.nick
 	OLDNICK := strings.ToUpper(oldnick)
 	NICK := strings.ToUpper(nick)
 
 	if OLDNICK != NICK {
 		userMutex.Lock()
-		u.mutex.Lock()
 
 		// Change the nick if there's no conflict.
 		conflict := (*User)(usersByNick.Get(NICK))
 		if conflict != nil && conflict != u {
 			err = os.NewError("Nickname is already in use.")
-			u.mutex.Unlock()
 		} else {
 			usersByNick.Remove(strings.ToUpper(oldnick))
-			u.nick = nick
 			usersByNick.Insert(NICK, unsafe.Pointer(u))
+			u.nick = nick
+			u.nickts = ts
 		}
-
-		// Apply the new nick timestamp.
-		u.nickts = ts
 
 		userMutex.Unlock()
 
 	} else if oldnick != nick {
 		// Just a change in case; no need to alter the tables,
 		// or change nick timestamp.
-		u.mutex.Lock()
 		u.nick = nick
 		ts = u.nickts
 	}
@@ -240,9 +237,9 @@ func (u *User) SetNick(pkg, nick string, ts int64) (err os.Error) {
 				runUserNickChangeHooks(pkg, u, oldnick, nick, ts)
 			}
 		}
-		u.mutex.Unlock()
 	}
 
+	u.mutex.Unlock()
 
 	return
 }

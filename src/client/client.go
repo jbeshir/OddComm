@@ -6,6 +6,7 @@ import "os"
 import "sync"
 
 import "oddcomm/src/core"
+import "oddcomm/lib/irc"
 
 
 // Handle a client connection.
@@ -173,38 +174,32 @@ func (c *Client) Write(line []byte) (int, os.Error) {
 	return len(line), nil
 }
 
-// Write a formatted line from the given user, addressed to this client.
-// u may be nil, in which case, the line will be from the server.
-// A line ending will be automatically appended.
-func (c *Client) WriteTo(u *core.User, cmd string, format string, args ...interface{}) {
-	if u != nil {
-		fmt.Fprintf(c, ":%s!%s@%s %s %s %s\r\n", u.Nick(),
-			u.GetIdent(), u.GetHostname(), cmd,
-			c.u.Nick(), fmt.Sprintf(format, args...))
-	} else {
-		fmt.Fprintf(c, ":%s %s %s %s\r\n", "Server.name", cmd,
-			c.u.Nick(), fmt.Sprintf(format, args...))
-	}
-}
-
-// Write the given line, prefixed by the given source.
-// u may be nil, in which case, the line will be from the server.
-// A line ending will be automatically appended.
-func (c *Client) WriteFrom(u *core.User, format string, args ...interface{}) {
-	if u != nil {
-		fmt.Fprintf(c, ":%s!%s@%s %s\r\n", u.Nick(),
-			u.GetIdent(), u.GetHostname(),
-			fmt.Sprintf(format, args...))
-	} else {
-		fmt.Fprintf(c, ":%s %s\r\n", "Server.name",
-			fmt.Sprintf(format, args...))
-	}
-}
-
 // WriteBlock permits blocking writes to the client. It calls the given
 // function repeatedly to generate output until it returns nil, writing it over
 // time. In general, the only place blocking is permitted is in a command
 // handler for that client.
 func (c *Client) WriteBlock(f func() []byte) {
 	output(c, f)
+}
+
+// SendLineTo sends a formatted line to the client, from the given source user.
+// It wraps irc.SendLine.
+func (c *Client) SendLineTo(u *core.User, cmd string, format string, args ...interface{}) {
+	if u != nil {
+		nuh := u.Nick() + "!" + u.GetIdent() + "@" + u.GetHostname()
+		irc.SendLine(c, nuh, c.u.Nick(), cmd, format, args...)
+	} else {
+		irc.SendLine(c, "00A", c.u.Nick(), cmd, format, args...)
+	}
+}
+
+// SendFrom sends a prewritten line to this client, from the given source user.
+// It wraps irc.SendFrom.
+func (c *Client) SendFrom(u *core.User, format string, args ...interface{}) {
+	if u != nil {
+		nuh := u.Nick() + "!" + u.GetIdent() + "@" + u.GetHostname()
+		irc.SendFrom(c, nuh, format, args...)
+	} else {
+		irc.SendFrom(c, "00A", format, args...)
+	}
 }

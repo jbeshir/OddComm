@@ -27,7 +27,7 @@ func cmdOmode(source interface{}, params [][]byte) {
 	}
 	ch := core.FindChannel("", channame)
 	if ch == nil {
-		c.WriteTo(nil, "501", "%s %s :%s", c.User().Nick(), params[0],
+		c.SendLineTo(nil, "501", "%s %s :%s", c.User().Nick(), params[0],
 			"No such channel.")
 		return
 	}
@@ -36,8 +36,8 @@ func cmdOmode(source interface{}, params [][]byte) {
 	if len(params) < 2 {
 		modeline := client.ChanModes.GetModes(ch)
 		ts := ch.TS()
-		c.WriteTo(nil, "324", "#%s +%s", ch.Name(), modeline)
-		c.WriteTo(nil, "329", "#%s %d", ch.Name(), ts)
+		c.SendLineTo(nil, "324", "#%s +%s", ch.Name(), modeline)
+		c.SendLineTo(nil, "329", "#%s %d", ch.Name(), ts)
 		return
 	}
 
@@ -52,7 +52,7 @@ func cmdOmode(source interface{}, params [][]byte) {
 			}
 
 			if perm, err := perm.CheckChanViewDataPerm(me, c.User(), ch, name); perm < -1000000 {
-				c.WriteTo(nil, "482", "#%s :%s", ch.Name(), err)
+				c.SendLineTo(nil, "482", "#%s :%s", ch.Name(), err)
 				continue
 			}
 
@@ -88,11 +88,11 @@ func cmdOmode(source interface{}, params [][]byte) {
 						}
 					}
 
-					c.WriteTo(nil, num, "#%s %s %s %s",
+					c.SendLineTo(nil, num, "#%s %s %s %s",
 						ch.Name(), p, setBy, setTime)
 				})
 			if valid {
-				c.WriteTo(nil, endnum,
+				c.SendLineTo(nil, endnum,
 					"#%s :End of mode list.",
 					ch.Name())
 			} else {
@@ -101,7 +101,7 @@ func cmdOmode(source interface{}, params [][]byte) {
 		}
 		if badmodes != "" {
 			if badmodes != string(params[1]) {
-				c.WriteTo(nil, "501", "Unknown list modes: %s", badmodes)
+				c.SendLineTo(nil, "501", "Unknown list modes: %s", badmodes)
 				return
 			}
 			// If ALL the mode characters were invalid, we let it
@@ -119,7 +119,7 @@ func cmdOmode(source interface{}, params [][]byte) {
 	}
 	changes, err := client.ChanModes.ParseModeLine(c.User(), ch, params[1], mpars)
 	if err != nil {
-		c.WriteTo(nil, "501", "%s", err)
+		c.SendLineTo(nil, "501", "%s", err)
 	}
 
 	todo := make([]core.DataChange, 0, len(changes))
@@ -127,13 +127,13 @@ func cmdOmode(source interface{}, params [][]byte) {
 		if cha.Member != nil {
 			num, err := perm.CheckMemberDataPerm(me, c.User(), cha.Member, cha.Name, cha.Data)
 			if num < -1000000 {
-				c.WriteTo(nil, "482", "#%s %s: %s", ch.Name(), cha.Name, err)
+				c.SendLineTo(nil, "482", "#%s %s: %s", ch.Name(), cha.Name, err)
 				continue
 			}
 		} else {
 			num, err := perm.CheckChanDataPerm(me, c.User(), ch, cha.Name, cha.Data)
 			if num < -1000000 {
-				c.WriteTo(nil, "482", "#%s %s: %s", ch.Name(), cha.Name, err)
+				c.SendLineTo(nil, "482", "#%s %s: %s", ch.Name(), cha.Name, err)
 				continue
 			}
 		}

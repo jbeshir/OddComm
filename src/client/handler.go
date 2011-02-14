@@ -99,7 +99,7 @@ func input(c *Client) {
 
 				// If it's an oper command, check permissions.
 				if command.OperFlag != "" && !perm.HasOperCommand(c.u, command.OperFlag, command.Name) {
-					c.WriteTo(nil, "481", ":You do not have the appropriate privileges to use this command.")
+					c.SendLineTo(nil, "481", ":You do not have the appropriate privileges to use this command.")
 				} else {
 					command.Handler(c, params)
 				}
@@ -109,16 +109,16 @@ func input(c *Client) {
 				switch perr.Num {
 				case irc.CmdNotFound:
 					if c.u.Registered() {
-						c.WriteTo(nil, "421", "%s :%s", perr.CmdName, perr)
+						c.SendLineTo(nil, "421", "%s :%s", perr.CmdName, perr)
 					}
 				case irc.CmdForRegistered:
-					c.WriteFrom(nil, "451 %s :%s",
+					c.SendFrom(nil, "451 %s :%s",
 						perr.CmdName, perr)
 				case irc.CmdForUnregistered:
-					c.WriteFrom(nil, "462 %s :%s",
+					c.SendFrom(nil, "462 %s :%s",
 						c.u.Nick(), perr)
 				default:
-					c.WriteFrom(nil, "461 %s %s :%s",
+					c.SendFrom(nil, "461 %s %s :%s",
 						c.u.Nick(), perr.CmdName,
 						perr)
 				}
@@ -161,7 +161,7 @@ func input(c *Client) {
 // If f is nil, we will assume we are being called either by a previous output
 // goroutine, or a goroutine which has just turned buffering on, and do not
 // need to replace an existing goroutine.
-func output(c *Client, f func()[]byte) {
+func output(c *Client, f func() []byte) {
 	var n int
 	var err os.Error
 

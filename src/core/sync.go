@@ -96,7 +96,7 @@ func incSync() {
 // Decrement the number of ongoing synchronisations.
 // Unlocks user and channel addition/removal if this is the last.
 func decSync() {
-	syncMutex.Unlock()
+	syncMutex.Lock()
 	syncCount--
 	if syncCount == 0 {
 		chanMutex.Unlock()

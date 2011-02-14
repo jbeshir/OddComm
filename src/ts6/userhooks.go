@@ -1,6 +1,7 @@
 package ts6
 
 import "oddcomm/src/core"
+import "oddcomm/lib/irc"
 
 
 func init() {
@@ -17,7 +18,7 @@ func init() {
 		}
 
 		all(func(l *local) {
-			l.SendFrom(u, "NICK %s %d", newnick, ts)
+			irc.SendFrom(l, from(u), "NICK %s %d", newnick, ts)
 		})
 	}, false)
 
@@ -28,15 +29,16 @@ func init() {
 
 		if source == u {
 			all(func(l *local) {
-				l.SendFrom(u, "QUIT :Quit: %s", msg)
+				irc.SendFrom(l, from(u), "QUIT :Quit: %s", msg)
 			})
 		} else if source != nil {
 			all(func(l *local) {
-				l.SendFrom(source, "KILL %s :%s", u.ID(), msg)
+				irc.SendFrom(l, from(source), "KILL %s :%s", u.ID(),
+					msg)
 			})
 		} else {
 			all(func(l *local) {
-				l.SendFrom(u, "QUIT :%s", msg)
+				irc.SendFrom(l, from(u), "QUIT :%s", msg)
 			})
 		}
 	}, false)
@@ -48,7 +50,8 @@ func init() {
 		}
 
 		s := target.Owndata().(*server)
-		s.local.SendLine(source, target, "PRIVMSG", ":%s", msg)
+		irc.SendLine(s.local, from(source), from(target), "PRIVMSG", ":%s",
+			msg)
 	})
 
 	core.HookUserMessage("noreply", func(pkg string, source, target *core.User, msg []byte) {
@@ -58,6 +61,6 @@ func init() {
 		}
 
 		s := target.Owndata().(*server)
-		s.local.SendLine(source, target, "NOTICE", ":%s", msg)
+		irc.SendLine(s.local, from(source), from(target), "NOTICE", ":%s", msg)
 	})
 }

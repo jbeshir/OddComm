@@ -37,7 +37,7 @@ func cmdOkick(source interface{}, params [][]byte) {
 
 	perm, err := perm.CheckRemovePerm(me, c.User(), target, ch)
 	if perm < -1000000 {
-		c.WriteTo(nil, "482", "#%s :%s", ch.Name(), err)
+		c.SendLineTo(nil, "482", "#%s :%s", ch.Name(), err)
 		return
 	}
 

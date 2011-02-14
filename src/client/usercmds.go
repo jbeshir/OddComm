@@ -85,14 +85,14 @@ func cmdNick(source interface{}, params [][]byte) {
 
 	if ok, err := perm.CheckNick(me, c.u, nick); !ok {
 		if c, ok := source.(*Client); ok {
-			c.WriteTo(nil, "432", "%s :%s", nick, err)
+			c.SendLineTo(nil, "432", "%s :%s", nick, err)
 		}
 		return
 	}
 
 	if err := c.u.SetNick(me, nick, -1); err != nil {
 		if c, ok := source.(*Client); ok {
-			c.WriteTo(nil, "433", "%s :%s", nick, err)
+			c.SendLineTo(nil, "433", "%s :%s", nick, err)
 		}
 	}
 
@@ -114,11 +114,11 @@ func cmdUser(source interface{}, params [][]byte) {
 
 	// Check that the ident and realname are valid.
 	if num, err := perm.CheckUserDataPerm(me, c.u, c.u, "ident", ident); num <= -1e9 {
-		c.WriteTo(nil, "461", "USER :%s", err)
+		c.SendLineTo(nil, "461", "USER :%s", err)
 		return
 	}
 	if num, err := perm.CheckUserDataPerm(me, c.u, c.u, "realname", real); num <= -1e9 {
-		c.WriteTo(nil, "461", "USER :%s", err)
+		c.SendLineTo(nil, "461", "USER :%s", err)
 		return
 	}
 
@@ -130,7 +130,7 @@ func cmdUser(source interface{}, params [][]byte) {
 
 func cmdPing(source interface{}, params [][]byte) {
 	c := source.(*Client)
-	c.WriteFrom(nil, "PONG %s :%s", "Server.name", params[0])
+	c.SendFrom(nil, "PONG %s :%s", "Server.name", params[0])
 
 }
 
@@ -141,7 +141,7 @@ func cmdMode(source interface{}, params [][]byte) {
 	if len(params) < 2 {
 		if strings.ToUpper(c.u.Nick()) == strings.ToUpper(string(params[0])) {
 			modeline := UserModes.GetModes(c.u)
-			c.WriteTo(nil, "221", ":+%s", modeline)
+			c.SendLineTo(nil, "221", ":+%s", modeline)
 			return
 		}
 
@@ -153,8 +153,8 @@ func cmdMode(source interface{}, params [][]byte) {
 			}
 			modeline := ChanModes.GetModes(ch)
 			ts := ch.TS()
-			c.WriteTo(nil, "324", "#%s +%s", ch.Name(), modeline)
-			c.WriteTo(nil, "329", "#%s %d", ch.Name(), ts)
+			c.SendLineTo(nil, "324", "#%s +%s", ch.Name(), modeline)
+			c.SendLineTo(nil, "329", "#%s %d", ch.Name(), ts)
 			return
 		}
 		return
@@ -177,7 +177,7 @@ func cmdMode(source interface{}, params [][]byte) {
 			}
 
 			if ok, err := perm.CheckChanViewData(me, c.u, ch, name); !ok {
-				c.WriteTo(nil, "482", "#%s :%s", ch.Name(), err)
+				c.SendLineTo(nil, "482", "#%s :%s", ch.Name(), err)
 				continue
 			}
 
@@ -212,11 +212,11 @@ func cmdMode(source interface{}, params [][]byte) {
 					}
 				}
 
-				c.WriteTo(nil, num, "#%s %s %s %s",
+				c.SendLineTo(nil, num, "#%s %s %s %s",
 					ch.Name(), p, setBy, setTime)
 			})
 			if valid {
-				c.WriteTo(nil, endnum, "#%s :End of mode list.",
+				c.SendLineTo(nil, endnum, "#%s :End of mode list.",
 					ch.Name())
 			} else {
 				badmodes += string(mode)
@@ -224,7 +224,7 @@ func cmdMode(source interface{}, params [][]byte) {
 		}
 		if badmodes != "" {
 			if badmodes != string(params[1]) {
-				c.WriteTo(nil, "501", "Unknown list modes: %s", badmodes)
+				c.SendLineTo(nil, "501", "Unknown list modes: %s", badmodes)
 				return
 			}
 			// If ALL the mode characters were invalid, we let it
@@ -242,7 +242,7 @@ func cmdMode(source interface{}, params [][]byte) {
 		}
 		changes, err := UserModes.ParseModeLine(c.u, c.u, params[1], mpars)
 		if err != nil {
-			c.WriteTo(nil, "501", "%s", err)
+			c.SendLineTo(nil, "501", "%s", err)
 		}
 
 		todo := make([]core.DataChange, 0, len(changes))
@@ -250,7 +250,7 @@ func cmdMode(source interface{}, params [][]byte) {
 			ok, err := perm.CheckUserData(me, c.u, c.u, cha.Name, cha.Data)
 			if !ok {
 				m := UserModes.GetMode(cha.Name)
-				c.WriteTo(nil, "482", "%s %c: %s", c.u.Nick(),
+				c.SendLineTo(nil, "482", "%s %c: %s", c.u.Nick(),
 					m, err)
 				continue
 			}
@@ -275,7 +275,7 @@ func cmdMode(source interface{}, params [][]byte) {
 		}
 		changes, err := ChanModes.ParseModeLine(c.u, ch, params[1], mpars)
 		if err != nil {
-			c.WriteTo(nil, "501", "%s", err)
+			c.SendLineTo(nil, "501", "%s", err)
 		}
 
 		todo := make([]core.DataChange, 0, len(changes))
@@ -284,14 +284,14 @@ func cmdMode(source interface{}, params [][]byte) {
 				ok, err := perm.CheckMemberData(me, c.u, cha.Member, cha.Name, cha.Data)
 				if !ok {
 					m := ChanModes.GetMode(cha.Name)
-					c.WriteTo(nil, "482", "#%s %c: %s", ch.Name(), m, err)
+					c.SendLineTo(nil, "482", "#%s %c: %s", ch.Name(), m, err)
 					continue
 				}
 			} else {
 				ok, err := perm.CheckChanData(me, c.u, ch, cha.Name, cha.Data)
 				if !ok {
 					m := ChanModes.GetMode(cha.Name)
-					c.WriteTo(nil, "482", "#%s %c: %s", ch.Name(), m, err)
+					c.SendLineTo(nil, "482", "#%s %c: %s", ch.Name(), m, err)
 					continue
 				}
 			}
@@ -304,7 +304,7 @@ func cmdMode(source interface{}, params [][]byte) {
 		return
 	}
 
-	c.WriteTo(nil, "401", "%s %s :%s", c.u.Nick(), params[0],
+	c.SendLineTo(nil, "401", "%s %s :%s", c.u.Nick(), params[0],
 		"No such nick or channel.")
 }
 
@@ -316,12 +316,12 @@ func cmdPrivmsg(source interface{}, params [][]byte) {
 		if target := core.GetUserByNick(string(t)); target != nil {
 			if ok, err := perm.CheckUserMsg(me, c.u, target, params[1], ""); ok {
 				if v := target.Data("away"); v != "" {
-					c.WriteTo(nil, "301", "%s :%s",
+					c.SendLineTo(nil, "301", "%s :%s",
 						target.Nick(), v)
 				}
 				target.Message(me, c.u, params[1], "")
 			} else {
-				c.WriteTo(nil, "404", "%s :%s", target.Nick(), err)
+				c.SendLineTo(nil, "404", "%s :%s", target.Nick(), err)
 			}
 			continue
 		}
@@ -334,13 +334,13 @@ func cmdPrivmsg(source interface{}, params [][]byte) {
 					params[1], ""); ok {
 					ch.Message(me, c.u, params[1], "")
 				} else {
-					c.WriteTo(nil, "404", "#%s :%s", ch.Name(), err)
+					c.SendLineTo(nil, "404", "#%s :%s", ch.Name(), err)
 				}
 				continue
 			}
 		}
 
-		c.WriteTo(nil, "401", "%s :%s", t, "No such nick or channel.")
+		c.SendLineTo(nil, "401", "%s :%s", t, "No such nick or channel.")
 	}
 }
 
@@ -354,7 +354,7 @@ func cmdNotice(source interface{}, params [][]byte) {
 				"noreply"); ok {
 				target.Message(me, c.u, params[1], "noreply")
 			} else {
-				c.WriteTo(nil, "404", "%s :%s", target.Nick(), err)
+				c.SendLineTo(nil, "404", "%s :%s", target.Nick(), err)
 			}
 			continue
 		}
@@ -367,13 +367,13 @@ func cmdNotice(source interface{}, params [][]byte) {
 					params[1], " noreply"); ok {
 					ch.Message(me, c.u, params[1], "noreply")
 				} else {
-					c.WriteTo(nil, "404", "#%s :%s", ch.Name(), err)
+					c.SendLineTo(nil, "404", "#%s :%s", ch.Name(), err)
 				}
 				continue
 			}
 		}
 
-		c.WriteTo(nil, "401", "%s :%s", t, "No such nick or channel.")
+		c.SendLineTo(nil, "401", "%s :%s", t, "No such nick or channel.")
 	}
 }
 
@@ -388,11 +388,11 @@ func cmdAway(source interface{}, params [][]byte) {
 	if message == "" {
 		c.u.SetData(me, c.u, "away", "")
 		c.u.SetData(me, c.u, "away time", "")
-		c.WriteTo(nil, "305", ":You are no longer marked as being away.")
+		c.SendLineTo(nil, "305", ":You are no longer marked as being away.")
 	} else {
 		c.u.SetData(me, c.u, "away", message)
 		c.u.SetData(me, c.u, "away time", strconv.Itoa64(time.Seconds()))
-		c.WriteTo(nil, "306", ":You have been marked as being away.")
+		c.SendLineTo(nil, "306", ":You have been marked as being away.")
 	}
 }
 

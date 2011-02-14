@@ -73,8 +73,8 @@ func init() {
 func cmdVersion(source interface{}, params [][]byte) {
 	c := source.(*Client)
 
-	c.WriteTo(nil, "351", "OddComm-%s Server.name", core.Version)
-	c.WriteTo(nil, "351", "%s :are supported by this server", supportLine)
+	c.SendLineTo(nil, "351", "OddComm-%s Server.name", core.Version)
+	c.SendLineTo(nil, "351", "%s :are supported by this server", supportLine)
 }
 
 func cmdUserhost(source interface{}, params [][]byte) {
@@ -105,7 +105,7 @@ func cmdUserhost(source interface{}, params [][]byte) {
 		replyline += user.GetHostname()
 	}
 
-	c.WriteTo(nil, "302", ":%s", replyline)
+	c.SendLineTo(nil, "302", ":%s", replyline)
 }
 
 func cmdIsOn(source interface{}, params [][]byte) {
@@ -122,7 +122,7 @@ func cmdIsOn(source interface{}, params [][]byte) {
 		}
 	}
 
-	c.WriteTo(nil, "303", ":%s", replyline)
+	c.SendLineTo(nil, "303", ":%s", replyline)
 }
 
 func cmdWho(source interface{}, params [][]byte) {
@@ -134,7 +134,7 @@ func cmdWho(source interface{}, params [][]byte) {
 
 	var ch *core.Channel
 	if ch = core.FindChannel("", channame); ch == nil {
-		c.WriteTo(nil, "403", "#%s :No such channel.", channame)
+		c.SendLineTo(nil, "403", "#%s :No such channel.", channame)
 		return
 	}
 
@@ -142,7 +142,7 @@ func cmdWho(source interface{}, params [][]byte) {
 	// can view private channel data.
 	if m := ch.GetMember(c.u); m == nil {
 		if ok, err := perm.CheckChanViewData(me, c.u, ch, "members"); !ok {
-			c.WriteTo(nil, "482", "#%s :%s", ch.Name(), err)
+			c.SendLineTo(nil, "482", "#%s :%s", ch.Name(), err)
 			return
 		}
 	}
@@ -175,7 +175,7 @@ func cmdWho(source interface{}, params [][]byte) {
 		return []byte(result)
 	})
 
-	c.WriteTo(nil, "315", "#%s :End of /WHO list.", channame)
+	c.SendLineTo(nil, "315", "#%s :End of /WHO list.", channame)
 }
 
 func cmdNames(source interface{}, params [][]byte) {
@@ -187,7 +187,7 @@ func cmdNames(source interface{}, params [][]byte) {
 
 	var ch *core.Channel
 	if ch = core.FindChannel("", channame); ch == nil {
-		c.WriteTo(nil, "403", "#%s :No such channel.", channame)
+		c.SendLineTo(nil, "403", "#%s :No such channel.", channame)
 		return
 	}
 
@@ -195,7 +195,7 @@ func cmdNames(source interface{}, params [][]byte) {
 	// can view private channel data.
 	if m := ch.GetMember(c.u); m == nil {
 		if ok, err := perm.CheckChanViewData(me, c.u, ch, "members"); !ok {
-			c.WriteTo(nil, "482", "#%s :%s", ch.Name(), err)
+			c.SendLineTo(nil, "482", "#%s :%s", ch.Name(), err)
 			return
 		}
 	}
@@ -219,7 +219,7 @@ func cmdNames(source interface{}, params [][]byte) {
 
 		for ; it != nil; it = it.ChanNext() {
 			name := ChanModes.GetPrefixes(it) + it.User().Nick()
-			if len(names) + len(name) > 508 {
+			if len(names)+len(name) > 508 {
 				break
 			}
 			names += " " + name
@@ -228,12 +228,12 @@ func cmdNames(source interface{}, params [][]byte) {
 		names += "\r\n"
 		return []byte(names)
 	})
-	c.WriteTo(nil, "366", "#%s :End of /NAMES list", channame)
+	c.SendLineTo(nil, "366", "#%s :End of /NAMES list", channame)
 }
 
 func cmdTime(source interface{}, params [][]byte) {
 	c := source.(*Client)
-	c.WriteTo(nil, "391", ":%s", time.UTC().Format(time.RFC1123))
+	c.SendLineTo(nil, "391", ":%s", time.UTC().Format(time.RFC1123))
 }
 
 func cmdOpflags(source interface{}, params [][]byte) {
@@ -245,7 +245,7 @@ func cmdOpflags(source interface{}, params [][]byte) {
 
 	var ch *core.Channel
 	if ch = core.FindChannel("", channame); ch == nil {
-		c.WriteTo(nil, "403", "#%s :No such channel.", channame)
+		c.SendLineTo(nil, "403", "#%s :No such channel.", channame)
 		return
 	}
 
@@ -253,37 +253,37 @@ func cmdOpflags(source interface{}, params [][]byte) {
 	// can view private channel data.
 	if m := ch.GetMember(c.u); m == nil {
 		if ok, err := perm.CheckChanViewData(me, c.u, ch, "members"); !ok {
-			c.WriteTo(nil, "482", "#%s :%s", ch.Name(), err)
+			c.SendLineTo(nil, "482", "#%s :%s", ch.Name(), err)
 			return
 		}
 	}
 
 	var target *core.User
 	if target = core.GetUserByNick(string(params[1])); target == nil {
-		c.WriteTo(nil, "401", "%s :No such user.", params[1])
+		c.SendLineTo(nil, "401", "%s :No such user.", params[1])
 		return
 	}
 
 	var m *core.Membership
 	if m = ch.GetMember(target); m == nil {
-		c.WriteTo(nil, "304", ":OPFLAGS #%s: %s is not in the channel.", ch.Name(), target.Nick())
+		c.SendLineTo(nil, "304", ":OPFLAGS #%s: %s is not in the channel.", ch.Name(), target.Nick())
 		return
 	}
 	if ok, err := perm.CheckMemberViewData(me, c.u, m, "op"); !ok {
-		c.WriteTo(nil, "482", "#%s :%s: %s", ch.Name(), target.Nick(), err)
+		c.SendLineTo(nil, "482", "#%s :%s: %s", ch.Name(), target.Nick(), err)
 		return
 	}
 
 	var flags string
 	if flags = m.Data("op"); flags == "" {
-		c.WriteTo(nil, "304", ":OPFLAGS #%s: %s has no channel op flags.", ch.Name(), target.Nick())
+		c.SendLineTo(nil, "304", ":OPFLAGS #%s: %s has no channel op flags.", ch.Name(), target.Nick())
 		return
 	}
 
 	if flags == "on" {
 		flags = perm.DefaultChanOp()
 	}
-	c.WriteTo(nil, "304", ":OPFLAGS #%s: %s has channel op flags: %s", ch.Name(), target.Nick(), flags)
+	c.SendLineTo(nil, "304", ":OPFLAGS #%s: %s has channel op flags: %s", ch.Name(), target.Nick(), flags)
 }
 
 func cmdOperflags(source interface{}, params [][]byte) {
@@ -291,25 +291,25 @@ func cmdOperflags(source interface{}, params [][]byte) {
 
 	var target *core.User
 	if target = core.GetUserByNick(string(params[0])); target == nil {
-		c.WriteTo(nil, "401", "%s %s :No such user.", c.u.Nick(),
+		c.SendLineTo(nil, "401", "%s %s :No such user.", c.u.Nick(),
 			params[0])
 		return
 	}
 
 	var flags string
 	if flags = target.Data("op"); flags == "" {
-		c.WriteTo(nil, "304", ":OPERFLAGS: %s has no server oper flags.", target.Nick())
+		c.SendLineTo(nil, "304", ":OPERFLAGS: %s has no server oper flags.", target.Nick())
 		return
 	}
 
 	if flags == "on" {
 		flags = perm.DefaultServerOp()
 	}
-	c.WriteTo(nil, "304", ":OPERFLAGS: %s has server oper flags: %s", target.Nick(), flags)
+	c.SendLineTo(nil, "304", ":OPERFLAGS: %s has server oper flags: %s", target.Nick(), flags)
 
 	var commands string
 	if commands = target.Data("opcommands"); commands == "" {
 		return
 	}
-	c.WriteTo(nil, "304", ":OPERFLAGS: %s also has the following specific commands: %s", target.Nick(), commands)
+	c.SendLineTo(nil, "304", ":OPERFLAGS: %s also has the following specific commands: %s", target.Nick(), commands)
 }

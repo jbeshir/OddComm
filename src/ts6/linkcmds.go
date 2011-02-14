@@ -198,8 +198,8 @@ func cmdPing(source interface{}, params[][]byte) {
 
 	// Echo it back, including the remote destination if it has one.
 	if len(params) == 1 {
-		s.local.SendFrom(nil, "PONG %s", params[0])
+		irc.SendFrom(s.local, from(nil), "PONG %s", params[0])
 	} else {
-		s.local.SendFrom(nil, "PONG %s %s", params[0], params[1])
+		irc.SendFrom(s.local, from(nil), "PONG %s %s", params[0], params[1])
 	}
 }

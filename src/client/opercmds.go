@@ -39,7 +39,7 @@ func cmdKill(source interface{}, params [][]byte) {
 		if target := core.GetUserByNick(string(t)); target != nil {
 			perm, err := perm.CheckKillPerm(me, c.u, target)
 			if perm < -1000000 {
-				c.WriteTo(nil, "404", "%s :%s", target.Nick(), err)
+				c.SendLineTo(nil, "404", "%s :%s", target.Nick(), err)
 				continue
 			}
 
@@ -47,7 +47,7 @@ func cmdKill(source interface{}, params [][]byte) {
 			// themselves. The rest of the server treats this as a
 			// quit, but their client won't understand this.
 			if target == c.u {
-				c.WriteTo(c.u, "KILL", "%s (%s)", c.u.Nick(), message)
+				c.SendLineTo(c.u, "KILL", "%s (%s)", c.u.Nick(), message)
 			}
 
 			// Kill the user.
@@ -56,7 +56,7 @@ func cmdKill(source interface{}, params [][]byte) {
 			continue
 		}
 
-		c.WriteTo(nil, "401", "%s :%s", t, "No such nick.")
+		c.SendLineTo(nil, "401", "%s :%s", t, "No such nick.")
 	}
 }
 

@@ -88,25 +88,10 @@ func (l *local) Write(b []byte) (n int, err os.Error) {
 	return
 }
 
-// Send a formatted line from the given user or server,
-// to the given user or server.
-func (l *local) SendLine(source, target interface{}, cmd string, format string, args ...interface{}) {
-	fmt.Fprintf(l, ":%s %s %s %s\r\n", prefix(source), cmd, prefix(target),
-		fmt.Sprintf(format, args...))
-}
-
-// Write a given prewritten line from the given user or server.
-// source may be a nil interface or a nil value, in which case the line will
-func (l *local) SendFrom(source interface{}, format string, args ...interface{}) {
-	fmt.Fprintf(l, ":%s %s\r\n", prefix(source),
-		fmt.Sprintf(format, args...))
-}
-
-
 // Returns the prefix to be used for a line from the given user or server.
 // This may be a nil interface or nil value, in which case the line will be
 // from this server.
-func prefix(source interface{}) string {
+func from(source interface{}) string {
 	if u, ok := source.(*core.User); ok && u != nil {
 		return u.ID()
 	} else if s, ok := source.(*server); ok && s != nil {
