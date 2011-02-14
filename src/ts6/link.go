@@ -140,6 +140,8 @@ func link_burst(l *local) {
 			}
 		},
 		func(hook bool) {
+			// We currently *assume* this is called after all the other
+			// hooks.
 			if !hook {
 				l.burst_sent = true
 			}
