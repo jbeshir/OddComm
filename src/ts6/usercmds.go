@@ -4,6 +4,7 @@ import "strconv"
 
 import "oddcomm/src/core"
 import "oddcomm/lib/irc"
+import "oddcomm/lib/perm"
 
 
 func init() {
@@ -84,10 +85,10 @@ func cmdUid(source interface{}, params [][]byte) {
 
 	// Try to set their nick.
 	ts, _ := strconv.Atoi64(string(params[2]))
-	setNick(u, string(params[0]), ts)
+	setNick(source, u, string(params[0]), ts)
 
 	// They are now registered.
-	u.PermitRegistration(me)
+	u.PermitRegistration(source)
 }
 
 // User nick change command.
@@ -98,7 +99,7 @@ func cmdNick(source interface{}, params [][]byte) {
 		return
 	}
 
-	setNick(u, string(params[0]), -1)
+	setNick(u.Owndata(), u, string(params[0]), -1)
 }
 
 // User quit command.
@@ -110,7 +111,7 @@ func cmdQuit(source interface{}, params [][]byte) {
 	}
 
 	// Delete the user in question.
-	u.Delete(me, u, string(params[0]))
+	u.Delete(u.Owndata(), u, string(params[0]))
 }
 
 // User kill command.
@@ -120,6 +121,14 @@ func cmdKill(source interface{}, params [][]byte) {
 	// which will be translated into a kill from this server.
 	u, _ := source.(*core.User)
 
+	// Get the originating server.
+	var origin interface{}
+	if u != nil {
+		origin = u.Owndata()
+	} else {
+		origin = source
+	}
+
 	// Look up the target.
 	target := core.GetUser(string(params[0]))
 	if target == nil {
@@ -128,7 +137,7 @@ func cmdKill(source interface{}, params [][]byte) {
 	}
 
 	// Delete the user in question.
-	target.Delete(me, u, string(params[1]))
+	target.Delete(origin, u, string(params[1]))
 }
 
 
@@ -140,8 +149,16 @@ func cmdPrivmsg(source interface{}, params [][]byte) {
 	u, _ := source.(*core.User)
 	t := string(params[0])
 
+	// Get the origin of the message.
+	var origin interface{}
+	if u != nil {
+		origin = u.Owndata()
+	} else {
+		origin = source
+	}
+
 	if target := core.GetUser(t); target != nil {
-		target.Message(me, u, params[1], "")
+		target.Message(origin, u, params[1], "")
 		return
 	}
 
@@ -149,7 +166,7 @@ func cmdPrivmsg(source interface{}, params [][]byte) {
 		channame := t[1:]
 		ch := core.FindChannel("", channame)
 		if ch != nil {
-			ch.Message(me, u, params[1], "")
+			ch.Message(origin, u, params[1], "")
 			return
 		}
 	}
@@ -164,8 +181,16 @@ func cmdNotice(source interface{}, params [][]byte) {
 	u, _ := source.(*core.User)
 	t := string(params[0])
 
+	// Get the origin of the message.
+	var origin interface{}
+	if u != nil {
+		origin = u.Owndata()
+	} else {
+		origin = source
+	}
+
 	if target := core.GetUser(t); target != nil {
-		target.Message(me, u, params[1], "noreply")
+		target.Message(origin, u, params[1], "noreply")
 		return
 	}
 
@@ -173,7 +198,7 @@ func cmdNotice(source interface{}, params [][]byte) {
 		channame := t[1:]
 		ch := core.FindChannel("", channame)
 		if ch != nil {
-			ch.Message(me, u, params[1], "noreply")
+			ch.Message(origin, u, params[1], "noreply")
 			return
 		}
 	}
@@ -183,11 +208,11 @@ func cmdNotice(source interface{}, params [][]byte) {
 // Sets the given user's nick as specified, handling collisions.
 // If ts is not -1, it specifies the user's nick timestamp.
 // Returns whether the user managed to avoid being killed in a collision.
-func setNick(u *core.User, nick string, ts int64) bool {
+func setNick(origin interface{}, u *core.User, nick string, ts int64) bool {
 
 	// Set their nick.
 	// Keep trying until we succeed or lose in a collision.
-	for u.SetNick(me, nick, ts) != nil {
+	for u.SetNick(origin, nick, ts) != nil {
 
 		// If we can get the colliding user...
 		if col := core.GetUserByNick(nick); col != nil {
@@ -228,12 +253,23 @@ func setNick(u *core.User, nick string, ts int64) bool {
 // Returns whether the user is still alive; false means they were killed.
 func collideUser(u *core.User) bool {
 
-	// At present, just a lazy kill.
-	if u.Registered() || u.Owner() == me {
-		all(func(l *local) {
-			irc.SendLine(l, from(nil), u.ID(), "KILL", ":Nick Collision")
-		})
+	// If we can change their nick to UID, do so.
+	perm, _ := perm.CheckNickPerm(me, u, u.ID())
+	if perm > -1e9 {
+		u.SetNick(me, u.ID(), -1)
+		return true
 	}
+
+	// If they are from this package and we have not registered them, we need to
+	// send their server a kill.
+	if u.Owner() == me && !u.Registered() {
+		if l, ok := u.Owndata().(*server); ok {
+			irc.SendLine(l.local, from(nil), u.ID(), "KILL",
+				":Nick Collision")
+		}
+	}
+
+	// Otherwise, kill them.
 	u.Delete(me, nil, "Nick Collision")
 
 	return false

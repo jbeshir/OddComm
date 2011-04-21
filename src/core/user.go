@@ -199,11 +199,12 @@ func (u *User) ID() string {
 // SetNick sets the user's nick. This may fail if the nickname is in use.
 // If ts is not -1, it sets the nick timestamp to store.
 // If successful, err is nil. If not, err is a message why.
-func (u *User) SetNick(pkg, nick string, ts int64) (err os.Error) {
+func (u *User) SetNick(origin interface{}, nick string, ts int64) (err os.Error) {
 	if ts == -1 {
 		ts = time.Seconds()
 	}
 
+	userMutex.Lock()
 	u.mutex.Lock()
 
 	oldnick := *(u.nick)
@@ -211,7 +212,6 @@ func (u *User) SetNick(pkg, nick string, ts int64) (err os.Error) {
 	NICK := strings.ToUpper(nick)
 
 	if OLDNICK != NICK {
-		userMutex.Lock()
 
 		// Change the nick if there's no conflict.
 		conflict := (*User)(usersByNick.Get(NICK))
@@ -224,8 +224,6 @@ func (u *User) SetNick(pkg, nick string, ts int64) (err os.Error) {
 			u.nickts = &ts
 		}
 
-		userMutex.Unlock()
-
 	} else if oldnick != nick {
 		// Just a change in case; no need to alter the tables,
 		// or change nick timestamp.
@@ -236,12 +234,13 @@ func (u *User) SetNick(pkg, nick string, ts int64) (err os.Error) {
 	if oldnick != nick {
 		if err == nil {
 			hookRunner <- func() {
-				runUserNickChangeHooks(pkg, u, oldnick, nick, ts)
+				runUserNickChangeHooks(origin, u, oldnick, nick, ts)
 			}
 		}
 	}
 
 	u.mutex.Unlock()
+	userMutex.Unlock()
 
 	return
 }
@@ -261,7 +260,7 @@ func (u *User) NickTS() (ts int64) {
 // to that which applicable HoldRegistration() calls were made during init,
 // PLUS once from the code creating the user whenever it has finished setting
 // it up.
-func (u *User) PermitRegistration(pkg string) {
+func (u *User) PermitRegistration(origin interface{}) {
 	var registered bool
 
 	u.mutex.Lock()
@@ -274,7 +273,7 @@ func (u *User) PermitRegistration(pkg string) {
 
 	if registered {
 		hookRunner <- func() {
-			runUserRegisterHooks(pkg, u)
+			runUserRegisterHooks(origin, u)
 		}
 	}
 
@@ -290,7 +289,7 @@ func (u *User) Registered() (r bool) {
 // SetData sets the given single piece of metadata on the user.
 // source may be nil, in which case the metadata is set by the server.
 // Setting it to "" unsets it.
-func (u *User) SetData(pkg string, source *User, name, value string) {
+func (u *User) SetData(origin interface{}, source *User, name, value string) {
 
 	// We hold this so hooks are sent to the hook runner in the order that
 	// the data changes were made.
@@ -313,8 +312,8 @@ func (u *User) SetData(pkg string, source *User, name, value string) {
 	c.Name = name
 	c.Data = value
 	hookRunner <- func() {
-		runUserDataChangeHooks(pkg, source, u, name, oldvalue, value)
-		runUserDataChangesHooks(pkg, source, u, []DataChange{c}, []string{oldvalue})
+		runUserDataChangeHooks(origin, source, u, name, oldvalue, value)
+		runUserDataChangesHooks(origin, source, u, []DataChange{c}, []string{oldvalue})
 	}
 
 	u.mutex.Unlock()
@@ -324,7 +323,7 @@ func (u *User) SetData(pkg string, source *User, name, value string) {
 // This is equivalent to lots of SetData calls, except hooks for all data
 // changes will receive it as a single list, and it is cheaper.
 // source may be nil, in which case the metadata is set by the server.
-func (u *User) SetDataList(pkg string, source *User, changes []DataChange) {
+func (u *User) SetDataList(origin interface{}, source *User, changes []DataChange) {
 	done := make([]DataChange, 0, len(changes))
 	old := make([]string, 0, len(changes))
 
@@ -354,9 +353,9 @@ func (u *User) SetDataList(pkg string, source *User, changes []DataChange) {
 
 	hookRunner <- func() {
 		for i, it := range done {
-			runUserDataChangeHooks(pkg, source, u, it.Name, old[i], it.Data)
+			runUserDataChangeHooks(origin, source, u, it.Name, old[i], it.Data)
 		}
-		runUserDataChangesHooks(pkg, source, u, done, old)
+		runUserDataChangesHooks(origin, source, u, done, old)
 	}
 
 	u.mutex.Unlock()
@@ -404,7 +403,7 @@ func (u *User) Owndata() interface{} {
 // Message sends a message directly to the user.
 // source may be nil, indicating a message from the server.
 // t may be "" (for default), and indicates the type of message.
-func (u *User) Message(pkg string, source *User, message []byte, t string) {
+func (u *User) Message(origin interface{}, source *User, message []byte, t string) {
 
 	// Unregistered users may neither send nor receive messages.
 	if !u.Registered() || (source != nil && !source.Registered()) {
@@ -412,14 +411,14 @@ func (u *User) Message(pkg string, source *User, message []byte, t string) {
 	}
 
 	// We actually just call hooks, and let the subsystems handle it.
-	runUserMessageHooks(pkg, source, u, message, t)
+	runUserMessageHooks(origin, source, u, message, t)
 }
 
 // Delete deletes the user from the server.
 // They are removed from all channels they are in first.
 // The given message is recorded as the reason why.
 // Source may be nil, to indicate a deletion by the server.
-func (u *User) Delete(pkg string, source *User, message string) {
+func (u *User) Delete(origin interface{}, source *User, message string) {
 	var chans *Membership
 
 	userMutex.Lock()
@@ -437,8 +436,7 @@ func (u *User) Delete(pkg string, source *User, message string) {
 	users.Remove(u.id)
 	usersByNick.Remove(NICK)
 
-
-	// Mark the user as deleted, and get their membership list.
+	// Mark the user as deleted.
 	regged := (u.regstate == 0)
 	u.regstate = -1
 
@@ -447,7 +445,7 @@ func (u *User) Delete(pkg string, source *User, message string) {
 	// This ensures the user is still in their channels when deletion hooks
 	// are run.
 	hookRunner <- func() {
-		runUserDeleteHooks(pkg, source, u, message, regged)
+		runUserDeleteHooks(origin, source, u, message, regged)
 
 		u.mutex.Lock()
 
@@ -459,6 +457,8 @@ func (u *User) Delete(pkg string, source *User, message string) {
 		var prev, it *Membership
 		for it = chans; it != nil; it = it.unext {
 
+			// This is safe because deleted users cannot be joined
+			// or removed from a channel elsewhere.
 			u.mutex.Unlock()
 			it.c.mutex.Lock()
 			u.mutex.Lock()
@@ -475,7 +475,7 @@ func (u *User) Delete(pkg string, source *User, message string) {
 			prev = it
 			if prev != nil {
 				hookRunner <- func() {
-					runChanUserRemoveHooks(pkg, prev.c.t, u, u, prev.c, message)
+					runChanUserRemoveHooks(origin, prev.c.t, u, u, prev.c, message)
 				}
 			}
 			it.c.mutex.Unlock()

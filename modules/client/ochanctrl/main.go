@@ -10,5 +10,3 @@
 	OMODE <channel> <modes> [params] - Performs the given mode changes.
 */
 package ochanctrl
-
-var me string = "modules/client/ochanctrl"

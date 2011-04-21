@@ -51,7 +51,7 @@ func cmdOmode(source interface{}, params [][]byte) {
 				continue
 			}
 
-			if perm, err := perm.CheckChanViewDataPerm(me, c.User(), ch, name); perm < -1000000 {
+			if perm, err := perm.CheckChanViewDataPerm("", c.User(), ch, name); perm < -1000000 {
 				c.SendLineTo(nil, "482", "#%s :%s", ch.Name(), err)
 				continue
 			}
@@ -125,13 +125,13 @@ func cmdOmode(source interface{}, params [][]byte) {
 	todo := make([]core.DataChange, 0, len(changes))
 	for _, cha := range changes {
 		if cha.Member != nil {
-			num, err := perm.CheckMemberDataPerm(me, c.User(), cha.Member, cha.Name, cha.Data)
+			num, err := perm.CheckMemberDataPerm("", c.User(), cha.Member, cha.Name, cha.Data)
 			if num < -1000000 {
 				c.SendLineTo(nil, "482", "#%s %s: %s", ch.Name(), cha.Name, err)
 				continue
 			}
 		} else {
-			num, err := perm.CheckChanDataPerm(me, c.User(), ch, cha.Name, cha.Data)
+			num, err := perm.CheckChanDataPerm("", c.User(), ch, cha.Name, cha.Data)
 			if num < -1000000 {
 				c.SendLineTo(nil, "482", "#%s %s: %s", ch.Name(), cha.Name, err)
 				continue
@@ -141,7 +141,7 @@ func cmdOmode(source interface{}, params [][]byte) {
 	}
 
 	if todo != nil {
-		ch.SetDataList(me, nil, todo)
+		ch.SetDataList(nil, nil, todo)
 	}
 
 }

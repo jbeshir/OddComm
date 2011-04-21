@@ -17,7 +17,7 @@ func init() {
 	// Join the server on startup.
 	core.HookStart(addCat)
 
-	core.HookUserNickChange(func(_ string, u *core.User, oldnick, newnick string, _ int64) {
+	core.HookUserNickChange(func(_ interface{}, u *core.User, oldnick, newnick string, _ int64) {
 		// If someone was stealing our nick, and they changed nick, try
 		// to connect again.
 		if u != cat && strings.ToUpper(oldnick) == "CATSERV" {
@@ -33,7 +33,12 @@ func init() {
 	},
 		true)
 
-	core.HookUserDelete(func(_ string, source, u *core.User, _ string) {
+	core.HookUserDelete(func(origin interface{}, source, u *core.User, _ string) {
+		pkg, _ := origin.(string)
+		if pkg == me {
+			return
+		}
+
 		// If we got disconnected or quit, or someone stealing our nick
 		// quit, try to reconnect.
 		if u == cat || strings.ToUpper(u.Nick()) == "CATSERV" {
@@ -42,7 +47,7 @@ func init() {
 	},
 		true)
 
-	core.HookUserMessage("", func(_ string, source, target *core.User, message []byte) {
+	core.HookUserMessage("", func(_ interface{}, source, target *core.User, message []byte) {
 		// If someone sent a message to us, say hi.
 		// In a real psuedoserver, you could write whatever
 		// functionality you liked here.
@@ -54,7 +59,7 @@ func init() {
 
 func addCat() {
 	// Add CatServ!
-	cat = core.NewUser("oddcomm/modules/dev/catserv", nil, true, "", nil)
+	cat = core.NewUser(me, nil, true, "", nil)
 
 	// If I suffer a collision, quit for now; I will return when they go
 	// away.

@@ -20,7 +20,7 @@ type globalData struct {
 // SetData sets the given single piece of global data.
 // source may be nil, in which case the metadata is set by the server.
 // Setting it to "" unsets it.
-func (g *globalData) SetData(_ string, source *User, name, value string) {
+func (g *globalData) SetData(origin interface{}, source *User, name, value string) {
 	var oldvalue string
 
 	g.mutex.Lock()
@@ -51,7 +51,7 @@ func (g *globalData) SetData(_ string, source *User, name, value string) {
 // This is equivalent to lots of SetData calls, except hooks for all data
 // changes will receive it as a single list, and it is cheaper.
 // source may be nil, in which case the metadata is set by the server.
-func (g *globalData) SetDataList(_ string, source *User, changes []DataChange) {
+func (g *globalData) SetDataList(origin interface{}, source *User, changes []DataChange) {
 	done := make([]DataChange, 0, len(changes))
 	old := make([]string, 0, len(changes))
 

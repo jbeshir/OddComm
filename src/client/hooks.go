@@ -6,7 +6,7 @@ import "oddcomm/src/core"
 
 
 func init() {
-	core.HookUserNickChange(func(_ string, u *core.User, oldnick, newnick string, _ int64) {
+	core.HookUserNickChange(func(_ interface{}, u *core.User, oldnick, newnick string, _ int64) {
 		sent := make(map[*Client]bool)
 
 		// Send the nick change to every user on a common channel.
@@ -38,7 +38,7 @@ func init() {
 		false)
 
 	core.RegistrationHold(me)
-	core.HookUserDataChange("ident", func(_ string, source, target *core.User, oldvalue, newvalue string) {
+	core.HookUserDataChange("ident", func(_ interface{}, source, target *core.User, oldvalue, newvalue string) {
 		if target.Owner() != me {
 			return
 		}
@@ -49,7 +49,7 @@ func init() {
 	},
 		true)
 
-	core.HookUserDataChanges(func(_ string, source, target *core.User, c []core.DataChange, old []string) {
+	core.HookUserDataChanges(func(_ interface{}, source, target *core.User, c []core.DataChange, old []string) {
 		cli := GetClient(target)
 		if cli == nil {
 			return
@@ -62,7 +62,7 @@ func init() {
 	},
 		false)
 
-	core.HookUserRegister(func(_ string, u *core.User) {
+	core.HookUserRegister(func(_ interface{}, u *core.User) {
 		c := GetClient(u)
 		if c == nil {
 			return
@@ -77,7 +77,7 @@ func init() {
 		c.SendLineTo(u, "MODE", "+%s", modeline)
 	})
 
-	core.HookUserMessage("", func(_ string, source, target *core.User, message []byte) {
+	core.HookUserMessage("", func(_ interface{}, source, target *core.User, message []byte) {
 		c := GetClient(target)
 		if c == nil {
 			return
@@ -87,7 +87,7 @@ func init() {
 	})
 
 	core.HookUserMessage("noreply",
-		func(_ string, source, target *core.User, message []byte) {
+		func(_ interface{}, source, target *core.User, message []byte) {
 			c := GetClient(target)
 			if c == nil {
 				return
@@ -97,7 +97,7 @@ func init() {
 		})
 
 	core.HookUserMessage("invite",
-		func(_ string, source, target *core.User, message []byte) {
+		func(_ interface{}, source, target *core.User, message []byte) {
 			c := GetClient(target)
 			if c == nil {
 				return
@@ -106,7 +106,8 @@ func init() {
 			c.SendLineTo(source, "INVITE", ":#%s", message)
 		})
 
-	core.HookChanUserJoin("", func(pkg string, ch *core.Channel, users []*core.User) {
+	core.HookChanUserJoin("", func(origin interface{}, ch *core.Channel, users []*core.User) {
+		pkg, _ := origin.(string)
 
 		// Send the JOINs to all clients in the same channel.
 		for m := ch.Users(); m != nil; m = m.ChanNext() {
@@ -153,7 +154,7 @@ func init() {
 		}
 	})
 
-	core.HookChanDataChange("", "topic", func(_ string, source *core.User, ch *core.Channel, _, newvalue string) {
+	core.HookChanDataChange("", "topic", func(_ interface{}, source *core.User, ch *core.Channel, _, newvalue string) {
 		for m := ch.Users(); m != nil; m = m.ChanNext() {
 			c := GetClient(m.User())
 			if c == nil {
@@ -164,7 +165,7 @@ func init() {
 		}
 	})
 
-	core.HookChanDataChanges("", func(_ string, source *core.User, ch *core.Channel, c []core.DataChange, old []string) {
+	core.HookChanDataChanges("", func(_ interface{}, source *core.User, ch *core.Channel, c []core.DataChange, old []string) {
 		modeline := ChanModes.ParseChanges(ch, c, old)
 		if modeline == "" {
 			return
@@ -178,7 +179,7 @@ func init() {
 		}
 	})
 
-	core.HookChanUserRemove("", func(_ string, source, u *core.User, ch *core.Channel, message string) {
+	core.HookChanUserRemove("", func(_ interface{}, source, u *core.User, ch *core.Channel, message string) {
 		// If the user isn't registered anymore, they quit.
 		// Don't bother to show their part.
 		if !u.Registered() {
@@ -211,7 +212,7 @@ func init() {
 		}
 	})
 
-	core.HookChanMessage("", "", func(_ string, source *core.User, ch *core.Channel, message []byte) {
+	core.HookChanMessage("", "", func(_ interface{}, source *core.User, ch *core.Channel, message []byte) {
 		for m := ch.Users(); m != nil; m = m.ChanNext() {
 			if m.User() == source {
 				continue
@@ -223,7 +224,7 @@ func init() {
 		}
 	})
 
-	core.HookChanMessage("", "noreply", func(_ string, source *core.User, ch *core.Channel, message []byte) {
+	core.HookChanMessage("", "noreply", func(_ interface{}, source *core.User, ch *core.Channel, message []byte) {
 		for m := ch.Users(); m != nil; m = m.ChanNext() {
 			if m.User() == source {
 				continue
@@ -235,7 +236,7 @@ func init() {
 		}
 	})
 
-	core.HookChanMessage("", "invite", func(_ string, source *core.User, ch *core.Channel, message []byte) {
+	core.HookChanMessage("", "invite", func(_ interface{}, source *core.User, ch *core.Channel, message []byte) {
 		for m := ch.Users(); m != nil; m = m.ChanNext() {
 			if c := GetClient(m.User()); c != nil {
 				c.SendFrom(nil, "NOTICE #%s :*** INVITE: %s invited %s into the channel.", ch.Name(), source.Nick(), message)
@@ -243,7 +244,7 @@ func init() {
 		}
 	})
 
-	core.HookUserDelete(func(_ string, source, u *core.User, message string) {
+	core.HookUserDelete(func(_ interface{}, source, u *core.User, message string) {
 		sent := make(map[*Client]bool)
 
 		// Send a KILL message to the user, if they were deleted by
