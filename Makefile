@@ -26,7 +26,7 @@ all:	oddcomm
 clean:
 	rm -rf $(PKGROOT)
 
-oddcomm: $(SUBSYSTEMS) $(MODULES) $(CORE) src/main/*.go
+oddcomm: $(SUBSYSTEMS) $(MODULES) $(CORE) $(PKGDIR)/lib/persist.a src/main/*.go
 	$(GOCMD) -o oddcomm.$(O) $(wildcard src/main/*.go)
 	rm -f oddcomm
 	$(LDCMD) -o oddcomm oddcomm.$(O)

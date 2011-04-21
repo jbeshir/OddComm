@@ -7,6 +7,8 @@
 package main
 
 import "oddcomm/src/core"
+import "oddcomm/lib/persist"
+
 import "oddcomm/src/client"
 import "oddcomm/src/ts6"
 
@@ -24,9 +26,13 @@ import _  "oddcomm/modules/dev/testaccount"
 import _       "oddcomm/modules/dev/tmmode"
 
 func main() {
-	exitList := make([]chan int, 0)
+	var exitList []chan int
 	var msg chan string
 	var exit chan int
+
+	// Load saved state and configuration.
+	// STUB: This should try to open a saved state file.
+	persist.FirstRun()
 
 	// Start client subsystem.
 	msg, exit = client.Start()
@@ -51,4 +57,7 @@ func main() {
 			<-exit
 		}
 	}
+
+	// Save state and configuration.
+	// STUB: This should try to open and save to a file.
 }
