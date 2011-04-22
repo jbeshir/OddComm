@@ -329,12 +329,14 @@ func (ch *Channel) Delete() {
 
 // GetTopic gets the topic, the topic setter string, and the time it was set.
 func (ch *Channel) GetTopic() (topic, setby, setat string) {
-	topic = ch.data.Get("topic")
-	setby = ch.data.Get("topic setby")
-	setat = ch.data.Get("topic setat")
+	ch.mutex.Lock()
+	topic = ch.Data("topic")
+	setby = ch.Data("topic setby")
+	setat = ch.Data("topic setat")
+	ch.mutex.Unlock()
 
 	if setby == "" {
-		setby = "Server.name"
+		setby = Global.Data("name")
 	}
 	if setat == "" {
 		setat = "0"

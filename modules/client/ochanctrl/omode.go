@@ -75,7 +75,7 @@ func cmdOmode(source interface{}, params [][]byte) {
 			valid := client.ChanModes.ListMode(ch, int(mode),
 				func(p, v string) {
 					var setTime string = "0"
-					var setBy string = "Server.name"
+					var setBy string = core.Global.Data("name")
 					words := strings.Fields(v)
 					for _, word := range words {
 						if len(word) > 6 && word[:6] == "setat-" {

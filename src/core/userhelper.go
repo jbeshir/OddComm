@@ -20,7 +20,7 @@ func (u *User) GetHostname() (hostname string) {
 		hostname = u.Data("ip")
 	}
 	if hostname == "" {
-		hostname = "Server.name"
+		hostname = Global.Data("name")
 	}
 	return
 }
@@ -38,15 +38,9 @@ func (u *User) GetIP() (ip string) {
 // user. It returns the user's nick!ident@host if they are logged out, and
 // their account name if they are logged in.
 func (u *User) GetSetBy() (setby string) {
-	if setby = u.data.Get("account"); setby == "" {
-		ident := u.data.Get("ident")
-		if ident == "" {
-			ident = "-"
-		}
-		hostname := u.data.Get("hostname")
-		if hostname == "" {
-			hostname = "Server.name"
-		}
+	if setby = u.Data("account"); setby == "" {
+		ident := u.GetIdent()
+		hostname := u.GetHostname()
 		setby = *(u.nick) + "!" + ident + "@" + hostname
 	}
 

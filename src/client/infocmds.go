@@ -73,8 +73,10 @@ func init() {
 func cmdVersion(source interface{}, params [][]byte) {
 	c := source.(*Client)
 
-	c.SendLineTo(nil, "351", "OddComm-%s Server.name", core.Version)
-	c.SendLineTo(nil, "351", "%s :are supported by this server", supportLine)
+	c.SendLineTo(nil, "351", "OddComm-%s %s", core.Version,
+		core.Global.Data("name"))
+	c.SendLineTo(nil, "351", "%s :are supported by this server",
+		supportLine)
 }
 
 func cmdUserhost(source interface{}, params [][]byte) {
@@ -166,9 +168,10 @@ func cmdWho(source interface{}, params [][]byte) {
 		}
 		prefixes += ChanModes.GetPrefixes(it)
 
+		servername := core.Global.Data("name")
 		result := fmt.Sprintf(":%s 352 %s #%s %s %s %s %s %s :0 %s\r\n",
-			"Server.name", c.u.Nick(), channame, user.GetIdent(),
-			user.GetHostname(), "Server.name", user.Nick(),
+			servername, c.u.Nick(), channame, user.GetIdent(),
+			user.GetHostname(), servername, user.Nick(),
 			prefixes, user.Data("realname"))
 
 		it = it.ChanNext()
@@ -211,8 +214,9 @@ func cmdNames(source interface{}, params [][]byte) {
 			return nil
 		}
 
-		names := fmt.Sprintf(":%s 353 %s %s #%s :", "Server.name",
-			c.u.Nick(), myprefix, channame)
+		names := fmt.Sprintf(":%s 353 %s %s #%s :",
+			core.Global.Data("name"), c.u.Nick(), myprefix,
+			channame)
 
 		for ; it != nil; it = it.ChanNext() {
 			name := ChanModes.GetPrefixes(it) + it.User().Nick()

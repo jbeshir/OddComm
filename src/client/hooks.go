@@ -69,8 +69,8 @@ func init() {
 		}
 
 		c.SendLineTo(nil, "001", ":Welcome to the %s IRC Network %s!%s@%s", "Testnet", u.Nick(), u.GetIdent(), u.GetHostname())
-		c.SendLineTo(nil, "002", "Your host is %s, running version OddComm-%s", "Server.name", core.Version)
-		c.SendLineTo(nil, "004", "%s OddComm-%s %s%s%s %s %s%s%s", "Server.name", core.Version, UserModes.AllSimple(), UserModes.AllParametered(), UserModes.AllList(), ChanModes.AllSimple(), ChanModes.AllParametered(), ChanModes.AllList(), ChanModes.AllMembership())
+		c.SendLineTo(nil, "002", "Your host is %s, running version OddComm-%s", core.Global.Data("name"), core.Version)
+		c.SendLineTo(nil, "004", "%s OddComm-%s %s%s%s %s %s%s%s", core.Global.Data("name"), core.Version, UserModes.AllSimple(), UserModes.AllParametered(), UserModes.AllList(), ChanModes.AllSimple(), ChanModes.AllParametered(), ChanModes.AllList(), ChanModes.AllMembership())
 		c.SendLineTo(nil, "005", "%s :are supported by this server", supportLine)
 		c.SendLineTo(nil, "005", "%s :your unique ID", u.ID())
 		modeline := UserModes.GetModes(u)

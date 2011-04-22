@@ -185,21 +185,23 @@ func (c *Client) WriteBlock(f func() []byte) {
 // SendLineTo sends a formatted line to the client, from the given source user.
 // It wraps irc.SendLine.
 func (c *Client) SendLineTo(u *core.User, cmd string, format string, args ...interface{}) {
+	var from string
 	if u != nil {
-		nuh := u.Nick() + "!" + u.GetIdent() + "@" + u.GetHostname()
-		irc.SendLine(c, nuh, c.u.Nick(), cmd, format, args...)
+		from = u.Nick() + "!" + u.GetIdent() + "@" + u.GetHostname()
 	} else {
-		irc.SendLine(c, "Server.name", c.u.Nick(), cmd, format, args...)
+		from = core.Global.Data("name")
 	}
+	irc.SendLine(c, from, c.u.Nick(), cmd, format, args...)
 }
 
 // SendFrom sends a prewritten line to this client, from the given source user.
 // It wraps irc.SendFrom.
 func (c *Client) SendFrom(u *core.User, format string, args ...interface{}) {
+	var from string
 	if u != nil {
-		nuh := u.Nick() + "!" + u.GetIdent() + "@" + u.GetHostname()
-		irc.SendFrom(c, nuh, format, args...)
+		from = u.Nick() + "!" + u.GetIdent() + "@" + u.GetHostname()
 	} else {
-		irc.SendFrom(c, "Server.name", format, args...)
+		from = core.Global.Data("name")
 	}
+	irc.SendFrom(c, from, format, args...)
 }

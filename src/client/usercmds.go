@@ -130,7 +130,7 @@ func cmdUser(source interface{}, params [][]byte) {
 
 func cmdPing(source interface{}, params [][]byte) {
 	c := source.(*Client)
-	c.SendFrom(nil, "PONG %s :%s", "Server.name", params[0])
+	c.SendFrom(nil, "PONG %s :%s", core.Global.Data("name"), params[0])
 
 }
 
@@ -199,7 +199,7 @@ func cmdMode(source interface{}, params [][]byte) {
 
 			valid := ChanModes.ListMode(ch, int(mode), func(p, v string) {
 				var setTime string = "0"
-				var setBy string = "Server.name"
+				var setBy string = core.Global.Data("name")
 				words := strings.Fields(v)
 				for _, word := range words {
 					if len(word) > 6 && word[:6] == "setat-" {
