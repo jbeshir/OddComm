@@ -98,7 +98,7 @@ func (g *globalData) Data(name string) (value string) {
 // given prefix. If none are found, the function is never called. Items added
 // while this function is running may or may not be missed.
 func (g *globalData) DataRange(prefix string, f func(name, value string)) {
-	for it := g.data.GetSub(prefix); it != nil; {
+	for it := g.data.IterSub(prefix); it != nil; {
 		name, data := it.Value()
 		f(name, data)
 		if !it.Next() {

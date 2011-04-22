@@ -33,7 +33,7 @@ func Sync(uf func(*User, bool), cf func(*Channel, bool), gf func(bool)) {
 	incSync()
 
 	uit := users.Iterate()
-	if uit != nil {
+	if uf != nil && uit != nil {
 		for {
 			_, p := uit.Value()
 			u := (*User)(p)
@@ -52,7 +52,7 @@ func Sync(uf func(*User, bool), cf func(*Channel, bool), gf func(bool)) {
 	}
 
 	cit := channels.Iterate()
-	if cit != nil {
+	if cf != nil && cit != nil {
 		for {
 			_, p := cit.Value()
 			ch := (*Channel)(p)
@@ -71,12 +71,14 @@ func Sync(uf func(*User, bool), cf func(*Channel, bool), gf func(bool)) {
 		}
 	}
 
-	global.mutex.Lock()
-	gf(false)
-	hookRunner <- func() {
-		gf(true)
+	if gf != nil {
+		global.mutex.Lock()
+		gf(false)
+		hookRunner <- func() {
+			gf(true)
+		}
+		global.mutex.Unlock()
 	}
-	global.mutex.Unlock()
 
 	decSync()
 }

@@ -170,7 +170,13 @@ func (t *Trie) Iterate() *Iterator {
 // with a given prefix. The value of the chain up to subtrie returned may be
 // longer than the prefix given, if no other sub entries exist.
 // Returns nil if there are no entries with the given prefix.
-func (t *Trie) GetSub(prefix string) *Iterator {
+//
+// If prefix is "", behaves as Iterate.
+func (t *Trie) IterSub(prefix string) *Iterator {
+	if prefix == "" {
+		return t.Iterate()
+	}
+
 	it := new(Iterator)
 	it.parents = make([]*nodeBox, 0)
 

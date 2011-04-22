@@ -115,7 +115,7 @@ func (m *Membership) Data(name string) (value string) {
 // given prefix. If none are found, the function is never called. Metadata
 // items added while this function is running may or may not be missed.
 func (m *Membership) DataRange(prefix string, f func(name, value string)) {
-	for it := m.data.GetSub(prefix); it != nil; {
+	for it := m.data.IterSub(prefix); it != nil; {
 		name, data := it.Value()
 		f(name, data)
 		if !it.Next() {

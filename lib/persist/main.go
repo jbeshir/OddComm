@@ -1,12 +1,14 @@
 /*
 	Persistence package.
-	
+
 	Provides loading and saving of global state and configuration,
 	handling default values.
 */
 package persist
 
 import "io"
+import "json"
+import "os"
 
 import "oddcomm/src/core"
 
@@ -33,27 +35,87 @@ func FirstRun() {
 // State should be in the format produced by an invocation of Save.
 // It may be loaded from the same or earlier version of OddComm,
 // and is portable across architectures and operating systems.
-func Load(r io.Reader) {
+func Load(raw io.Reader) (err os.Error) {
+
+	// Get decoder.
+	r := json.NewDecoder(raw)
+
+	// Read version.
+	var version struct{Version string}
+	if err = r.Decode(&version); err != nil {
+		return
+	}
+
+	// Check the version is supported.
+	switch version.Version {
+	case "":
+		return os.NewError("Settings file missing version.")
+	case "1":
+	default:
+		return os.NewError("Settings file version unsupported.")
+	}
 
 	// Add defaults for settings which must exist.
 	requiredState()
 
-	// STUB: Add state loading.
+	// Load state.
+	var data struct{Name, Value string}
+	for err == nil {
+		err = r.Decode(&data)
+		if err == nil {
+			if data.Name == "" || data.Value == "" {
+				err = os.NewError("Settings file corrupt.")
+			} else {
+				core.Global.SetData("lib/persist", nil,
+					data.Name, data.Value)
+			}
+		}
+	}
+	if err == os.EOF {
+		err = nil
+	}
+
+	return
 }
 
 // Save saves state to the given writer.
 // This state can be fed to Load() in a new instance of the server.
-//
 // At present, saved state is all global metadata.
-func Save(w io.Writer) {
+func Save(raw io.Writer) (err os.Error) {
 
-	// STUB: Add state saving.
-	core.Sync(nil, nil, nil)
+	// Get encoder.
+	w := json.NewEncoder(raw)
+
+	// Write version.
+	version := struct{Version string}{Version: "1"}
+	if err = w.Encode(version); err != nil {
+		return
+	}
+
+	// Write state.
+	core.Sync(nil, nil, func(hook bool) {
+		if hook {
+			return
+		}
+
+		core.Global.DataRange("", func(name, value string) {
+			if err != nil {
+				return
+			}
+
+			var data struct{Name, Value string}
+			data.Name = name
+			data.Value = value
+			err = w.Encode(data)
+		})
+	})
+
+	return
 }
 
 // Adds default values for settings which must exist.
 func requiredState() {
 
 	// This should probably be hookable.
-	// STUB: Add defaults.
+	core.Global.SetData("lib/persist", nil, "name", "Server.name")
 }

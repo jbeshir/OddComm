@@ -6,6 +6,9 @@
 */
 package main
 
+import "os"
+import "fmt"
+
 import "oddcomm/src/core"
 import "oddcomm/lib/persist"
 
@@ -25,14 +28,30 @@ import _        "oddcomm/modules/dev/horde"
 import _  "oddcomm/modules/dev/testaccount"
 import _       "oddcomm/modules/dev/tmmode"
 
+
+var stateFile = "oddcomm.state"
+
 func main() {
 	var exitList []chan int
 	var msg chan string
 	var exit chan int
 
 	// Load saved state and configuration.
-	// STUB: This should try to open a saved state file.
-	persist.FirstRun()
+	if f, err := os.Open(stateFile); err == nil {
+		fmt.Printf("Loading previous settings...\n")
+		if err := persist.Load(f); err != nil {
+			fmt.Printf("Error loading settings: %s\n", err)
+			return
+		}
+	} else {
+		if v, ok := err.(*os.PathError); !ok || v.Error != os.ENOENT {
+			fmt.Printf("Error loading state file: %s\n", err)
+			fmt.Printf("Terminating.\n")
+			return
+		}
+		fmt.Printf("Loading default settings...\n")
+		persist.FirstRun()
+	}
 
 	// Start client subsystem.
 	msg, exit = client.Start()
@@ -59,5 +78,21 @@ func main() {
 	}
 
 	// Save state and configuration.
-	// STUB: This should try to open and save to a file.
+	// Load saved state and configuration.
+	fmt.Printf("Saving settings...\n")
+	var f *os.File
+	var err os.Error
+	if f, err = os.Create(stateFile + ".tmp"); err == nil {
+		if err == nil {
+			err = persist.Save(f)
+			if err == nil {
+				err = os.Rename(stateFile + ".tmp", stateFile)
+			}
+		}
+	}
+	if err != nil {
+		fmt.Printf("Error saving settings: %s\n", err)
+	} else {
+		fmt.Printf("Settings saved. Terminating.\n")
+	}
 }
