@@ -76,11 +76,12 @@ func clientMain(msg chan string, exit chan int) {
 				l.Close()
 			}
 
-			cliMutex.Lock()
 
 			// Note that we're terminating, as soon as
 			// every client is done quitting.
+			cliMutex.Lock()
 			exiting = true
+			cliMutex.Unlock()
 
 			// Stop every current client by deleting their user.
 			core.IterateUsers(me,
