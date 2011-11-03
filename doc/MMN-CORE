@@ -1,0 +1,477 @@
+Mesh Messaging Network - Reliable Entity Store
+
+=========================================
+Introduction to the Reliable Entity Store
+=========================================
+
+The Reliable Entity Store is the part of the Mesh Messaging Network design responsible for storing and updating state on entities. It specialises in reliably storing entities with slow writes, but fast eventually consistent reads, by continually mirroring agreed changes to state onwards to nodes which do not take part in the writing process. It may potentially have other applications. It does not provide message relaying between entities.
+
+Two types of network node exist; core nodes, and client nodes. Core nodes are responsible for the bulk of the logic; client nodes may request and receive changes but not make changes. In general, references to nodes within this document refer solely to core nodes except where stated otherwise.
+
+The core nodes implement a consensus algorithm using quorum for updates to the persistent, distributed network state. Propagated changes must be ordered, are idempotent only if all changes after them are also repeated in the correct order, and the algorithm must:
+
+- Maintain correctness in the circumstance that any number of nodes to cease to operate, or any arbitrary subset of messages fail to be received or delivered.
+- Maintain progress if any one node fails, or any single connection between nodes ceases to function. Maintaining progress in other circumstances is desirable.
+
+The algorithm used is the Paxos algorithm for a state machine as described in "Paxos Made Simple"[1], to create a replicated log of changes to network state, as described in "Paxos Made Live"[2]. A custom leader selection algorithm is used.
+
+==========
+Node State
+==========
+
+Nodes must be externally provided with:
+- Their node ID, a number between 0 and node count - 1. This must be unchanging. The maximum count is 8192. (16bit)
+- Connection and authentication details for every existing node ID, and thus the node count.
+- A set of all other authorised client node IDs and authentication details. These must be >=8193 and 16bit.
+
+Nodes store, and must reliably persist:
+- The highest seen paxos proposal number, which, modulo node count, also stores the current leader node ID. (64bit)
+- Their last generated request ID. (64bit)
+- The lowest change ID not yet applied (64bit), and changes >= this which are queued waiting for earlier changes.
+- An accept queue containing changes they have accepted, but which are not yet known to be accepted by a majority of nodes.
+- A map of entity IDs to entity key-value stores.
+- A global key-value store.
+
+Nodes store, and should try to persist:
+- A change list containing changes applied in the last 120 seconds.
+
+If any items from the second list are lost, the entire network must be shut down and restarted to readd the node. So long as at least one node has a persistent copy of the key-value store, that node's copy can be used as a snapshot to restart the network in the event that all nodes shut down. See Appendix B for details on why each of these things is required. 
+
+If the change list is lost, this node may not be able to synchronise when connecting with other nodes, forcing any number of other nodes to become degraded and require a burst from it; nevertheless it will not block progress nor result in corrupt state.
+
+=================================
+Node Initialisation and Bootstrap
+=================================
+
+When nodes initially start:
+
+- The current leader node ID, and the proposal number used is set to 0.
+- Entity IDs and their individual key-value store states, and the global key-value store state, may take any value, but it must be consistent between nodes.
+- Their highest seen paxos proposal number is 0; this means the first used proposal number will be >= 1.
+- Their last generated request ID is 0; this means the first used request ID will be 1.
+- The accept list, change queue, and change list are all empty.
+
+The ability to specify existing state permits a snapshot to be used to restart a network.
+
+=============
+Communication
+=============
+
+Nodes establish a connection to another node to communicate with them, and listen for incoming connections if they are not degraded. A degraded node may only connect to one node at once until synchronised.
+
+This section also applies to client nodes when communicating with both each other and with core nodes, which must accept connections from them. Within this section, "node" includes them, if not clarified otherwise.
+
+Both client and core nodes benefit by keeping a connection to all core nodes. Core nodes will operate, once not degraded, if they only accept connections, but client nodes must keep a live connection to at least one core node in order to avoid falling too far behind current changes.
+
+== Lines ==
+
+Connected nodes communicate using  "lines", individual, short messages. The name "line" is used to reduce the ambiguity between messages between nodes, and messages between entities delivered by those nodes, using lines between them. Lines are not delimited by line breaks. Lines are formatted as protocol buffer messages, each prefixed by its length in protocol buffer varint format. Each line contains two required fields: line type, and line content.
+
+The line content field contains a sequence of bytes, which contain one of the line message types. These types are outlined in the remainder of this document and are listed in full by the protocol's .proto files. Where not stated otherwise, the type of a field in one of these messages is string.
+
+The line type field gives the type of line received, and contains an integer line message type identifier. The message type identifier corresponding to a message type is provided in a comment above that type in the .proto files.
+
+Additional line types may be added by negotiated protocol extensions. If an unknown line type is received, the receiving node MUST drop the connection.
+
+== Connection Negotiation ==
+
+Both core and client nodes must establish an authenticated connection to another node to communicate with it. Any protocol providing a reliable, in-order bytestream connection that provides appropriate encryption and authentication may be utilised by an implementation.
+
+TLS using client-side certificates for authentication is recommended.
+
+== Session Negotiation ==
+
+Lines used here:
+
+ * VersionList, containing one or more protocol version strings (repeating).
+ * Version, containing a single string, the protocol version string to use.
+ * Cap, containing zero or more space-separated protocol extension names.
+ * Degraded, containing one boolean, indicating degraded status.
+
+Timeouts or invalid messages at any point during this stage simply result in a disconnect. Both ends MUST impose a five second timeout.
+
+The first stage is protocol version selection; this permits negotiation of the base protocol to be used, and permits in place upgrades to entirely different protocols than those defined in this document.
+
+Once an authenticated connection is established, a VersionList message is sent by the node accepting the connection. If this list does not contain a known protocol version string, the connecting node MUST disconnect; it cannot communicate with this node. Otherwise, the connecting node responds with aVversion message containing the protocol to be used onwards. The standard version string for the protocol described in this document is "1".
+
+The next stage of the standard protocol is protocol extension negotiation. This permits optional extensions to the protocol.
+
+Following the receipt of the Version string, the receiving node sends a Cap message containing all the protocol extensions they support to the connecting node. The connecting node then replies with a Cap message containing the protocol extensions common to this list they wish to use. No extensions are defined in this document.
+
+The connecting node MAY send a Version message without waiting for the receiving node's list if it only supports one protocol version. Similarly, it MAY send an empty Cap message if it supports or wishes to use no extensions without waiting for the receiving node's Cap message. If the sent version is not supported, this will result in a quick disconnect.
+
+Finally, both nodes send a Degraded message to each other, indicating whether they are degraded. If both are degraded, the connection is dropped at this point.
+
+== Synchronisation ==
+
+Lines used here:
+
+ * Nonce, containing a change ID, the lowest unapplied by the sender.
+ * Desynchronised, containing nothing.
+ * Synchronised, containing nothing.
+
+Synchronisation is the time where nodes send changes not received by the other during connection. A timeout during this simply results in a disconnect.
+
+After session negotiation, both nodes send a Nonce line, and remember the change ID they sent. If it takes more than ten seconds to receive the other node's line, drop the connection.
+
+On receiving a Nonce during synchronisation, a node checks its own lowest unapplied change ID.
+
+If the received change ID is lower or equal, it checks if the received change ID is in its change list, and if not, sends a Desynchronised line back; the remote end is too desynchronised and must use a burst. The node must not remove any changes from its change list with an ID above the one which was in its nonce line.
+
+Otherwise, it sends all changes in its change list and change queue with a change ID >= that change ID, followed by a Synchronised line. If the received change ID is higher, it must remember the recieved change ID until a Synchronised line is received, in case a burst is required.
+
+On receiving a Synchronised line, consider the connection synchronised; it can now be used to communicate and other lines sent.
+
+== Bursting ==
+
+Lines used here:
+
+ * Desynchronised, containing nothing.
+ * Burst, containing nothing.
+ * EntitySync, containing an entity ID, a key, and a value.
+ * GlobalSync, containing a key and a value.
+ * Synchronised, containing nothing.
+
+Bursting is the process used to provide a node with a snapshot of the shared state, when it is too desynchronised to connect to the network. Timeouts or invalid messages at any point during this stage result in a disconnect and rollback. For the node requesting the burst, not receiving a line for a five second period between sending Burst and receiving Synchronised should result in a timeout.
+
+On receiving a Desynchronised line, a node must revert this connection to pre-synchronisation if it was past that point, disconnect any other pre-synchronisation connections, not establish any new connections, and not apply any changes in the change queue until the burst is either complete or aborted, due to changes to the state and last change ID, then send a Burst line.
+
+On receiving a Burst line, a node must send an EntitySync line for every key on every entity, an entity at a time, followed by GlobalSync lines for each global piece of data, followed by all Change lines applied while those two were being sent, followed by Synchronised, followed by change notifications and other lines as normal, with change notifications starting from the point the Change lines were sent. The sync lines are permitted to reflect changes which occurred after the original Nonce line was sent; these may be redundantly applied, but this cannot cause an incorrect state.
+
+On receiving EntitySync and GlobalSync lines, the node must apply them to state internally in memory only. Receiving Change lines should be handled as normal, by adding them to the change queue, but restricted by the "do not apply" rule.
+
+On receiving the final Synchronised line, the node must atomically update its last applied change ID to match the nonce originally sent by the remote node, remove all keys and entities not set by the remote node, move all entries in the change queue above its new change ID to the change list without applying them, remove any lines in the accept queue now below the new change ID, and persist the changes made. This done, it should check for changes in the change queue it can apply and move to the change list, and send a Synchronisation line back. The burst is complete and the above restrictions are removed.
+
+If bursting fails before the final Synchronised line is received by the node receiving the burst, the state must be reloaded from disk, and no change to last applied change ID made. The restrictions imposed above are removed and the node can then check its change queue for changes it can apply.
+
+== Ping ==
+
+Lines used here:
+
+ * Ping, containing nothing.
+ * Pong, containing nothing.
+
+If a connection has not received any lines for five seconds, send a Ping line. Start a timer. If the connection has not received any lines in the next ten seconds, close it.
+
+On receiving a Ping line, send back a Pong line.
+
+=============
+State Changes
+=============
+
+Lines used here:
+
+ * ChangeRequest, containing a request ID, an ignore list (repeating field) of node IDs, and a changeset as Change..
+ * ChangeRequestAck, containing a request ID.
+ * PaxosPrepare, containing a paxos proposal number, and change ID, the lowest unapplied by the sender.
+ * PaxosPromise, containing a paxos proposal number, and a repeating list of pairs of proposal number and change requests, with unknown changes represented by a proposal number of 0, request ID of 0, and a changeset with 0 changes.
+ * Desynchronised, containing nothing.
+ * PaxosNack, containing two paxos proposal numbers.
+ * PaxosAccept, as Change.
+ * PaxosAccepted, as Change.
+ * Change, containing a change ID, request ID, paxos proposal number, and a changeset; an arbitrarily long list of key/value pairs, optional source entity IDs, and optional target entity IDs. This is encoded as a repeating sequence of ChangeEntry sub-messages, each containing a key, value, source, and target. A zero-length value unsets that key.
+
+State changes are made using the Multi-Paxos algorithm, with each change treated as an "instruction" to a state machine as described by the Paxos algorithm[1], the change ID being the sequence number of the instruction.
+
+When a node wishes to make a state change, it generates a change request. If the target entity ID is omitted, it is a global change, otherwise it is an entity change. Global changes may only contain a single change; entity changes can contain more than one, which will happen atomically. A request ID is generated, as a node ID followed by a 64bit nonce.
+
+In general, where "send to every node" is used here, this INCLUDES sending it to itself. Implementations do not have to literally work this way, but they must behave as such, including responses.
+
+== Change Requests and Candidate Leader Selection ==
+
+This subsection can be performed by both client nodes and core nodes when they wish to make a change. A client node will never determine that it is a leader node.
+
+To make a change, a node, core or client, must generate a new request ID and change request with the ignore list empty, and record it as an in-progress change request. If this node has received a PaxosNack in the last 15 seconds, add this node to the ignore list. Then, determine the candidate leader node. This is done as follows:
+
+- If the current leader node ID is not in the ignore list, it is that.
+- If not, it is the lowest core node ID which is not in the ignore list.
+
+If this node is the candidate leader node, check currently in-progress changes, and the change list, but not the change queue. If one has this request ID, drop the request. Otherwise, record this change as an in-progress change and continue to the next section.
+
+This node, core or client, should attempt to connect to the leader node and send the ChangeRequest line. If it can't, or it doesn't receive a ChangeRequestAck within five seconds, it must restart the algorithm, adding that node to the ignore list, reusing the request ID. If the ignore list ends up including every node, empty it.
+
+On receiving a ChangeRequest, the node must send a ChangeRequestAck line, then run the above algorithm without changing the request ID, and retaining the ignore list contained in the change request.
+
+On receiving a ChangeRequestAck, if this is the node which generated the change request, the node must start either one (if client) or two (if core) timers. If this node is a core node, and it doesn't receive a PaxosAccept or PaxosAccepted or Change line within 15 seconds with its request ID, it must start the algorithm again, reusing the request ID. For all nodes, core and client, if the change is not within the change list (not change queue) in 30 seconds, it must start the algorithm again, reusing the request ID.
+
+== Becoming Leader ==
+
+If the node already has itself recorded as the known leader, it should skip this section. It is not necessary.
+
+Otherwise, a node which has a change and has decided it is a candidate leader node must send a PaxosPrepare line to every node. The paxos proposal number must be generated to be the next number above the highest seen proposal number such that given the number s, the node ID i, and the node count n, s mod n = i. This guarantees uniqueness, and attempts to be above previously used proposal numbers. The change ID must be the lowest change ID not yet received, not counting changes in the change queue.
+
+On receiving a PaxosPrepare line, a node checks if the current leader's proposal number, if any, is above that in the line. If it is, it sends back a PaxosNack line with the proposal number in the prepare, then the current leader's proposal number. Otherwise, it sends back a PaxosPromise message, containing the proposal number in the prepare and every change between the sent change ID and the node's highest seen change ID, including changes in the accept list, including the proposal number responsible for it, and sets its leader node to the node which sent the prepare line, with this proposal number as the responsible proposal number. It will also abort any attempt of its own to become leader, and associated change.
+
+Unlike in standard Paxos, because the change list is limited to a certain length, it is possible that the above generation of a PaxosPromise can fail if the sent change ID is too old. In that case, the prepare message must be dropped, the leader node left unchanged, and Desynchronised sent to the node in question, reverting the connection to a pre-synchronisation state.
+
+On receiving a PaxnosNack line, a node updates its highest seen proposal number to the second contained number, its leader node to that proposal number modulo the node count. For the next 15 seconds, it adds itself to the ignore list of every change request it processes. It then restarts the change from the beginning.
+
+On receiving a PaxosPromise line, the node stores it, until it has received promise messages from at least half the nodes, or a 10 second timeout is reached, in which case the node aborts this attempt to become leader entirely, and relies on the source of the change retrying.
+
+On receiving all of these PaxosPromise line, the node is accepted as leader by a majority of the nodes, but before it can make new changes it must ensure there is consensus on existing change IDs. In order to do this, for every change it received above its own known changes, it picks the change for that change ID associated with the highest proposal ID, and sends a PaxosAccept line for that change, with that change ID, using its own proposal number to all nodes*. This results in an empty, "no op" changeset being sent for change IDs whose value was not accepted by the majority of the network, with a request ID and proposal number of 0. It adds all these changes to its list of in progress changes.
+
+As for any completed change, at least one of the nodes responsible for the PaxosPromise line must have been involved, this will reinitiate any previous change currently missing, responsible for changes being in the change queue.
+
+This complete, the node can consider itself leader and is ready to issue changes for subsequent change IDs.
+
+* The reason this works, and guarantees picking the only change which may, possibly have gained a majority for this change ID, is a product of that any previous inconsistent values for this change ID must have emerged from the same process, and explained better in Paxos Made Live[2].
+
+== Sending A Change ==
+
+If the node has just become the leader, it rechecks if the request ID is in its list of in progress changes or change list, and aborts the process of making a change if so. This recheck is because a previous change in response to this request may have been stuck in the accept stage, and been revived as part of this node becoming leader.
+
+Otherwise, it simply adds a PaxosAccept line with its proposal number and the next change ID to its accept queue with a count of 1, and sends it to every node. It then starts a timer. If it does not receive a PaxosAccepted line from at least half the nodes in 15 seconds, it restarts this process from "becoming leader".
+
+On receiving a PaxosAccept line, a node checks the proposal number is not lower than its current leader proposal number. If it is, it sends a PaxosNack line. Otherwise, it sends a corresponding PaxosAccepted line to every node, and sets the souce node ID and this proposal number as its leader and leader's proposal number.
+
+On receiving a PaxosAccepted line, a node checks if the change ID is below the last unapplied change ID, or in the change queue. If so, the line is discarded. Otherwise, it looks for a Change line with this change ID in the accept queue. If present, it checks whether the proposal number matches. If it does, the count is incremented. If not, it checks if the proposal number of the received line is above the stored line. If it isn't, the line is discarded. If it is, or there was no existing line, a new "change" line is  message with a count of 1, replacing any which already existed with the same change ID, is added.
+
+When the count on a change in the accept queue is > than half the node count, it has been accepted by the network. Generate a corresponding Change line, add it to the change queue.
+
+Then, while the change ID with the lowest change ID in the change queue has a change ID equal to the last unapplied change ID, apply it to state locally, increment the last unapplied change ID, and move the change from the change queue to the change list. See the next section for how to respond to this, including removing the change from the accept queue and in progress change list.
+
+Changes are not removed from the accept queue until a Change line is either received or generated with that change ID.
+
+==================
+Change Propagation
+==================
+
+Lines used here:
+
+ * Change, containing a leader node ID, a proposal number, a request ID, and a changeset; an arbitrarily long list of key/value pairs, optional source entity IDs, and optional target entity IDs. This is encoded as a number of changes in the changeset, followed by a key, value, source, and target length for each change, followed by each key, value, source, and target. A zero-length value unsets that key. As above.
+ * ChangeNotification, containing a change ID.
+ * ChangeContentRequest, containing a change ID.
+ * ChangeMissing, containing a change ID.
+
+This section applies to both core and client nodes.
+
+== Generating/Receiving A Change ==
+
+If a change line is received, check if it is below the last unapplied change ID, or in the change queue. If neither, add it to the change queue.
+
+If a core node, on adding a Change line to the change queue either as above or due to generating it, check the accept queue and in progress change list for a change with the same change ID, and remove it if it is found.
+
+For both core and client nodes, send a ChangeNotification line with the change ID on all synchronised connections, including to client nodes, then while the change with the lowest change ID in the change queue has a change ID equal to the last unapplied change ID, move the change from the change queue to the change list and apply it.
+
+== Receiving A Change Notification ==
+
+On receiving a ChangeNotification line, check if the contained change ID is below the last unapplied change ID, or in the change queue. If either, discard it. Otherwise, send a ChangeContentRequest line back with that ID to request a copy. It is not safe to use the accept or in progress change list, as this may have been a different value for this change.
+
+On receiving a ChangeContentRequest line, send a Change message with that change ID to the source, if it is in the change list or change queue. If it is in neither, send back a ChangeMissing line.
+
+On receiving a ChangeMissing line, send a ChangeContentRequest for that change to each other connection in turn, and wait for a response (or connection drop), until either a connection has responded with the appropriate Change message, or all connections have been tried. If the former, handle the received change as above. If the latter, drop all connections, set self as degraded, and then attempt to connect to another node and receive a burst. This is because the node has been unable to receive the change in time and has fallen too far behind other nodes.
+
+===============
+Special Changes
+===============
+
+Certain "special" changes are used to create, destroy, attach to, and give unique names to entities. These use normal change requests to special keys, which actually result in arbitrary changes to state. This special interpretation is applied to the changeset before being applied to state, with the original changeset kept in the change list.
+
+One of these special changes, entity creation is the only non-idempotent operation supported. It is rewritten to an idempotent operation prior to being accepted, applied, and propagated, to keep propagated changes idempotent.
+
+== Special Keys ==
+
+The following keys on an entity have special meaning:
+
+ * "id": Always equal to the entity's ID. Unique and immutable.
+ * "type": A type name for the entity. Freeform string. Immutable. Client nodes on a given network may expect certain behaviour of certain types.
+ * "name": A name for the entity. Unique amongst all entities with the same type, but mutable.
+ * "transient": This entity exists only as long as it has other entities attached to it.
+ * "attach <id>": Entity <id> is attached to this node.
+
+The following global key has a special meaning:
+
+ * "next entity": Equal to the lowest unused entity ID. Must not be set directly. If unset, treated as 0.
+
+== Creating An Entity ==
+
+An entity is created and given by picking an arbitrary, possibly used entity ID, and setting the ID field of an entity with that ID, to that ID.
+
+When this change is *given a change ID*, that entity ID is rewritten to the next free entity ID, as indicated by the "next entity" global key, throughout the remainder of the changeset. This permits initial state to be assigned to the entity, and multiple entities to be created in a single changeset. The "next entity" global key is incremented. This must be done at this point in order to keep changes idempotent when propagated.
+
+The node which requested the change must wait until the change with the request ID they used to create the entity gets back to them and is applied locally to be able to send further changes for the entity.
+
+== Naming an Entity ==
+
+Naming an entity is done simply by a changeset setting its "name" entry. Only one such change for a given entity can exist in a changeset.
+
+Before applying such a change, the node checks first whether this is in the list of already applied name changes, and skips it if so. It then checks whether any other entities with the same "type" value have the same name, and if so, runs the following algorithm:
+
+- Add this change to a temporary "changing" list.
+- Is the entity which already has this name also attempting to change its name in this changeset? If not, fail.
+- If so, take the first such name change for the entity in the entryset.
+- Is that attempted change on the list of already applied name changes? If so, succeed.
+- Is that attempted change on the temporary "changing" list? If so, succeed.
+- Is it a change to a name used by another entity? If not, succeed.
+- Otherwise, rerun this algorithm for that change; succeed if they succeed, fail if they fail.
+
+If the algorithm succeeds, apply every change in the changing list, and add their positions in the changeset to the list of already applied name changes, which is kept only for the remainder of processing this changeset. If not, do not apply this name change and remove it from the changeset, and add nothing to the list of already applied name changes.
+
+This permits two (or more) entities to atomically swap names, but never for two entities to have the same name at once.
+
+== Making/Removing Transient Status ==
+
+An entity can be made transient by setting its "transient" key, and made not so by reversing this change. An entity made transient which has no "attach <id>" keys set is immediately deleted; inject a change unsetting its "id" key in the changeset at this position.
+
+== Attaching/Detaching to/from an Entity ==
+
+An entity can be attached to by another entity simply by creating an "attach <id>" key with the ID of the entity attached to it, and detached by removing it. If the specified ID isn't an existing entity ID, the change must be discarded.
+
+If an entity has "transient" set and the last "attach <id>" key is unset, the entity is deleted; inject a change unsetting its "id" key in the changeset at this position.
+
+== Deleting An Entity ==
+
+An entity can be deleted by a change unsetting its "id" field. It can also be deleted implicitly, by a change to "transient" or "attach <id>" keys, as above.
+
+When an entity is deleted, all its keys are deleted, and all "attach <id>" keys with its ID on other entities are deleted. This may cause cascading deletes; check for these and inject changes unsetting their "id" keys as appropriate.
+
+======================
+Potential Enhancements
+======================
+
+An algorithm could be described for adding, removing, and resetting nodes, as well as for a clean network halt resulting in a agreed snapshot with no data loss for upgrades.
+
+Nodes CAN forget the highest paxos proposal number- if on reconnecting to the network they remain inactive for a paxos instance, to observe. This isn't worth the complexity of adding rules for unless other required state can be removed.
+
+As pointed out elsewhere, the quorum required to consider a change accepted definition of "quorum" can be adjusted. The key rule is that two quorums must overlap. So alternative/configurable setups using this could be created.
+
+The core nodes and state system in general might be replaceable by ScalienDB if performance is acceptable using it. That is a fairly significant if, however.
+
+===========
+Limitations
+===========
+
+The implementation of the Paxos algorithm assumes that PaxosAccepted and PaxosPromise, and thus PaxosAccept and PaxosPrepare, lines will not be duplicated in transit, nor sent more than once, due to nodes keeping only a count on received lines when measuring consensus, not a list of node IDs which would permit them to eliminate duplicates. If that were changed, duplication of messages would be permitted. However, the information required to avoid duplicate sends overlaps with the information required to not send accepted lines in violation of promises, and not reuse proposal numbers, anyway.
+
+The change propagation logic assumes that on a connection, lines will not be dropped without all subsequent lines being dropped, terminating the connection entirely and requiring a reconnect, which runs resynchronisation. Message dropping is still permitted, but it is expected to terminate a connection. TCP provides this.
+
+==========
+References
+==========
+
+1: Paxos Made Simple: http://research.microsoft.com/en-us/um/people/lamport/pubs/paxos-simple.pdf
+
+2: Paxos Made Live: http://static.googleusercontent.com/external_content/untrusted_dlcp/labs.google.com/en//papers/paxos_made_live.pdf
+
+================================
+Appendix B: Required Persistence
+================================
+
+This section goes into the reasoning for the values required to be persisted, and known failures which can be caused by forgetting each one. Reducing the amount of data which must be reliably persisted can improve performance, but requires altering the design to make it safe, and proving it so.
+
+Generic Paxos does not permit acceptor nodes to forget the highest proposal number, or the sequence of accepted values. This has been adjusted, but only to permit the sequence to be forgotten by storing a snapshot of state and bursting that to synchronise if part of the sequence is unavailable. In general, its limitations hold.
+
+- Not remembering a proposal number at least as high as the highest used by this node permits duplicate proposals with the same number, forbidden by Paxos, and not remembering one at least as high as the last accepted proposal would permit this node to break promises not to accept proposals below a proposal number.
+
+- Not remembering the last request ID generated permits duplicate request IDs, breaking request success detection.
+
+- Any number of nodes forgetting the last applied change ID could permit duplicate changes with the same ID, if this results in a majority of nodes being unaware of the change existing, this could result in a split brain effect that should not occur in Paxos.
+
+- The change or accept queue being forgotten permits a majority to form not aware of an accepted value, permitting a change with the same change ID with a different value, breaking Paxos. This could be prevented by remembering just queued IDs, but while that ensures a change will not be forgotten, it permits a known to exist change above the last unapplied change ID of every node to be unacquirable, blocking progress until a node which has it returns, or permanently if none have it. Remembering IDs is insufficient to resolve this.
+
+- A node forgetting state, but retaining its last applied change ID, would have an incorrect image of state to which changes were applied. Bursting is insufficient to resolve this; if the node is not required to find a node whose last applied change ID is at least its own, it would still have an incorrect state, as rolling back the last applied change ID is not permissible, and if the node is permitted to find a node whose last applied change ID is at least its own, a majority of nodes forgetting state could result in a majority of nodes being permanently unable to get an image of state.
+
+===========================
+Appendix C: Leader Election
+===========================
+
+This section explains the result of leader election in various states.
+
+Assumptions:
+- A majority set of nodes are all able to communicate with each other in a timely (<5 second latency) fashion.
+- Other nodes are not able to communicate with any of those nodes.
+- Measurements of time are working appropriately on every node.
+
+If these assumptions are violated, no guarantee of progress is made.
+
+
+Leader protocol; arbitrary state, no split.
+
+- Arbitrary nodes have arbitrary changes with arbitrary ignore lists. The first entry in each list is arbitrary; the others must count up from 0.
+- They regain contact.
+- Each node sends zero or more changes to one or more nodes. These nodes may forward the request on, if their leader differed and was not in the ignore list or the ignore list was reset, or not. In general, any and all of the nodes may attempt leadership, and any and all nodes may assume any nodes are leaders.
+- Any number of nodes attempt to be leaders and send out prepare or accept messages. Proposal numbers are arbitrary but all unique.
+- Nodes receive these prepare or accept messages, and either confirm or nack. At most one node will receive no nacks.
+- A node receiving a nack will wait five seconds, then set the node the nack was sent for as leader if no prepare for a node other than itself was accepted between the nack and the end of the wait. It will also add itself to all ignore lists for 15 seconds.
+- The leader proposal number has been changed on every node since the change requests were sent, so their proposal numbers now differ from it; ignore lists are reset for all change requests.
+- If no node attempting to become leader receives no nacks...
+-- Then at least one node got a nack with a proposal number for a non-available or not attempting changes node.
+-- Further nodes attempting to become leader will receive nacks informing them of this proposal number or numbers.
+-- As the number of nodes is very finite, eventually the next node attempting to make a change or become leader will have to be already aware of their proposal number.
+-- If they are available, the node owning that proposal number may receive and attempt to make changes, joining the nodes attempting changes.
+-- If not, another node will try again to become leader, but with a higher proposal number than received prepares and nacks.
+-- This increase of proposal numbers over at least one unavailable node or joining in of a node which had a higher proposal number each time will eventually result in no nodes which are unavailable or not making changes being known by the available nodes to have a higher proposal number, and thus one node receiving no nacks.
+- All nodes should receive a prepare/accept from the node receiving no nacks, either before their nack timeout or without being trying to make changes, and take it as their new leader, if it wasn't already.
+- The nodes will resume sending changes to the new leader. Stable state achieved.
+
+Failures by nodes to be timely leave the network, at worst, in a state capable to make another attempt at the above until they all are timely.
+Addition or removal of a node leaves the network at worst in a state able to make another attempt at the above.
+
+
+Leader protocol; arbitrary state, recovery but for one, split from one node.
+
+- Arbitrary nodes have arbitrary ignore lists. The first entry is arbitrary; the others must count up from 0.
+- They regain contact.
+- Each node sends zero or more changes to one or more nodes. These nodes may forward the request on, if their leader differed and was not in the ignore list or the ignore list was reset, or not. In general, any and all of the nodes may attempt leadership, and any and all nodes may assume any nodes are leaders.
+- Any number of nodes attempt to be leaders and send out prepare or accept messages. Proposal numbers are arbitrary but all unique.
+- Nodes receive these prepare or accept messages, and either confirm or nack. At most one node will receive no nacks.
+- A node receiving a nack will set the node the nack was sent for as leader. It will also add itself to all ignore lists for 15 seconds.
+- The leader proposal number has been changed on every node since the change requests were sent, so their proposal numbers now differ from it; ignore lists are reset for all change requests.
+- If no node receives no nacks,...
+-- Then at least one node got a nack with a proposal number for a non-available or not attempting changes node.
+-- Further nodes attempting to become leader will receive nacks informing them of this proposal number or numbers.
+-- As the number of nodes is very finite, eventually the next node attempting to make a change or become leader will have to be already aware of their proposal number.
+-- If they are available, the node owning that proposal number may receive and attempt to make changes, joining the nodes attempting changes.
+-- If not, another node will try again to become leader, but with a higher proposal number than received prepares and nacks.
+-- This increase of proposal numbers over at least one unavailable node or joining in of a node which had a higher proposal number each time will eventually result in no nodes which are unavailable or not making changes being known by the available nodes to have a higher proposal number, and thus one node receiving no nacks.
+- All nodes but the split one should receive a prepare/accept from the node receiving no nacks, before any will attempt to become leader again.
+- These nodes will resume sending changes to the new leader. Stable state achieved for all but the split node.
+- The state thus advances to the next.
+
+
+Leader protocol; network stable, except one node in arbitrary condition, split from leader only.
+
+Nothing happens until the node attempts to make a change or forward a change request.
+
+Two options, if the proposal number on the split node differs:
+- The split node attempts to send an arbitrary change request to a node other than itself.
+- Three suboptions:
+-- The split node has a higher proposal number.
+-- The node which receives updates its proposal number. The leader must be an unavailable node or the split node, which will be on the ignore list, so this node will agree that it is the candidate leader.
+-- The node which receives attempts to become leader to apply the change. Should succeed.
+-- The current leader receives a nack or the prepare, updates its leader proposal number and node appropriately. It will add itself to all ignore lists for 15 seconds.
+-- The now previous leader sends to the new node, as does the split node. Split resolved with leader both can reach.
+- Or:
+-- The split node has the SAME proposal number.
+-- This must be for the current leader.
+-- The current leader will be on the ignore list, so the receiving node will agree it is the proper leader.
+-- It attempts to become leader to apply the change. Should succeed.
+-- The current leader receives a nack or the prepare, updates its leader proposal number and node appropriately. It will add itself to all ignore lists for 15 seconds.
+-- The now previous leader sends to the new node, as does the split node. Split resolved with leader both can reach.
+- Or:
+-- The split node has a lower proposal number.
+-- The node which receives resets the ignore list on the change request, as the proposal number is above it.
+-- The change is forwarded onto the current leader.
+-- Eventually, the split node will receive the change that has been made, and reset its proposal number and leader.
+-- Resume at having the same proposal number, either in this option or below, depending on whether the split node is the next node preferred after the current leader.
+
+Or:
+- The split node attempts to send out a change or become a leader, thinking itself to be leader.
+- Three suboptions:
+-- It has a lower proposal number.
+-- It sends out either accept lines or prepare lines with a lower proposal number.
+-- It receives a nack line, and resets its proposal number and leader to the current leader. It adds itself to the ignore list for 15 seconds.
+-- Resume at having the same proposal number, here or above. It will usually be above, but if this is the next node preferred after the current leader and there is a time jump it may use this one..
+- Or:
+-- It has the same or higher existing proposal number already.
+-- It thus generates a higher one and sends out prepare lines.
+-- These will succeed and likely get this node a majority.
+-- The previous leader receives a nack. It adds itself to all ignore lists for 15 seconds, and restarts the change request with itself on the ignore list, after updating the leader node and proposal number.
+-- Being unable to reach the new leader, and itself on the ignore list, it will send a change request to another node with itself and the new leader on the ignore list.
+-- The node which receives attempts to become leader to apply the change. Should succeed.
+-- The current leader receives a nack or the prepare, updates its leader proposal number and node appropriately. It will add itself to all ignore lists for 15 seconds if it receives the nack.
+-- Both the old leader and new leader, the two split nodes, should receive the prepare line from the node attempting to become leader and accept it as their leader.
+-- The now previous leader sends to the new node, as does the split node. Split resolved with leader both can reach.
+
+
+I suspect it to be possible to demonstrate this generalises to multiple nodes unable to communicate, but all able to reach a quorum of others, but the above method of running through the algorithm does not appreciate additional complexity.
