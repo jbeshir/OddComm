@@ -61,12 +61,40 @@ $(PKGDIR)/lib/%.a: $(CORE) lib/%/*.go
 	$(GOPACK) grc $(PKGDIR)/lib/$*.a $(PKGDIR)/lib/$*.$(O)
 	rm -f $(PKGDIR)/lib/$*.$(O)
 
-$(PKGDIR)/src/core.a: src/core/*.go $(PKGDIR)/lib/trie.a
+$(PKGDIR)/src/core.a: src/core/*.go $(PKGDIR)/src/core/store.a $(PKGDIR)/src/core/logic.a
 	mkdir -p $(PKGDIR)/src
 	$(GOCMD) -o $(PKGDIR)/src/core.$(O) $(wildcard src/core/*.go)
 	rm -f $(PKGDIR)/src/core.a
 	$(GOPACK) grc $(PKGDIR)/src/core.a $(PKGDIR)/src/core.$(O)
 	rm -f $(PKGDIR)/src/core.$(O)
+
+$(PKGDIR)/src/core/logic.a: src/core/logic/*.go $(PKGDIR)/src/core/connect.a $(PKGDIR)/src/core/store.a
+	mkdir -p $(PKGDIR)/src/core
+	$(GOCMD) -o $(PKGDIR)/src/core/logic.$(O) $(wildcard src/core/logic/*.go)
+	rm -f $(PKGDIR)/src/core/logic.a
+	$(GOPACK) grc $(PKGDIR)/src/core/logic.a $(PKGDIR)/src/core/logic.$(O)
+	rm -f $(PKGDIR)/src/core/logic.$(O)
+
+$(PKGDIR)/src/core/connect.a: src/core/connect/*.go $(PKGDIR)/src/core/connect/mmn.a
+	mkdir -p $(PKGDIR)/src/core
+	$(GOCMD) -o $(PKGDIR)/src/core/connect.$(O) $(wildcard src/core/connect/*.go)
+	rm -f $(PKGDIR)/src/core/connect.a
+	$(GOPACK) grc $(PKGDIR)/src/core/connect.a $(PKGDIR)/src/core/connect.$(O)
+	rm -f $(PKGDIR)/src/core/connect.$(O)
+
+$(PKGDIR)/src/core/connect/mmn.a: src/core/connect/mmn/*.go src/core/connect/mmn/mmn.pb.go
+	mkdir -p $(PKGDIR)/src/core/connect/mmn
+	$(GOCMD) -o $(PKGDIR)/src/core/connect/mmn.$(O) $(wildcard src/core/connect/mmn/*.go)
+	rm -f $(PKGDIR)/src/core/connect/mmn.a
+	$(GOPACK) grc $(PKGDIR)/src/core/connect/mmn.a $(PKGDIR)/src/core/connect/mmn.$(O)
+	rm -f $(PKGDIR)/src/core/connect/mmn.$(O)
+
+$(PKGDIR)/src/core/store.a: src/core/store/*.go $(PKGDIR)/lib/trie.a
+	mkdir -p $(PKGDIR)/src/core
+	$(GOCMD) -o $(PKGDIR)/src/core/store.$(O) $(wildcard src/core/store/*.go)
+	rm -f $(PKGDIR)/src/core/store.a
+	$(GOPACK) grc $(PKGDIR)/src/core/store.a $(PKGDIR)/src/core/store.$(O)
+	rm -f $(PKGDIR)/src/core/store.$(O)
 
 $(PKGDIR)/lib/trie.a: $(PKGDIR)/lib/cas.a lib/trie/main.go lib/trie/base.go
 	cp lib/trie/base.go lib/trie/string.go
@@ -94,3 +122,6 @@ $(PKGDIR)/lib/cas.a: lib/cas/*.s lib/cas/*.go
 	rm -f $(PKGDIR)/lib/cas.a
 	$(GOPACK) grc $(PKGDIR)/lib/cas.a $(PKGDIR)/lib/cas.$(O) $(PKGDIR)/lib/cas_asm.$(O)
 	rm -f $(PKGDIR)/lib/cas.$(O) $(PKGDIR)/lib/cas_asm.$(O)
+
+
+include $(GOROOT)/src/pkg/goprotobuf.googlecode.com/hg/Make.protobuf
