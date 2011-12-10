@@ -1,7 +1,6 @@
 package logic
 
 import "net"
-import "crypto/x509"
 
 import "oddcomm/src/core/connect"
 import "oddcomm/src/core/connect/mmn"
@@ -17,9 +16,8 @@ var me *Node
 
 // Represents a node.
 type Node struct {
+	*connect.ConnInfo      // Connection information for the node.
 	Id      uint16         // Node ID.
-	Addr    string         // Outgoing connection information.
-	Cert    *x509.CertPool // The certificate expected for this node.
 	NewConn chan net.Conn  // Channel to send incoming connections to.
 	conn    *connect.Conn  // Current connection. Nil if none.
 	queue   []*mmn.Line    // Line queue.
@@ -30,12 +28,11 @@ type Node struct {
 
 // Create a new node with the given ID and address.
 // Our own node ID must be set before creating nodes.
-func NewNode(id uint16, addr string, cert *x509.CertPool) *Node {
+func NewNode(id uint16, connInfo *connect.ConnInfo) *Node {
 
 	n := new(Node)
+	n.ConnInfo = connInfo
 	n.Id = id
-	n.Addr = addr
-	n.Cert = cert
 
 	n.send = make(chan *mmn.Line, 10)
 	n.NewConn = make(chan net.Conn, 10)
@@ -50,7 +47,7 @@ func NewNode(id uint16, addr string, cert *x509.CertPool) *Node {
 	} else {
 		// Otherwise, attempt an outgoing connection.
 		var err error
-		n.conn, err = connect.NewOutgoing(n.Addr, n.Cert)
+		n.conn, err = connect.NewOutgoing(n.ConnInfo)
 		if err == nil {
 			n.receive = make(chan *mmn.Line, 10)
 			go n.conn.ReadLines(n.receive)
@@ -97,7 +94,7 @@ func (n *Node) process() {
 
 			// Otherwise, try to make a new connection.
 			var err error
-			n.conn, err = connect.NewOutgoing(n.Addr, n.Cert)
+			n.conn, err = connect.NewOutgoing(n.ConnInfo)
 			if err == nil {
 				n.receive = make(chan *mmn.Line, 10)
 				go n.conn.ReadLines(n.receive)
@@ -168,7 +165,7 @@ func (n *Node) sendSyncLine(line *mmn.Line) {
 	// Drop the line if we get an error.
 	if n.conn == nil {
 		var err error
-		n.conn, err = connect.NewOutgoing(n.Addr, n.Cert)
+		n.conn, err = connect.NewOutgoing(n.ConnInfo)
 		if err != nil {
 			n.queue = n.queue[:0]
 		}

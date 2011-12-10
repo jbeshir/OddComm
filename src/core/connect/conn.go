@@ -49,17 +49,6 @@ const (
 	ConnStateClosed ConnState = iota
 )
 
-// Represents an arbitrary outgoing mmn.Line stream.
-type LineStream interface {
-
-	// Writes the given line to this stream.
-	WriteLine(line mmn.Line) error
-
-	// Closes the stream. Does not return an error;
-	// we already tolerate unclean termination
-	// without any special handling.
-	Close()
-}
 
 // Represents a connection to a node.
 type Conn struct {
@@ -72,13 +61,13 @@ type Conn struct {
 }
 
 // Creates a new outgoing connection to the given address.
-func NewOutgoing(addr string, theirCert *x509.CertPool) (*Conn, error) {
+func NewOutgoing(info *ConnInfo) (*Conn, error) {
 
 	tlsConfig := new(tls.Config)
 	tlsConfig.Certificates = append([]tls.Certificate(nil), Cert)
-	tlsConfig.RootCAs = theirCert
+	tlsConfig.RootCAs = info.Cert
 
-	tlsConn, err := tls.Dial("tcp", addr, tlsConfig)
+	tlsConn, err := tls.Dial("tcp", info.Addr, tlsConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -128,4 +117,11 @@ func (c *Conn) Close() {
 
 	c.conn.Close()
 	c.State = ConnStateClosed
+}
+
+
+// Represents connection information for a node.
+type ConnInfo struct {
+	Addr string
+	Cert *x509.CertPool
 }

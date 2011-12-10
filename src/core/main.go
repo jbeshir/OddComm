@@ -23,16 +23,22 @@ func init() {
 	logic.Me = 1
 
 	// Set up nodes.
-	var cert *x509.CertPool
+	var info *connect.ConnInfo
 
-	cert = loadCertFile("1.crt")
-	logic.NewNode(1, "127.0.0.1:7890", cert)
+	info = new(connect.ConnInfo)
+	info.Addr = "127.0.0.1:7890"
+	info.Cert = loadCertFile("1.crt")
+	logic.NewNode(1, info)
 
-	cert = loadCertFile("2.crt")
-	logic.NewNode(2, "127.0.0.1:7891", cert)
+	info = new(connect.ConnInfo)
+	info.Addr = "127.0.0.1:7891"
+	info.Cert = loadCertFile("2.crt")
+	logic.NewNode(2, info)
 
-	cert = loadCertFile("3.crt")
-	logic.NewNode(3, "127.0.0.1:7892", cert)
+	info = new(connect.ConnInfo)
+	info.Addr = "127.0.0.1:7892"
+	info.Cert = loadCertFile("3.crt")
+	logic.NewNode(3, info)
 }
 
 func loadCertFile(filename string) *x509.CertPool {
