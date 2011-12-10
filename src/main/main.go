@@ -6,12 +6,9 @@
 */
 package main
 
-import "os"
-import "fmt"
-
-import "oddcomm/src/core"
-import "oddcomm/lib/persist"
-
+import _ "oddcomm/src/core"
+//import "oddcomm/lib/persist"
+/*
 import "oddcomm/src/client"
 import "oddcomm/src/ts6"
 
@@ -27,11 +24,12 @@ import _      "oddcomm/modules/dev/catserv"
 import _        "oddcomm/modules/dev/horde"
 import _  "oddcomm/modules/dev/testaccount"
 import _       "oddcomm/modules/dev/tmmode"
-
+*/
 
 var stateFile = "oddcomm.state"
 
 func main() {
+	/*
 	var exitList []chan int
 	var msg chan string
 	var exit chan int
@@ -95,4 +93,7 @@ func main() {
 	} else {
 		fmt.Printf("Settings saved. Terminating.\n")
 	}
+	*/
+
+	select {}
 }

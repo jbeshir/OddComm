@@ -6,9 +6,9 @@
 */
 package persist
 
+import "encoding/json"
+import "errors"
 import "io"
-import "json"
-import "os"
 
 import "oddcomm/src/core"
 
@@ -35,7 +35,7 @@ func FirstRun() {
 // State should be in the format produced by an invocation of Save.
 // It may be loaded from the same or earlier version of OddComm,
 // and is portable across architectures and operating systems.
-func Load(raw io.Reader) (err os.Error) {
+func Load(raw io.Reader) (err error) {
 
 	// Get decoder.
 	r := json.NewDecoder(raw)
@@ -49,10 +49,10 @@ func Load(raw io.Reader) (err os.Error) {
 	// Check the version is supported.
 	switch version.Version {
 	case "":
-		return os.NewError("Settings file missing version.")
+		return errors.New("Settings file missing version.")
 	case "1":
 	default:
-		return os.NewError("Settings file version unsupported.")
+		return errors.New("Settings file version unsupported.")
 	}
 
 	// Add defaults for settings which must exist.
@@ -64,14 +64,14 @@ func Load(raw io.Reader) (err os.Error) {
 		err = r.Decode(&data)
 		if err == nil {
 			if data.Name == "" || data.Value == "" {
-				err = os.NewError("Settings file corrupt.")
+				err = errors.New("Settings file corrupt.")
 			} else {
 				core.Global.SetData("lib/persist", nil,
 					data.Name, data.Value)
 			}
 		}
 	}
-	if err == os.EOF {
+	if err == io.EOF {
 		err = nil
 	}
 
@@ -81,7 +81,7 @@ func Load(raw io.Reader) (err os.Error) {
 // Save saves state to the given writer.
 // This state can be fed to Load() in a new instance of the server.
 // At present, saved state is all global metadata.
-func Save(raw io.Writer) (err os.Error) {
+func Save(raw io.Writer) (err error) {
 
 	// Get encoder.
 	w := json.NewEncoder(raw)

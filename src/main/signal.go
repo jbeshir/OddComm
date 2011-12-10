@@ -1,5 +1,6 @@
 package main
 
+/*
 import "fmt"
 import "os/signal"
 
@@ -21,3 +22,4 @@ func init() {
 		}
 	}()
 }
+*/
