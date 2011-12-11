@@ -20,7 +20,7 @@ func init() {
 	}
 
 	// Set our node ID.
-	logic.Me = 1
+	logic.Id = 1
 
 	// Set up nodes.
 	var info *connect.ConnInfo
@@ -39,6 +39,59 @@ func init() {
 	info.Addr = "127.0.0.1:7892"
 	info.Cert = loadCertFile("3.crt")
 	logic.NewNode(3, info)
+
+	// Start listening for incoming connections.
+	// Nodes must be setup first.
+	newconns := make(chan *tls.Conn, 10)
+	go acceptIncoming(newconns)
+	go connect.Listen(newconns)
+
+	// Do initial outgoing connection attempts.
+
+}
+
+// Validates incoming connection client certificates,
+// and identifies the node they are associated with,
+// then sends the new connection to that node to handle.
+func acceptIncoming(ch <-chan *tls.Conn) {
+	for {
+		conn := <-ch
+
+		state := conn.ConnectionState()
+		if len(state.PeerCertificates) == 0 {
+			conn.Close()
+			continue
+		}
+
+		cert := state.PeerCertificates[0]
+
+		// Find the node this connection is from.
+		matched := false
+		for _, node := range logic.Nodes {
+			if node == logic.Me {
+				continue
+			}
+
+			var verifyOpts x509.VerifyOptions
+			verifyOpts.Intermediates = new(x509.CertPool)
+			verifyOpts.Roots = node.Cert
+			chains, err := cert.Verify(verifyOpts)
+			if err != nil {
+				continue
+			}
+
+			if len(chains) > 0 {
+				matched = true
+				node.NewConn <- conn
+				break
+			}
+		}
+
+		// No matching node found. Close the connection.
+		if !matched {
+			conn.Close()
+		}
+	}
 }
 
 func loadCertFile(filename string) *x509.CertPool {
@@ -56,3 +109,4 @@ func loadCertFile(filename string) *x509.CertPool {
 
 	return cert
 }
+

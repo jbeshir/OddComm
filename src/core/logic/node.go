@@ -9,10 +9,10 @@ import "oddcomm/src/core/connect/mmn"
 var Nodes []*Node
 
 // Our own Node ID.
-var Me uint16
+var Id uint16
 
 // Our own Node.
-var me *Node
+var Me *Node
 
 // Represents a node.
 type Node struct {
@@ -41,8 +41,8 @@ func NewNode(id uint16, connInfo *connect.ConnInfo) *Node {
 	Nodes = append(Nodes, n)
 
 	// If this node is ourselves, set it as ours and make no connections.
-	if n.Id == Me {
-		me = n
+	if n.Id == Id {
+		Me = n
 		n.receive = make(chan *mmn.Line, 10)
 	} else {
 		// Otherwise, attempt an outgoing connection.
@@ -144,7 +144,7 @@ func (n *Node) process() {
 func (n *Node) sendSyncLine(line *mmn.Line) {
 
 	// If this node is ourselves, send it directly to our receive chan.
-	if n == me {
+	if n == Me {
 		n.receive <- line
 		return
 	}
