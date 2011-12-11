@@ -40,18 +40,10 @@ func NewNode(id uint16, connInfo *connect.ConnInfo) *Node {
 	// Add to node list.
 	Nodes = append(Nodes, n)
 
-	// If this node is ourselves, set it as ours and make no connections.
+	// If this node is ourselves, set it as ours.
 	if n.Id == Id {
 		Me = n
 		n.receive = make(chan *mmn.Line, 10)
-	} else {
-		// Otherwise, attempt an outgoing connection.
-		var err error
-		n.conn, err = connect.NewOutgoing(n.ConnInfo)
-		if err == nil {
-			n.receive = make(chan *mmn.Line, 10)
-			go n.conn.ReadLines(n.receive)
-		}
 	}
 
 	// Start processing lines to/from this node.
@@ -168,6 +160,33 @@ func (n *Node) sendSyncLine(line *mmn.Line) {
 		n.conn, err = connect.NewOutgoing(n.ConnInfo)
 		if err != nil {
 			n.queue = n.queue[:0]
+		}
+	}
+}
+
+
+// Attempt an outgoing connection to all nodes.
+// Nodes which already have a connection are skipped.
+// Our nodes must all be added before this is called.
+func StartOutgoing() {
+	for _, n := range Nodes {
+
+		// If this is ourselves, skip.
+		if n == Me {
+			continue
+		}
+
+		// If they already have a connection, skip.
+		if n.conn != nil {
+			continue
+		}
+
+		// Otherwise, attempt an outgoing connection.
+		var err error
+		n.conn, err = connect.NewOutgoing(n.ConnInfo)
+		if err == nil {
+			n.receive = make(chan *mmn.Line, 10)
+			go n.conn.ReadLines(n.receive)
 		}
 	}
 }

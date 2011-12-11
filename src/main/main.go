@@ -6,7 +6,9 @@
 */
 package main
 
-import _ "oddcomm/src/core"
+import "flag"
+
+import "oddcomm/src/core"
 //import "oddcomm/lib/persist"
 /*
 import "oddcomm/src/client"
@@ -29,6 +31,19 @@ import _       "oddcomm/modules/dev/tmmode"
 var stateFile = "oddcomm.state"
 
 func main() {
+
+	// Define and parse flags.
+	id := flag.Uint("id", 0, "Set the node ID of this OddComm instance.")
+	flag.Parse()
+
+	// Validate flags.
+	if (*id == 0 || *id > 0xFFFF) {
+		panic("Invalid node id specified.")
+	}
+
+	// Start the core.
+	core.Initialize(uint16(*id))
+
 	/*
 	var exitList []chan int
 	var msg chan string
@@ -95,5 +110,7 @@ func main() {
 	}
 	*/
 
+	// Wait forever.
+	// TODO: Restore ability to terminate cleanly.
 	select {}
 }
