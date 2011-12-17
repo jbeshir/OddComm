@@ -29,7 +29,7 @@ const (
 	ConnStateCapabilityNegotiationOutgoing ConnState = iota
 
 	// Waiting to receive a degraded notification from the other end.
-	ConnStateDegradedNegotiation ConnState = iota
+	ConnStateDegradedNotification ConnState = iota
 
 	// Waiting to receive a nonce for synchronization.
 	ConnStateSynchronization ConnState = iota
@@ -55,7 +55,8 @@ type Conn struct {
 	Id           uint16
 	Synchronised bool
 	State        ConnState
-
+	Version      string
+	Capabilities []string
 	conn  net.Conn
 	mutex sync.Mutex
 }
@@ -98,15 +99,17 @@ func (c *Conn) WriteLine(line *mmn.Line) (err error) {
 		panic("Error marshalling protobuf struct.")
 	}
 
-	for len(buf) > 0 {
-		var n int
-		n, err = c.conn.Write(buf)
-		buf = buf[n:]
+	// Write the length of the line.
+	lenBuf := proto.EncodeVarint(uint64(len(buf)))
+	_, err = c.conn.Write(lenBuf)
+	if err != nil {
+		c.Close()
+	}
 
-		if err != nil {
-			c.Close()
-			break
-		}
+	// Write the line.
+	_, err = c.conn.Write(buf)
+	if err != nil {
+		c.Close()
 	}
 
 	return

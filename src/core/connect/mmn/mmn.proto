@@ -1,89 +1,80 @@
 // Main MMN proto file.
 package mmn;
 
-// Basic line message. Carries line type.
-// All other line messages are embedded in this one.
-// Type contains the ID of the message in msg.
+// Basic line message.
+// One and only one of the fields must be set.
+// Receiving a message without a (known) field being set is an error.
 message Line {
-	required uint32 type = 1;
-	required bytes msg = 2;
+
+	// Session negotiation message types.
+	optional VersionList version_list = 1;
+	optional string version = 2;
+	optional Cap cap = 3;
+	optional bool degraded = 4;
+
+	// Synchronisation and burst messages.
+	optional uint64 nonce = 101;
+	optional bool desynchronized = 102;
+	optional bool synchronized = 103;
+	optional bool burst = 104;
+	optional EntitySync entity_sync = 105;
+	optional GlobalSync global_sync = 106;
+
+	// Connection maintenance messages.
+	optional bool ping = 201;  // Value ignored.
+	optional bool pong = 202;  // Value ignored.
+
+	// State change negotiation messages.
+	optional ChangeRequest change_request = 301;
+	optional uint64 change_request_ack = 302;
+	optional PaxosPrepare paxos_prepare = 303;
+	optional PaxosPromise paxos_promise = 304;
+	optional PaxosNack paxos_nack = 305;
+	optional PaxosAccept paxos_accept = 306;
+	optional PaxosAccepted paxos_accepted = 307;
+	optional Change change = 308;
+
+	// Change propagation messages.
+	optional uint64 change_notification = 401;
+	optional uint64 change_content_request = 402;
+	optional uint64 change_missing = 403;
 }
 
 // Session negotiation message types.
-// ID 101:
 message VersionList {
-	repeated string version = 1;
+	repeated string versions = 1;
 }
 
-// ID 102:
-message Version {
-	required string version = 1;
-}
-
-// ID 103:
 message Cap {
-	repeated string capability = 1;
-}
-
-// ID 104:
-message Degraded {
-	required bool degraded = 1;
+	repeated string capabilities = 1;
 }
 
 
 // Synchronisation and burst messages.
-// ID 201:
-message Nonce {
-	required uint64 nonce = 1;
-}
-
-// ID 202 is Desynchronised, which has no line content.
-
-// ID 203 is Synchronised, which has no line content.
-
-// ID 204 is Burst, which has no line content.
-
-// ID 205:
 message EntitySync {
 	required uint64 entity = 1;
 	required string key = 2;
 	required bytes value = 3;
 }
 
-// ID 206:
 message GlobalSync {
 	required string key = 1;
 	required bytes value = 2;
 }
 
 
-// Connection maintenance messages.
-// ID 301 is Ping, which contains nothing.
-// ID 302 is Pong, which contains nothing.
-
-
 // State change negotiation messages.
-// ID 401:
 message ChangeRequest {
 	required uint64 id = 1;
 	repeated uint64 ignores = 2;
 	repeated ChangeEntry changes = 3;
 }
 
-// ID 402:
-message ChangeRequestAck {
-	required uint64 request = 1;
-}
-
-// ID 403:
 message PaxosPrepare {
 	required uint64 proposal = 1;
 	required uint64 next_change = 2;
 }
 
-// ID 404: Type not found
-
-// ID 405:
 message PaxosPromise {
 	required uint64 proposal = 1;
 	repeated ForwardedChange changes = 2;
@@ -94,13 +85,11 @@ message PaxosPromise {
 	}
 }
 
-// ID 406:
 message PaxosNack {
 	required uint64 prepare = 1;
 	required uint64 leader = 2;
 }
 
-// ID 407:
 message PaxosAccept {
 	required uint64 id = 1;
 	required uint64 request = 2;
@@ -108,7 +97,6 @@ message PaxosAccept {
 	repeated ChangeEntry changes = 4;
 }
 
-// ID 408:
 message PaxosAccepted {
 	required uint64 id = 1;
 	required uint64 request = 2;
@@ -116,7 +104,6 @@ message PaxosAccepted {
 	repeated ChangeEntry changes = 4;
 }
 
-// ID 409:
 message Change {
 	required uint64 id = 1;
 	required uint64 request = 2;
@@ -132,17 +119,14 @@ message ChangeEntry {
 
 
 // Change propagation messages.
-// ID 501:
 message ChangeNotification {
 	required uint64 change = 1;
 }
 
-// ID 502:
 message ChangeContentRequest {
 	required uint64 change = 1;
 }
 
-// ID 503:
 message ChangeMissing {
 	required uint64 change = 1;
 }

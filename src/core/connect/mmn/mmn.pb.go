@@ -11,53 +11,50 @@ var _ = proto.GetString
 var _ = math.Inf
 
 type Line struct {
-	Type             *uint32 `protobuf:"varint,1,req,name=type" json:"type,omitempty"`
-	Msg              []byte  `protobuf:"bytes,2,req,name=msg" json:"msg,omitempty"`
-	XXX_unrecognized []byte  `json:",omitempty"`
+	VersionList          *VersionList   `protobuf:"bytes,1,opt,name=version_list" json:"version_list,omitempty"`
+	Version              *string        `protobuf:"bytes,2,opt,name=version" json:"version,omitempty"`
+	Cap                  *Cap           `protobuf:"bytes,3,opt,name=cap" json:"cap,omitempty"`
+	Degraded             *bool          `protobuf:"varint,4,opt,name=degraded" json:"degraded,omitempty"`
+	Nonce                *uint64        `protobuf:"varint,101,opt,name=nonce" json:"nonce,omitempty"`
+	Desynchronized       *bool          `protobuf:"varint,102,opt,name=desynchronized" json:"desynchronized,omitempty"`
+	Synchronized         *bool          `protobuf:"varint,103,opt,name=synchronized" json:"synchronized,omitempty"`
+	Burst                *bool          `protobuf:"varint,104,opt,name=burst" json:"burst,omitempty"`
+	EntitySync           *EntitySync    `protobuf:"bytes,105,opt,name=entity_sync" json:"entity_sync,omitempty"`
+	GlobalSync           *GlobalSync    `protobuf:"bytes,106,opt,name=global_sync" json:"global_sync,omitempty"`
+	Ping                 *bool          `protobuf:"varint,201,opt,name=ping" json:"ping,omitempty"`
+	Pong                 *bool          `protobuf:"varint,202,opt,name=pong" json:"pong,omitempty"`
+	ChangeRequest        *ChangeRequest `protobuf:"bytes,301,opt,name=change_request" json:"change_request,omitempty"`
+	ChangeRequestAck     *uint64        `protobuf:"varint,302,opt,name=change_request_ack" json:"change_request_ack,omitempty"`
+	PaxosPrepare         *PaxosPrepare  `protobuf:"bytes,303,opt,name=paxos_prepare" json:"paxos_prepare,omitempty"`
+	PaxosPromise         *PaxosPromise  `protobuf:"bytes,304,opt,name=paxos_promise" json:"paxos_promise,omitempty"`
+	PaxosNack            *PaxosNack     `protobuf:"bytes,305,opt,name=paxos_nack" json:"paxos_nack,omitempty"`
+	PaxosAccept          *PaxosAccept   `protobuf:"bytes,306,opt,name=paxos_accept" json:"paxos_accept,omitempty"`
+	PaxosAccepted        *PaxosAccepted `protobuf:"bytes,307,opt,name=paxos_accepted" json:"paxos_accepted,omitempty"`
+	Change               *Change        `protobuf:"bytes,308,opt,name=change" json:"change,omitempty"`
+	ChangeNotification   *uint64        `protobuf:"varint,401,opt,name=change_notification" json:"change_notification,omitempty"`
+	ChangeContentRequest *uint64        `protobuf:"varint,402,opt,name=change_content_request" json:"change_content_request,omitempty"`
+	ChangeMissing        *uint64        `protobuf:"varint,403,opt,name=change_missing" json:"change_missing,omitempty"`
+	XXX_unrecognized     []byte         `json:",omitempty"`
 }
 
 func (this *Line) Reset()         { *this = Line{} }
 func (this *Line) String() string { return proto.CompactTextString(this) }
 
 type VersionList struct {
-	Version          []string `protobuf:"bytes,1,rep,name=version" json:"version,omitempty"`
+	Versions         []string `protobuf:"bytes,1,rep,name=versions" json:"versions,omitempty"`
 	XXX_unrecognized []byte   `json:",omitempty"`
 }
 
 func (this *VersionList) Reset()         { *this = VersionList{} }
 func (this *VersionList) String() string { return proto.CompactTextString(this) }
 
-type Version struct {
-	Version          *string `protobuf:"bytes,1,req,name=version" json:"version,omitempty"`
-	XXX_unrecognized []byte  `json:",omitempty"`
-}
-
-func (this *Version) Reset()         { *this = Version{} }
-func (this *Version) String() string { return proto.CompactTextString(this) }
-
 type Cap struct {
-	Capability       []string `protobuf:"bytes,1,rep,name=capability" json:"capability,omitempty"`
+	Capabilities     []string `protobuf:"bytes,1,rep,name=capabilities" json:"capabilities,omitempty"`
 	XXX_unrecognized []byte   `json:",omitempty"`
 }
 
 func (this *Cap) Reset()         { *this = Cap{} }
 func (this *Cap) String() string { return proto.CompactTextString(this) }
-
-type Degraded struct {
-	Degraded         *bool  `protobuf:"varint,1,req,name=degraded" json:"degraded,omitempty"`
-	XXX_unrecognized []byte `json:",omitempty"`
-}
-
-func (this *Degraded) Reset()         { *this = Degraded{} }
-func (this *Degraded) String() string { return proto.CompactTextString(this) }
-
-type Nonce struct {
-	Nonce            *uint64 `protobuf:"varint,1,req,name=nonce" json:"nonce,omitempty"`
-	XXX_unrecognized []byte  `json:",omitempty"`
-}
-
-func (this *Nonce) Reset()         { *this = Nonce{} }
-func (this *Nonce) String() string { return proto.CompactTextString(this) }
 
 type EntitySync struct {
 	Entity           *uint64 `protobuf:"varint,1,req,name=entity" json:"entity,omitempty"`
@@ -87,14 +84,6 @@ type ChangeRequest struct {
 
 func (this *ChangeRequest) Reset()         { *this = ChangeRequest{} }
 func (this *ChangeRequest) String() string { return proto.CompactTextString(this) }
-
-type ChangeRequestAck struct {
-	Request          *uint64 `protobuf:"varint,1,req,name=request" json:"request,omitempty"`
-	XXX_unrecognized []byte  `json:",omitempty"`
-}
-
-func (this *ChangeRequestAck) Reset()         { *this = ChangeRequestAck{} }
-func (this *ChangeRequestAck) String() string { return proto.CompactTextString(this) }
 
 type PaxosPrepare struct {
 	Proposal         *uint64 `protobuf:"varint,1,req,name=proposal" json:"proposal,omitempty"`

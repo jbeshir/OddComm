@@ -22,7 +22,8 @@ type Node struct {
 	conn    *connect.Conn  // Current connection. Nil if none.
 	queue   []*mmn.Line    // Line queue.
 	receive chan *mmn.Line // Channel received lines are sent to.
-	send    chan *mmn.Line // CHannel lines to be sent are sent to.
+	send    chan *mmn.Line // Channel lines to be sent are sent to.
+	connect chan bool      // A request to establish a connection.
 	waiting net.Conn       // Connection waiting for prev conn to die.
 }
 
@@ -34,8 +35,9 @@ func NewNode(id uint16, connInfo *connect.ConnInfo) *Node {
 	n.ConnInfo = connInfo
 	n.Id = id
 
-	n.send = make(chan *mmn.Line, 10)
 	n.NewConn = make(chan net.Conn, 10)
+	n.send = make(chan *mmn.Line, 10)
+	n.connect = make(chan bool, 1)
 
 	// Add to node list.
 	Nodes = append(Nodes, n)
@@ -62,14 +64,14 @@ func (n *Node) process() {
 		// Handle a received line on our connection.
 		case line, ok := <-n.receive:
 
+			// Check for connection closed.
 			if ok {
 				// Process the line.
-				// STUB
-				line = line
+				n.receiveLine(line)
 				continue
 			}
 
-			// Connection closed.
+
 			n.receive = nil // Stop us selecting on closed chan.
 
 			// If we have a waiting incoming connection, take that.
@@ -79,7 +81,9 @@ func (n *Node) process() {
 				n.receive = make(chan *mmn.Line, 10)
 				go n.conn.ReadLines(n.receive)
 
-				// SEND INITIAL CONNECTION MESSAGE
+				// Send initial connection message.
+				line := connect.MakeVersionList()
+				n.conn.WriteLine(line)
 
 				continue
 			}
@@ -107,7 +111,9 @@ func (n *Node) process() {
 				n.receive = make(chan *mmn.Line, 10)
 				go n.conn.ReadLines(n.receive)
 
-				// SEND INITIAL CONNECTION MESSAGE
+				// Send initial connection message.
+				line := connect.MakeVersionList()
+				n.conn.WriteLine(line)
 
 				continue
 			}
@@ -126,6 +132,23 @@ func (n *Node) process() {
 			// For now, close it; two connections exactly at once
 			// can fail, but hopefully a retry will deal with it.
 			conn.Close()
+
+		// Asks the node to attempt to make a connection.
+		// Only does anything if it doesn't currently have one.
+		case <-n.connect:
+
+			// If they already have a connection, skip.
+			if n.conn != nil {
+				continue
+			}
+
+			// Otherwise, attempt an outgoing connection.
+			var err error
+			n.conn, err = connect.NewOutgoing(n.ConnInfo)
+			if err == nil {
+				n.receive = make(chan *mmn.Line, 10)
+				go n.conn.ReadLines(n.receive)
+			}
 		}
 	}
 }
@@ -165,7 +188,7 @@ func (n *Node) sendSyncLine(line *mmn.Line) {
 }
 
 
-// Attempt an outgoing connection to all nodes.
+// Ask each node's goroutine to attempt an outgoing connection to that node.
 // Nodes which already have a connection are skipped.
 // Our nodes must all be added before this is called.
 func StartOutgoing() {
@@ -176,17 +199,9 @@ func StartOutgoing() {
 			continue
 		}
 
-		// If they already have a connection, skip.
-		if n.conn != nil {
-			continue
-		}
-
-		// Otherwise, attempt an outgoing connection.
-		var err error
-		n.conn, err = connect.NewOutgoing(n.ConnInfo)
-		if err == nil {
-			n.receive = make(chan *mmn.Line, 10)
-			go n.conn.ReadLines(n.receive)
-		}
+		// Ask the node's goroutine to do the connection attempt.
+		// This is necessary, because otherwise its select statement
+		// may not pick up on the receive channel.
+		n.connect <- true
 	}
 }

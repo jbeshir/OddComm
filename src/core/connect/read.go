@@ -7,12 +7,14 @@ import "oddcomm/src/core/connect/mmn"
 // Reads incoming lines from the given connection, and sends them
 // on the given channel. Closes the channel when the connection is closed.
 func (conn *Conn) ReadLines(ch chan<- *mmn.Line) {
-	readBuffer := make([]byte, 0, 10240)
+	fullReadBuffer := make([]byte, 0, 10240)
+	readBuffer := fullReadBuffer
 	readLengthMode := true
-	var readLength uint64 = 0
+	var readLength int = 0
 	for {
 		// Read from the connection.
-		n, err := conn.conn.Read(readBuffer[len(readBuffer):])
+		remaining := readBuffer[len(readBuffer):cap(readBuffer)]
+		n, err := conn.conn.Read(remaining)
 		readBuffer = readBuffer[:len(readBuffer)+n]
 		if err != nil {
 			conn.Close()
@@ -20,14 +22,24 @@ func (conn *Conn) ReadLines(ch chan<- *mmn.Line) {
 			return
 		}
 
-		// If we don't have a length for the next message, read length.
+		// Handle reading message length.
 		if readLengthMode {
-			var start int
-			readLength, start = proto.DecodeVarint(readBuffer)
-			if (start != 0) {
+			length, start := proto.DecodeVarint(readBuffer)
+			if start != 0 {
+
+				// Check for overlength lines.
+				if length > 10240 {
+					conn.Close()
+					close(ch)
+					return
+				}
+
+				// Copy down the buffer, start reading msg.
 				copy(readBuffer, readBuffer[start:])
 				readBuffer = readBuffer[:len(readBuffer)-start]
+				readLength = int(length)
 				readLengthMode = false
+
 			} else {
 				// Not done reading the length, read more.
 				continue
@@ -39,7 +51,7 @@ func (conn *Conn) ReadLines(ch chan<- *mmn.Line) {
 			continue
 		}
 
-		// Parse the line and call the handler.
+		// Parse the line.
 		lineBuffer := readBuffer[:readLength]
 		line := new(mmn.Line)
 		err = proto.Unmarshal(lineBuffer, line)
@@ -49,9 +61,15 @@ func (conn *Conn) ReadLines(ch chan<- *mmn.Line) {
 			return
 		}
 
+		// Send the line to be handled.
 		ch <- line
 
-		// Go back to reading line length.
+		// Copy down the remainder of the buffer,
+		// and reduce length to that.
+		copy(readBuffer, readBuffer[readLength:])
+		readBuffer = readBuffer[:len(readBuffer) - int(readLength)]
+
+		// Start reading the length of the next line.
 		readLengthMode = true
 	}
 }
