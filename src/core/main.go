@@ -20,7 +20,7 @@ func Initialize(id uint16) {
 	logic.Id = id
 
 	// Load our TLS certificate.
-	idStr := strconv.Uitoa(uint(id))
+	idStr := strconv.FormatUint(uint64(id), 10)
 	connect.Cert, err = tls.LoadX509KeyPair(idStr + ".crt", idStr + ".key")
 	if err != nil {
 		panic(err)
